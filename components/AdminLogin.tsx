@@ -1,38 +1,32 @@
 import React, { useState } from 'react';
-import { getAdminUser } from '../services/dbService';
 
 interface AdminLoginProps {
   onLoginSuccess: () => void;
 }
 
+const ADMIN_STORAGE_KEY = 'sativar_isis_admin_credentials';
+
 export const AdminLogin: React.FC<AdminLoginProps> = ({ onLoginSuccess }) => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
-    setIsLoading(true);
-    setError('');
+    
+    const storedCreds = localStorage.getItem(ADMIN_STORAGE_KEY);
+    if (!storedCreds) {
+        setError('Nenhuma conta de administrador encontrada. Contate o suporte.');
+        return;
+    }
 
-    try {
-      // In a real application, you would hash the password before comparing
-      // For this example, we'll just check if the user exists
-      const user = await getAdminUser(username);
-      
-      if (user) {
-        // In a real application, you would verify the password hash here
-        // For this example, we'll just assume login is successful if user exists
-        onLoginSuccess();
-      } else {
-        setError('Credenciais inválidas. Por favor, tente novamente.');
-      }
-    } catch (err) {
-      console.error('Login error:', err);
-      setError('Ocorreu um erro durante o login. Por favor, tente novamente.');
-    } finally {
-      setIsLoading(false);
+    const admin = JSON.parse(storedCreds);
+
+    if (username === admin.username && password === admin.password) {
+      setError('');
+      onLoginSuccess();
+    } else {
+      setError('Credenciais inválidas. Por favor, tente novamente.');
     }
   };
 
@@ -42,7 +36,7 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({ onLoginSuccess }) => {
         <h2 className="text-2xl font-bold text-center text-white mb-2">Acesso Restrito</h2>
         <p className="text-center text-gray-400 mb-6">Esta área é reservada para administradores.</p>
         
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <form onSubmit={handleLogin} className="space-y-6">
           <div>
             <label htmlFor="username" className="block text-sm font-medium text-gray-300 mb-2">
               Usuário
@@ -73,12 +67,8 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({ onLoginSuccess }) => {
           {error && <p className="text-sm text-red-400 text-center">{error}</p>}
 
           <div>
-            <button 
-              type="submit" 
-              disabled={isLoading}
-              className="w-full mt-2 px-6 py-2.5 bg-green-600 text-white font-semibold rounded-lg shadow-md hover:bg-green-700 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-900 focus:ring-green-500 disabled:opacity-50"
-            >
-              {isLoading ? 'Entrando...' : 'Entrar'}
+            <button type="submit" className="w-full mt-2 px-6 py-2.5 bg-green-600 text-white font-semibold rounded-lg shadow-md hover:bg-green-700 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-900 focus:ring-green-500">
+              Entrar
             </button>
           </div>
         </form>

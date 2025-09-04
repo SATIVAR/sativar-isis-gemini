@@ -1,6 +1,5 @@
 import React, { createContext, useState, useContext, useEffect, useMemo } from 'react';
 import type { Settings } from '../types';
-import { getAppSettings, updateAppSettings } from '../services/dbService';
 
 const SETTINGS_KEY = 'sativar_isis_settings';
 
@@ -92,7 +91,7 @@ const defaultSettings: Settings = {
 
 interface SettingsContextType {
   settings: Settings;
-  saveSettings: (newSettings: Settings) => Promise<void>;
+  saveSettings: (newSettings: Settings) => void;
   isLoaded: boolean;
 }
 
@@ -103,50 +102,24 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [isLoaded, setIsLoaded] = useState(false);
 
   useEffect(() => {
-    const loadSettings = async () => {
-      try {
-        const dbSettings = await getAppSettings();
-        if (dbSettings) {
-          setSettings({ systemPrompt: dbSettings.system_prompt });
-        } else {
-          // Fallback to localStorage if DB is not available
-          const storedSettings = localStorage.getItem(SETTINGS_KEY);
-          if (storedSettings) {
-            setSettings(JSON.parse(storedSettings));
-          }
-        }
-      } catch (error) {
-        console.error("Failed to load settings from database", error);
-        // Fallback to localStorage
-        try {
-          const storedSettings = localStorage.getItem(SETTINGS_KEY);
-          if (storedSettings) {
-            setSettings(JSON.parse(storedSettings));
-          }
-        } catch (localStorageError) {
-          console.error("Failed to load settings from localStorage", localStorageError);
-        }
-      } finally {
-        setIsLoaded(true);
+    try {
+      const storedSettings = localStorage.getItem(SETTINGS_KEY);
+      if (storedSettings) {
+        setSettings(JSON.parse(storedSettings));
       }
-    };
-
-    loadSettings();
+    } catch (error) {
+      console.error("Failed to load settings from localStorage", error);
+    } finally {
+        setIsLoaded(true);
+    }
   }, []);
 
-  const saveSettings = async (newSettings: Settings) => {
+  const saveSettings = (newSettings: Settings) => {
     try {
-      await updateAppSettings(newSettings.systemPrompt);
+      localStorage.setItem(SETTINGS_KEY, JSON.stringify(newSettings));
       setSettings(newSettings);
     } catch (error) {
-      console.error("Failed to save settings to database", error);
-      // Fallback to localStorage
-      try {
-        localStorage.setItem(SETTINGS_KEY, JSON.stringify(newSettings));
-        setSettings(newSettings);
-      } catch (localStorageError) {
-        console.error("Failed to save settings to localStorage", localStorageError);
-      }
+      console.error("Failed to save settings to localStorage", error);
     }
   };
 

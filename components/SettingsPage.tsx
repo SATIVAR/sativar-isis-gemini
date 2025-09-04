@@ -2,14 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { useSettings } from '../hooks/useSettings';
 import type { Settings } from '../types';
 import { LogOutIcon } from './icons';
-import { getQuoteHistory } from '../services/dbService';
-
-interface QuoteHistoryItem {
-  id: number;
-  patient_name: string;
-  internal_summary: string;
-  created_at: string;
-}
 
 interface SettingsPageProps {
   onLogout: () => void;
@@ -19,8 +11,6 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ onLogout }) => {
   const { settings, saveSettings, isLoaded } = useSettings();
   const [prompt, setPrompt] = useState('');
   const [showSuccess, setShowSuccess] = useState(false);
-  const [quoteHistory, setQuoteHistory] = useState<QuoteHistoryItem[]>([]);
-  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
 
   useEffect(() => {
     if (isLoaded) {
@@ -28,33 +18,12 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ onLogout }) => {
     }
   }, [settings, isLoaded]);
 
-  useEffect(() => {
-    loadQuoteHistory();
-  }, []);
-
-  const loadQuoteHistory = async () => {
-    setIsLoadingHistory(true);
-    try {
-      const history = await getQuoteHistory(10);
-      setQuoteHistory(history);
-    } catch (error) {
-      console.error('Failed to load quote history:', error);
-    } finally {
-      setIsLoadingHistory(false);
-    }
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const newSettings: Settings = { systemPrompt: prompt };
-    try {
-      await saveSettings(newSettings);
-      setShowSuccess(true);
-      setTimeout(() => setShowSuccess(false), 3000);
-    } catch (error) {
-      console.error('Failed to save settings:', error);
-      alert('Erro ao salvar configurações. Por favor, tente novamente.');
-    }
+    saveSettings(newSettings);
+    setShowSuccess(true);
+    setTimeout(() => setShowSuccess(false), 3000);
   };
 
   if (!isLoaded) {
@@ -103,31 +72,6 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ onLogout }) => {
           </button>
         </div>
       </form>
-
-      <div className="mt-12">
-        <h2 className="text-2xl font-bold text-white mb-6">Histórico de Orçamentos</h2>
-        {isLoadingHistory ? (
-          <p className="text-gray-400">Carregando histórico...</p>
-        ) : quoteHistory.length === 0 ? (
-          <p className="text-gray-400">Nenhum orçamento gerado ainda.</p>
-        ) : (
-          <div className="space-y-4">
-            {quoteHistory.map((item) => (
-              <div key={item.id} className="border border-gray-700 rounded-lg p-4 bg-[#303134]">
-                <div className="flex justify-between items-start">
-                  <h3 className="font-bold text-lg text-white">{item.patient_name}</h3>
-                  <span className="text-sm text-gray-400">
-                    {new Date(item.created_at).toLocaleString('pt-BR')}
-                  </span>
-                </div>
-                <p className="mt-2 text-gray-300 whitespace-pre-wrap">
-                  {item.internal_summary}
-                </p>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
     </div>
   );
 };
