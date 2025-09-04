@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useSettings } from '../hooks/useSettings';
 import type { Settings, Product } from '../types';
-import { LogOutIcon, EditIcon, Trash2Icon, PlusCircleIcon } from './icons';
+import { LogOutIcon, EditIcon, Trash2Icon, PlusCircleIcon, CheckCircleIcon, SearchIcon } from './icons';
+import { Loader } from './Loader';
 
 interface SettingsPageProps {
   onLogout: () => void;
@@ -93,6 +94,8 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ onLogout }) => {
   const [formState, setFormState] = useState<Settings>(settings);
   const [errors, setErrors] = useState<Partial<Record<keyof Settings, string>>>({});
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+  const [isToastVisible, setIsToastVisible] = useState(false);
+  const [savingText, setSavingText] = useState('Salvando alterações...');
   const isInitialMount = useRef(true);
   
   // Modals state
@@ -101,6 +104,7 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ onLogout }) => {
   const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
   const [productToDelete, setProductToDelete] = useState<Product['id'] | null>(null);
   const [isLogoutConfirmOpen, setIsLogoutConfirmOpen] = useState(false);
+  const [productSearch, setProductSearch] = useState('');
 
   useEffect(() => {
     if (isLoaded) {
@@ -147,14 +151,42 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ onLogout }) => {
     const debounceTimer = setTimeout(() => {
         saveSettings(formState);
         setSaveStatus('saved');
-        const idleTimer = setTimeout(() => setSaveStatus('idle'), 2000);
-        return () => clearTimeout(idleTimer);
     }, 2000);
 
     return () => {
         clearTimeout(debounceTimer);
     };
   }, [formState, saveSettings]);
+
+  // Effect to handle UI feedback for save status changes
+  useEffect(() => {
+    if (saveStatus !== 'saved') return;
+
+    setIsToastVisible(true);
+    const toastTimer = setTimeout(() => setIsToastVisible(false), 2500);
+    const idleTimer = setTimeout(() => setSaveStatus('idle'), 3000);
+
+    return () => {
+        clearTimeout(toastTimer);
+        clearTimeout(idleTimer);
+    };
+  }, [saveStatus]);
+  
+  // Effect for dynamic saving text
+  useEffect(() => {
+    let intervalId: number | undefined;
+    if (saveStatus === 'saving') {
+        let dotCount = 0;
+        intervalId = window.setInterval(() => {
+            dotCount = (dotCount + 1) % 4;
+            setSavingText(`Salvando alterações${'.'.repeat(dotCount)}`);
+        }, 400);
+    }
+    return () => {
+        if (intervalId) clearInterval(intervalId);
+        setSavingText('Salvando alterações...');
+    };
+  }, [saveStatus]);
 
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -200,6 +232,12 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ onLogout }) => {
     onLogout();
     setIsLogoutConfirmOpen(false);
   }
+
+  const filteredProducts = formState.products.filter(product =>
+    product.name.toLowerCase().includes(productSearch.toLowerCase()) ||
+    product.price.toLowerCase().includes(productSearch.toLowerCase()) ||
+    product.description.toLowerCase().includes(productSearch.toLowerCase())
+  );
 
   if (!isLoaded) {
     return (
@@ -263,6 +301,13 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ onLogout }) => {
 
   return (
     <>
+      <div className={`fixed top-6 left-1/2 -translate-x-1/2 z-50 transition-all duration-500 ease-in-out ${isToastVisible ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-5 pointer-events-none'}`}>
+          <div className="flex items-center gap-3 bg-green-600/95 backdrop-blur-sm text-white px-4 py-3 rounded-lg shadow-2xl">
+              <CheckCircleIcon className="w-5 h-5" />
+              <span className="font-semibold text-sm">Alterações salvas com sucesso.</span>
+          </div>
+      </div>
+
       {isProductModalOpen && <ProductModal product={editingProduct} onSave={handleSaveProduct} onClose={() => setIsProductModalOpen(false)} />}
       
       {isConfirmModalOpen && 
@@ -374,6 +419,21 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ onLogout }) => {
                 <PlusCircleIcon className="w-5 h-5" /> Adicionar Produto
               </button>
             </div>
+            
+            <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <SearchIcon className="w-4 h-4 text-gray-400" />
+                </div>
+                <input
+                    type="text"
+                    placeholder="Buscar por nome, preço ou descrição..."
+                    value={productSearch}
+                    onChange={e => setProductSearch(e.target.value)}
+                    className="w-full bg-[#303134] border border-gray-600/50 text-gray-300 rounded-lg py-2 pl-9 pr-3 text-sm focus:ring-2 focus:ring-fuchsia-500 focus:border-fuchsia-500 outline-none transition shadow-inner"
+                    aria-label="Buscar produtos"
+                />
+            </div>
+
             <div className="overflow-x-auto">
                 <table className="w-full text-sm text-left">
                     <thead className="text-xs text-gray-400 uppercase bg-[#202124]">
@@ -385,17 +445,27 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ onLogout }) => {
                         </tr>
                     </thead>
                     <tbody>
-                        {formState.products.length > 0 ? formState.products.map(p => (
-                           <tr key={p.id} className="border-b border-gray-700 hover:bg-[#303134]">
-                                <td className="px-4 py-3 font-medium text-white">{p.name}</td>
-                                <td className="px-4 py-3 text-gray-300">{p.price}</td>
-                                <td className="px-4 py-3 text-gray-300 max-w-xs truncate">{p.description}</td>
-                                <td className="px-4 py-3 flex items-center justify-end gap-2">
-                                    <button type="button" onClick={() => handleEditProduct(p)} className="p-1 text-gray-400 hover:text-fuchsia-400 transition-colors"><EditIcon className="w-4 h-4" /></button>
-                                    <button type="button" onClick={() => handleDeleteProduct(p.id)} className="p-1 text-gray-400 hover:text-red-400 transition-colors"><Trash2Icon className="w-4 h-4" /></button>
-                                </td>
-                            </tr>
-                        )) : (
+                        {formState.products.length > 0 ? (
+                           filteredProducts.length > 0 ? (
+                                filteredProducts.map(p => (
+                                   <tr key={p.id} className="border-b border-gray-700 hover:bg-[#303134]">
+                                        <td className="px-4 py-3 font-medium text-white">{p.name}</td>
+                                        <td className="px-4 py-3 text-gray-300">{p.price}</td>
+                                        <td className="px-4 py-3 text-gray-300 max-w-xs truncate">{p.description}</td>
+                                        <td className="px-4 py-3 flex items-center justify-end gap-2">
+                                            <button type="button" onClick={() => handleEditProduct(p)} className="p-1 text-gray-400 hover:text-fuchsia-400 transition-colors" aria-label={`Editar ${p.name}`}><EditIcon className="w-4 h-4" /></button>
+                                            <button type="button" onClick={() => handleDeleteProduct(p.id)} className="p-1 text-gray-400 hover:text-red-400 transition-colors" aria-label={`Excluir ${p.name}`}><Trash2Icon className="w-4 h-4" /></button>
+                                        </td>
+                                    </tr>
+                                ))
+                           ) : (
+                                <tr>
+                                    <td colSpan={4} className="text-center py-6 text-gray-500">
+                                        Nenhum produto encontrado para "{productSearch}".
+                                    </td>
+                                </tr>
+                           )
+                        ) : (
                             <tr>
                                 <td colSpan={4} className="text-center py-6 text-gray-500">Nenhum produto cadastrado.</td>
                             </tr>
@@ -420,10 +490,14 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ onLogout }) => {
           </div>
           
           <div className="flex items-center justify-end pt-4 h-10">
-            {saveStatus === 'saving' && <p className="text-gray-400 text-sm animate-pulse">Salvando alterações...</p>}
-            {saveStatus === 'saved' && <p className="text-green-400 text-sm">Todas as alterações foram salvas.</p>}
+            {saveStatus === 'saving' && (
+              <div className="flex items-center gap-2 text-gray-400 text-sm">
+                  <Loader />
+                  <span>{savingText}</span>
+              </div>
+            )}
             {saveStatus === 'error' && <p className="text-red-400 text-sm">Por favor, corrija os erros para salvar as alterações.</p>}
-            {saveStatus === 'idle' && formState !== settings && <p className="text-gray-500 text-sm">Suas alterações são salvas automaticamente.</p>}
+            {saveStatus === 'idle' && JSON.stringify(formState) !== JSON.stringify(settings) && <p className="text-gray-500 text-sm">Suas alterações são salvas automaticamente.</p>}
           </div>
         </form>
       </div>

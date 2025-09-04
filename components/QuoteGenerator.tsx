@@ -255,6 +255,7 @@ export const QuoteGenerator: React.FC = () => {
     const [isLoading, setIsLoading] = useState(false);
     const [showSettingsWarning, setShowSettingsWarning] = useState(false);
     const [apiKeyMissing, setApiKeyMissing] = useState(false);
+    const [apiKeyInput, setApiKeyInput] = useState('');
     const chatEndRef = useRef<HTMLDivElement | null>(null);
     const initialMessageSent = useRef(false);
 
@@ -379,6 +380,20 @@ export const QuoteGenerator: React.FC = () => {
         }
     }, [showSettingsWarning]);
 
+    const handleSaveApiKey = () => {
+        if (!apiKeyInput.trim()) {
+            alert("Por favor, insira uma chave de API válida.");
+            return;
+        }
+        try {
+            localStorage.setItem('sativar_isis_gemini_api_key', apiKeyInput.trim());
+            setApiKeyMissing(false);
+            setApiKeyInput('');
+        } catch (e) {
+            console.error("Failed to save API key to localStorage", e);
+            alert("Não foi possível salvar a chave da API. Verifique as permissões do seu navegador.");
+        }
+    };
 
     const isChatDisabled = showSettingsWarning || apiKeyMissing;
     let disabledReason = "";
@@ -397,7 +412,26 @@ export const QuoteGenerator: React.FC = () => {
                         <div>
                             <p className="font-semibold">Ação Necessária: Chave da API do Gemini ausente</p>
                             <p className="mt-1">
-                                A aplicação está em modo de funcionalidade limitada. Para habilitar a análise de receitas, um administrador precisa configurar a variável de ambiente <code>API_KEY</code> no painel de controle do ambiente de hospedagem.
+                                A aplicação está em modo de funcionalidade limitada. Para habilitar a análise de receitas, insira sua chave da API do Google Gemini abaixo. A chave será salva localmente no seu navegador.
+                            </p>
+                            <div className="mt-3 flex items-center gap-2">
+                                <input
+                                    type="password"
+                                    placeholder="Cole sua chave da API aqui"
+                                    value={apiKeyInput}
+                                    onChange={(e) => setApiKeyInput(e.target.value)}
+                                    className="flex-grow bg-[#131314] border border-red-700/50 text-white rounded-md px-3 py-1.5 text-xs focus:ring-1 focus:ring-red-400 focus:border-red-400 outline-none transition"
+                                    aria-label="Gemini API Key Input"
+                                />
+                                <button
+                                    onClick={handleSaveApiKey}
+                                    className="px-3 py-1.5 bg-red-600 text-white font-semibold rounded-md text-xs hover:bg-red-700 transition-colors"
+                                >
+                                    Salvar Chave
+                                </button>
+                            </div>
+                            <p className="mt-2 text-xs text-red-400">
+                                Alternativamente, um administrador pode configurar a variável de ambiente <code>API_KEY</code> no painel de controle do ambiente de hospedagem para todos os usuários.
                             </p>
                         </div>
                     </div>

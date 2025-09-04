@@ -1,8 +1,22 @@
 import { GoogleGenAI } from "@google/genai";
 import type { QuoteResult } from "../types";
 
+const API_KEY_STORAGE_KEY = 'sativar_isis_gemini_api_key';
+
+const getApiKey = (): string | undefined => {
+    try {
+        const storedKey = localStorage.getItem(API_KEY_STORAGE_KEY);
+        if (storedKey) {
+            return storedKey;
+        }
+    } catch (e) {
+        console.error("Could not access localStorage for API key", e);
+    }
+    return process.env.API_KEY;
+};
+
 export const isApiKeyConfigured = (): boolean => {
-    return !!process.env.API_KEY;
+    return !!getApiKey();
 };
 
 const fileToGenerativePart = async (file: File) => {
@@ -85,10 +99,11 @@ const handleGeminiError = (error: unknown): Error => {
 };
 
 export const processPrescription = async (file: File, systemPrompt: string): Promise<QuoteResult> => {
-    if (!process.env.API_KEY) {
+    const apiKey = getApiKey();
+    if (!apiKey) {
         throw new Error("A chave da API do Gemini não foi configurada.");
     }
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    const ai = new GoogleGenAI({ apiKey });
     
     const imagePart = await fileToGenerativePart(file);
     
@@ -118,10 +133,11 @@ export const processPrescription = async (file: File, systemPrompt: string): Pro
 };
 
 export const pingAI = async (userMessage: string, settingsIncomplete: boolean): Promise<string> => {
-    if (!process.env.API_KEY) {
+    const apiKey = getApiKey();
+    if (!apiKey) {
         throw new Error("A chave da API do Gemini não foi configurada.");
     }
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    const ai = new GoogleGenAI({ apiKey });
 
     let systemInstruction = "Você é Ísis, uma assistente de IA. Responda de forma breve e amigável em português.";
     if (settingsIncomplete) {
