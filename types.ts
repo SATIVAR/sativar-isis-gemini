@@ -1,5 +1,23 @@
+export interface Product {
+  id: string;
+  name: string;
+  price: string;
+  description: string;
+}
+
 export interface Settings {
-  systemPrompt: string;
+  associationName: string;
+  about: string;
+  operatingHours: string;
+  productionTime: string;
+  address: string;
+  whatsapp: string;
+  site: string;
+  instagram: string;
+  pixKey: string;
+  companyName: string;
+  bankName: string;
+  products: Product[];
 }
 
 export interface QuoteResult {

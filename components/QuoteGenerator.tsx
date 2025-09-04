@@ -137,31 +137,41 @@ const ChatInput: React.FC<{
 };
 
 export const QuoteGenerator: React.FC = () => {
-    const { settings, isLoaded } = useSettings();
+    const { settings, systemPrompt, isLoaded } = useSettings();
     const [messages, setMessages] = useState<ChatMessage[]>([]);
     const [isLoading, setIsLoading] = useState(false);
     const [showSettingsWarning, setShowSettingsWarning] = useState(false);
     const chatEndRef = useRef<HTMLDivElement | null>(null);
+    const initialMessageSent = useRef(false);
 
-    // Set initial greeting message
+    // Set initial greeting message once settings are loaded
     useEffect(() => {
-        setMessages([
-            {
-                id: 'init',
-                sender: 'ai',
-                content: { type: 'text', text: 'Olá! Sou a Ísis. Envie uma receita médica (imagem ou PDF) para que eu possa analisar e gerar um orçamento.' },
-            }
-        ]);
-    }, []);
+        if (isLoaded && !initialMessageSent.current) {
+            const associationName = settings.associationName && !settings.associationName.includes("[Insira")
+                ? `da ${settings.associationName}`
+                : "da associação";
+            
+            const greeting = `Olá! Sou a Ísis, sua assistente virtual ${associationName}. Estou aqui para ajudar a agilizar seu orçamento. Por favor, anexe a receita médica (em formato de imagem ou PDF) e eu farei a análise para você. 😊`;
+
+            setMessages([
+                {
+                    id: 'init',
+                    sender: 'ai',
+                    content: { type: 'text', text: greeting },
+                }
+            ]);
+            initialMessageSent.current = true;
+        }
+    }, [isLoaded, settings]);
 
     // Check for settings completeness
     useEffect(() => {
-        if (isLoaded && settings.systemPrompt.includes("[Insira")) {
+        if (isLoaded && systemPrompt.includes("[Insira")) {
              setShowSettingsWarning(true);
         } else {
             setShowSettingsWarning(false);
         }
-    }, [settings, isLoaded]);
+    }, [systemPrompt, isLoaded]);
     
     // Scroll to bottom of chat
     useEffect(() => {
@@ -169,7 +179,7 @@ export const QuoteGenerator: React.FC = () => {
     }, [messages]);
 
     const handleSendFile = useCallback(async (file: File) => {
-        if (!settings) return;
+        if (!systemPrompt) return;
 
         const userMessage: ChatMessage = {
             id: `user-${Date.now()}`,
@@ -186,7 +196,7 @@ export const QuoteGenerator: React.FC = () => {
         setIsLoading(true);
 
         try {
-            const result = await processPrescription(file, settings);
+            const result = await processPrescription(file, systemPrompt);
             const resultMessage: ChatMessage = {
                 id: `ai-result-${Date.now()}`,
                 sender: 'ai',
@@ -203,7 +213,7 @@ export const QuoteGenerator: React.FC = () => {
         } finally {
             setIsLoading(false);
         }
-    }, [settings]);
+    }, [systemPrompt]);
 
     return (
         <div className="flex h-full flex-col">

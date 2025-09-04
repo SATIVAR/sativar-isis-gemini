@@ -1,5 +1,5 @@
 import { GoogleGenAI } from "@google/genai";
-import type { Settings, QuoteResult } from "../types";
+import type { QuoteResult } from "../types";
 
 const fileToGenerativePart = async (file: File) => {
   const base64EncodedDataPromise = new Promise<string>((resolve) => {
@@ -45,7 +45,7 @@ const parseGeminiResponse = (responseText: string): QuoteResult => {
     return { internalSummary, patientMessage };
 };
 
-export const processPrescription = async (file: File, settings: Settings): Promise<QuoteResult> => {
+export const processPrescription = async (file: File, systemPrompt: string): Promise<QuoteResult> => {
     if (!process.env.API_KEY) {
         throw new Error("A chave da API do Gemini não foi configurada.");
     }
@@ -62,7 +62,7 @@ export const processPrescription = async (file: File, settings: Settings): Promi
             model: 'gemini-2.5-flash',
             contents: { parts: [textPart, imagePart] },
             config: {
-                systemInstruction: settings.systemPrompt,
+                systemInstruction: systemPrompt,
             }
         });
 
