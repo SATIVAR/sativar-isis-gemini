@@ -1,8 +1,9 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
+import { jsPDF } from 'jspdf';
 import { useSettings } from '../hooks/useSettings';
-import { processPrescription, pingAI } from '../services/geminiService';
+import { processPrescription, pingAI, isApiKeyConfigured } from '../services/geminiService';
 import type { ChatMessage, QuoteResult, MessageContent } from '../types';
-import { AlertTriangleIcon, ClipboardCheckIcon, ClipboardIcon, PlusIcon, SendIcon, UserIcon } from './icons';
+import { AlertTriangleIcon, ClipboardCheckIcon, ClipboardIcon, DownloadIcon, PlusIcon, SendIcon, UserIcon } from './icons';
 import { Loader } from './Loader';
 
 const AIAvatar: React.FC = () => (
@@ -19,11 +20,63 @@ const UserAvatar: React.FC = () => (
 
 const QuoteResultDisplay: React.FC<{result: QuoteResult}> = ({ result }) => {
     const [copied, setCopied] = useState(false);
+    const { settings } = useSettings();
 
     const handleCopy = () => {
         navigator.clipboard.writeText(result.patientMessage);
         setCopied(true);
         setTimeout(() => setCopied(false), 2000);
+    };
+
+    const handleDownloadPDF = () => {
+        const doc = new jsPDF();
+        const pageWidth = doc.internal.pageSize.getWidth();
+        const margin = 15;
+        const maxLineWidth = pageWidth - margin * 2;
+        let y = 20;
+
+        // Extract patient name
+        const patientNameMatch = result.internalSummary.match(/- Paciente:\s*(.*)/i);
+        const patientName = patientNameMatch ? patientNameMatch[1].trim() : 'Paciente';
+        const today = new Date().toLocaleDateString('pt-BR').replace(/\//g, '-');
+        const fileName = `orcamento-${patientName.replace(/\s+/g, '_')}-${today}.pdf`;
+
+        // Title
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(18);
+        const title = `Orçamento - ${settings.associationName || 'Associação'}`;
+        doc.text(title, pageWidth / 2, y, { align: 'center' });
+        y += 15;
+
+        // Internal Summary
+        doc.setFontSize(14);
+        doc.text('Resumo Interno para a Equipe', margin, y);
+        y += 7;
+
+        doc.setFont('courier', 'normal');
+        doc.setFontSize(10);
+        const internalLines = doc.splitTextToSize(result.internalSummary, maxLineWidth);
+        doc.text(internalLines, margin, y);
+        y += internalLines.length * 4.5 + 10;
+
+        // Check for page break
+        if (y > 280) { // a bit of margin from bottom
+            doc.addPage();
+            y = 20;
+        }
+
+        // Patient Message
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(14);
+        doc.text('Mensagem para o Paciente', margin, y);
+        y += 7;
+        
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(11);
+        const patientLines = doc.splitTextToSize(result.patientMessage, maxLineWidth);
+        doc.text(patientLines, margin, y);
+
+        doc.save(fileName);
     };
 
     return (
@@ -37,11 +90,21 @@ const QuoteResultDisplay: React.FC<{result: QuoteResult}> = ({ result }) => {
             <div>
                 <h3 className="font-semibold text-fuchsia-300 mb-1">Mensagem Pronta para o Paciente</h3>
                 <div className="relative p-3 bg-[#202124] rounded-lg border border-gray-700">
-                    <button onClick={handleCopy} className="absolute top-2 right-2 p-1 bg-gray-700 rounded-md hover:bg-gray-600 transition-colors">
+                    <button onClick={handleCopy} className="absolute top-2 right-2 p-1 bg-gray-700 rounded-md hover:bg-gray-600 transition-colors" aria-label="Copiar mensagem para o paciente">
                         {copied ? <ClipboardCheckIcon className="w-4 h-4 text-green-400" /> : <ClipboardIcon className="w-4 h-4 text-gray-400" />}
                     </button>
                     <pre className="whitespace-pre-wrap font-sans">{result.patientMessage}</pre>
                 </div>
+            </div>
+             <div className="flex justify-end pt-2">
+                <button 
+                    onClick={handleDownloadPDF}
+                    className="flex items-center gap-2 px-4 py-2 bg-gray-700 text-sm text-gray-200 font-medium rounded-lg hover:bg-gray-600 transition-colors"
+                    aria-label="Baixar orçamento como PDF"
+                >
+                    <DownloadIcon className="w-4 h-4" />
+                    Baixar PDF do Orçamento
+                </button>
             </div>
         </div>
     );
@@ -106,8 +169,9 @@ const MessageBubble: React.FC<{ message: ChatMessage }> = ({ message }) => {
 const ChatInput: React.FC<{
     onSend: (data: { text: string; file: File | null }) => void;
     isLoading: boolean;
-    fileAttachDisabled: boolean;
-}> = ({ onSend, isLoading, fileAttachDisabled }) => {
+    disabled: boolean;
+    disabledReason: string;
+}> = ({ onSend, isLoading, disabled, disabledReason }) => {
     const [text, setText] = useState('');
     const [file, setFile] = useState<File | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -123,7 +187,7 @@ const ChatInput: React.FC<{
     };
 
     const handleSend = () => {
-        if (!file && !text.trim()) return;
+        if (disabled || isLoading || (!file && !text.trim())) return;
 
         // If the text is just the filename, we only send the file.
         const textToSend = file && text === file.name ? '' : text;
@@ -149,9 +213,9 @@ const ChatInput: React.FC<{
                 <button
                     onClick={() => fileInputRef.current?.click()}
                     className="rounded-full p-2 transition-colors hover:bg-gray-700 disabled:cursor-not-allowed disabled:opacity-50"
-                    disabled={isLoading || fileAttachDisabled}
+                    disabled={isLoading || disabled}
                     aria-label="Attach file"
-                    title={fileAttachDisabled ? "Complete as configurações para enviar receitas" : "Anexar arquivo"}
+                    title={disabled ? disabledReason : "Anexar arquivo"}
                 >
                     <PlusIcon className="h-6 w-6 text-gray-400" />
                 </button>
@@ -161,20 +225,20 @@ const ChatInput: React.FC<{
                     className="hidden"
                     accept="image/*,application/pdf"
                     onChange={handleFileChange}
-                    disabled={isLoading || fileAttachDisabled}
+                    disabled={isLoading || disabled}
                 />
                 <input
                     type="text"
                     value={text}
                     onChange={(e) => setText(e.target.value)}
                     onKeyDown={handleKeyDown}
-                    placeholder={file ? file.name : "Digite uma mensagem ou anexe uma receita..."}
+                    placeholder={disabled ? disabledReason : (file ? file.name : "Digite uma mensagem ou anexe uma receita...")}
                     className="flex-grow bg-transparent px-2 text-sm text-gray-200 placeholder-gray-400 focus:outline-none"
-                    disabled={isLoading}
+                    disabled={isLoading || disabled}
                 />
                 <button
                     onClick={handleSend}
-                    disabled={(!file && !text.trim()) || isLoading}
+                    disabled={(!file && !text.trim()) || isLoading || disabled}
                     className="rounded-full p-2 transition-colors bg-gray-700 hover:bg-brand-primary disabled:bg-gray-600 disabled:cursor-not-allowed"
                     aria-label="Send message"
                 >
@@ -190,8 +254,16 @@ export const QuoteGenerator: React.FC = () => {
     const [messages, setMessages] = useState<ChatMessage[]>([]);
     const [isLoading, setIsLoading] = useState(false);
     const [showSettingsWarning, setShowSettingsWarning] = useState(false);
+    const [apiKeyMissing, setApiKeyMissing] = useState(false);
     const chatEndRef = useRef<HTMLDivElement | null>(null);
     const initialMessageSent = useRef(false);
+
+    // Check for API key on mount
+    useEffect(() => {
+        if (!isApiKeyConfigured()) {
+            setApiKeyMissing(true);
+        }
+    }, []);
 
     // Set initial greeting message once settings are loaded
     useEffect(() => {
@@ -233,10 +305,10 @@ export const QuoteGenerator: React.FC = () => {
         } else if (text.trim()) {
             await handleSendText(text);
         }
-    }, [systemPrompt, showSettingsWarning]);
+    }, [systemPrompt, showSettingsWarning, apiKeyMissing]);
     
     const handleSendFile = useCallback(async (file: File) => {
-        if (!systemPrompt || showSettingsWarning) return;
+        if (!systemPrompt || showSettingsWarning || apiKeyMissing) return;
 
         const userMessage: ChatMessage = {
             id: `user-${Date.now()}`,
@@ -270,7 +342,7 @@ export const QuoteGenerator: React.FC = () => {
         } finally {
             setIsLoading(false);
         }
-    }, [systemPrompt, showSettingsWarning]);
+    }, [systemPrompt, showSettingsWarning, apiKeyMissing]);
 
     const handleSendText = useCallback(async (text: string) => {
         const userMessage: ChatMessage = {
@@ -308,9 +380,30 @@ export const QuoteGenerator: React.FC = () => {
     }, [showSettingsWarning]);
 
 
+    const isChatDisabled = showSettingsWarning || apiKeyMissing;
+    let disabledReason = "";
+    if (apiKeyMissing) {
+        disabledReason = "Ação necessária: Configure a Chave da API do Gemini.";
+    } else if (showSettingsWarning) {
+        disabledReason = "Complete as configurações para habilitar o envio de receitas.";
+    }
+
     return (
         <div className="flex h-full flex-col">
-            {showSettingsWarning && (
+            {apiKeyMissing && (
+                <div className="flex-shrink-0 p-2">
+                    <div className="mx-auto max-w-4xl rounded-md bg-red-900/50 p-3 text-sm text-red-300 flex items-start gap-3 border border-red-700/50">
+                        <AlertTriangleIcon className="h-5 w-5 flex-shrink-0 mt-0.5" />
+                        <div>
+                            <p className="font-semibold">Ação Necessária: Chave da API do Gemini ausente</p>
+                            <p className="mt-1">
+                                A aplicação está em modo de funcionalidade limitada. Para habilitar a análise de receitas, um administrador precisa configurar a variável de ambiente <code>API_KEY</code> no painel de controle do ambiente de hospedagem.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            )}
+            {showSettingsWarning && !apiKeyMissing && (
                 <div className="flex-shrink-0 p-2">
                     <div className="mx-auto max-w-4xl rounded-md bg-yellow-900/50 p-3 text-sm text-yellow-300 flex items-center gap-3 border border-yellow-700/50">
                         <AlertTriangleIcon className="h-5 w-5 flex-shrink-0" />
@@ -327,7 +420,11 @@ export const QuoteGenerator: React.FC = () => {
             </div>
             
             <div className="flex-shrink-0 border-t border-gray-700/50 bg-[#131314] p-4">
-                <ChatInput onSend={handleSend} isLoading={isLoading} fileAttachDisabled={showSettingsWarning} />
+                <ChatInput 
+                    onSend={handleSend} 
+                    isLoading={isLoading} 
+                    disabled={isChatDisabled} 
+                    disabledReason={disabledReason} />
             </div>
         </div>
     );

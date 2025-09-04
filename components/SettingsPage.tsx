@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useSettings } from '../hooks/useSettings';
 import type { Settings, Product } from '../types';
 import { LogOutIcon, EditIcon, Trash2Icon, PlusCircleIcon } from './icons';
@@ -54,51 +54,112 @@ const ProductModal: React.FC<{
     );
 };
 
-const ConfirmationDialog: React.FC<{
+interface ConfirmationDialogProps {
+    title: string;
+    message: string;
+    confirmText: string;
+    cancelText: string;
     onConfirm: () => void;
     onCancel: () => void;
-}> = ({ onConfirm, onCancel }) => {
+    confirmButtonClass?: string;
+}
+
+const ConfirmationDialog: React.FC<ConfirmationDialogProps> = ({ 
+    title, 
+    message, 
+    confirmText, 
+    cancelText, 
+    onConfirm, 
+    onCancel, 
+    confirmButtonClass = "bg-red-600 hover:bg-red-700" 
+}) => {
     return (
         <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4" onClick={onCancel}>
             <div className="bg-[#303134] rounded-xl border border-gray-700 p-6 w-full max-w-sm shadow-2xl" onClick={e => e.stopPropagation()}>
-                <h3 className="text-xl font-bold mb-2 text-white">Confirmar Exclusão</h3>
-                <p className="text-gray-400 mb-6">Tem certeza que deseja excluir este produto? Esta ação não pode ser desfeita.</p>
+                <h3 className="text-xl font-bold mb-2 text-white">{title}</h3>
+                <p className="text-gray-400 mb-6">{message}</p>
                 <div className="flex justify-end gap-3">
-                    <button onClick={onCancel} className="px-5 py-2 bg-gray-700 text-sm text-gray-300 font-medium rounded-lg hover:bg-gray-600 transition-colors">Cancelar</button>
-                    <button onClick={onConfirm} className="px-5 py-2 bg-red-600 text-white font-semibold rounded-lg shadow-md hover:bg-red-700 transition-colors">Excluir</button>
+                    <button onClick={onCancel} className="px-5 py-2 bg-gray-700 text-sm text-gray-300 font-medium rounded-lg hover:bg-gray-600 transition-colors">{cancelText}</button>
+                    <button onClick={onConfirm} className={`px-5 py-2 text-white font-semibold rounded-lg shadow-md transition-colors ${confirmButtonClass}`}>{confirmText}</button>
                 </div>
             </div>
         </div>
     );
 };
 
+
 export const SettingsPage: React.FC<SettingsPageProps> = ({ onLogout }) => {
   const { settings, saveSettings, systemPrompt, isLoaded } = useSettings();
   const [formState, setFormState] = useState<Settings>(settings);
-  const [showSuccess, setShowSuccess] = useState(false);
-
+  const [errors, setErrors] = useState<Partial<Record<keyof Settings, string>>>({});
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+  const isInitialMount = useRef(true);
+  
   // Modals state
   const [isProductModalOpen, setIsProductModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
   const [productToDelete, setProductToDelete] = useState<Product['id'] | null>(null);
+  const [isLogoutConfirmOpen, setIsLogoutConfirmOpen] = useState(false);
 
   useEffect(() => {
     if (isLoaded) {
       setFormState(settings);
     }
   }, [settings, isLoaded]);
+  
+  const validateForm = (data: Settings): boolean => {
+    const newErrors: Partial<Record<keyof Settings, string>> = {};
+    const requiredFields: Array<keyof Settings> = [
+      'associationName',
+      'address',
+      'whatsapp',
+      'pixKey',
+      'companyName',
+      'bankName',
+    ];
+
+    requiredFields.forEach(field => {
+      const value = data[field];
+      if (typeof value === 'string' && (!value.trim() || value.includes('[Insira'))) {
+        newErrors[field] = 'Este campo é obrigatório.';
+      }
+    });
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  // Auto-save useEffect with validation
+  useEffect(() => {
+    if (isInitialMount.current) {
+        isInitialMount.current = false;
+        return;
+    }
+
+    const isValid = validateForm(formState);
+    if (!isValid) {
+      setSaveStatus('error');
+      return; // Stop the save process if validation fails
+    }
+
+    setSaveStatus('saving');
+    const debounceTimer = setTimeout(() => {
+        saveSettings(formState);
+        setSaveStatus('saved');
+        const idleTimer = setTimeout(() => setSaveStatus('idle'), 2000);
+        return () => clearTimeout(idleTimer);
+    }, 2000);
+
+    return () => {
+        clearTimeout(debounceTimer);
+    };
+  }, [formState, saveSettings]);
+
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setFormState(prev => ({ ...prev, [name]: value }));
-  };
-  
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    saveSettings(formState);
-    setShowSuccess(true);
-    setTimeout(() => setShowSuccess(false), 3000);
   };
   
   // Product handlers
@@ -134,15 +195,98 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ onLogout }) => {
     setIsConfirmModalOpen(false);
     setProductToDelete(null);
   };
+  
+  const handleLogout = () => {
+    onLogout();
+    setIsLogoutConfirmOpen(false);
+  }
 
   if (!isLoaded) {
-    return <div className="text-center p-10">Carregando configurações...</div>;
+    return (
+      <div className="max-w-4xl mx-auto bg-[#202124] rounded-xl border border-gray-700 shadow-2xl p-6 sm:p-8 animate-pulse">
+        <div className="flex justify-between items-start mb-8">
+          <div>
+            <div className="h-8 bg-gray-700 rounded w-3/4 mb-2"></div>
+            <div className="h-4 bg-gray-700 rounded w-1/2"></div>
+          </div>
+          <div className="h-10 bg-gray-700 rounded-md w-24"></div>
+        </div>
+
+        <div className="space-y-8">
+          
+          <div className="space-y-6 p-6 bg-[#303134]/50 border border-gray-700/50 rounded-lg">
+            <div className="h-6 bg-gray-600 rounded w-1/3 mb-4"></div>
+            <div className="space-y-4">
+                <div className="h-10 bg-gray-700 rounded-lg"></div>
+                <div className="h-20 bg-gray-700 rounded-lg"></div>
+                <div className="h-10 bg-gray-700 rounded-lg"></div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="h-10 bg-gray-700 rounded-lg"></div>
+                    <div className="h-10 bg-gray-700 rounded-lg"></div>
+                    <div className="h-10 bg-gray-700 rounded-lg"></div>
+                </div>
+            </div>
+          </div>
+          
+           <div className="space-y-6 p-6 bg-[#303134]/50 border border-gray-700/50 rounded-lg">
+            <div className="h-6 bg-gray-600 rounded w-1/3 mb-4"></div>
+            <div className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="h-10 bg-gray-700 rounded-lg"></div>
+                    <div className="h-10 bg-gray-700 rounded-lg"></div>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="h-10 bg-gray-700 rounded-lg"></div>
+                    <div className="h-10 bg-gray-700 rounded-lg"></div>
+                    <div className="h-10 bg-gray-700 rounded-lg"></div>
+                </div>
+            </div>
+          </div>
+
+          <div className="space-y-4 p-6 bg-[#303134]/50 border border-gray-700/50 rounded-lg">
+            <div className="flex justify-between items-center">
+                <div className="h-6 bg-gray-600 rounded w-1/3"></div>
+                <div className="h-10 bg-gray-700 rounded-lg w-40"></div>
+            </div>
+            <div className="h-24 bg-gray-700 rounded-lg mt-4"></div>
+          </div>
+
+          <div className="p-6 bg-[#303134]/50 border border-gray-700/50 rounded-lg">
+             <div className="h-5 bg-gray-600 rounded w-1/2 mb-2"></div>
+             <div className="h-64 bg-gray-700 rounded-lg"></div>
+          </div>
+          
+        </div>
+      </div>
+    );
   }
 
   return (
     <>
       {isProductModalOpen && <ProductModal product={editingProduct} onSave={handleSaveProduct} onClose={() => setIsProductModalOpen(false)} />}
-      {isConfirmModalOpen && <ConfirmationDialog onConfirm={confirmDelete} onCancel={() => setIsConfirmModalOpen(false)} />}
+      
+      {isConfirmModalOpen && 
+        <ConfirmationDialog
+          title="Confirmar Exclusão"
+          message="Tem certeza que deseja excluir este produto? Esta ação não pode ser desfeita."
+          confirmText="Excluir"
+          cancelText="Cancelar"
+          onConfirm={confirmDelete}
+          onCancel={() => setIsConfirmModalOpen(false)} 
+        />
+      }
+
+      {isLogoutConfirmOpen && 
+        <ConfirmationDialog
+            title="Confirmar Saída"
+            message="Tem certeza que deseja sair?"
+            confirmText="Sim"
+            cancelText="Não"
+            onConfirm={handleLogout}
+            onCancel={() => setIsLogoutConfirmOpen(false)}
+        />
+      }
+
       <div className="max-w-4xl mx-auto bg-[#202124] rounded-xl border border-gray-700 shadow-2xl p-6 sm:p-8">
         <div className="flex justify-between items-start mb-8">
           <div>
@@ -151,19 +295,20 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ onLogout }) => {
               Essas informações serão usadas pela Ísis para gerar os orçamentos.
             </p>
           </div>
-          <button onClick={onLogout} className="flex items-center gap-2 px-3 py-2 bg-gray-700 text-sm text-gray-300 font-medium rounded-md hover:bg-gray-600 transition-colors" aria-label="Sair da conta de administrador">
+          <button onClick={() => setIsLogoutConfirmOpen(true)} className="flex items-center gap-2 px-3 py-2 bg-gray-700 text-sm text-gray-300 font-medium rounded-md hover:bg-gray-600 transition-colors" aria-label="Sair da conta de administrador">
             <LogOutIcon className="w-4 h-4" />
             Sair
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-8">
+        <form className="space-y-8">
           
           <div className="space-y-6 p-6 bg-[#303134]/50 border border-gray-700/50 rounded-lg">
             <h3 className="text-lg font-semibold text-fuchsia-300">Dados Institucionais e de Contato</h3>
              <div>
                 <label htmlFor="associationName" className="block text-sm font-medium text-gray-300 mb-2">Nome da Associação</label>
-                <input id="associationName" name="associationName" value={formState.associationName} onChange={handleInputChange} className="w-full bg-[#303134] border border-gray-600/50 text-gray-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-fuchsia-500 focus:border-fuchsia-500 outline-none transition shadow-inner" />
+                <input id="associationName" name="associationName" value={formState.associationName} onChange={handleInputChange} className={`w-full bg-[#303134] border text-gray-300 rounded-lg p-3 text-sm focus:ring-2 outline-none transition shadow-inner ${errors.associationName ? 'border-red-500 focus:ring-red-500' : 'border-gray-600/50 focus:ring-fuchsia-500 focus:border-fuchsia-500'}`} />
+                {errors.associationName && <p className="text-red-400 text-xs mt-1">{errors.associationName}</p>}
             </div>
              <div>
                 <label htmlFor="about" className="block text-sm font-medium text-gray-300 mb-2">Sobre a Associação</label>
@@ -171,12 +316,14 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ onLogout }) => {
             </div>
              <div>
                 <label htmlFor="address" className="block text-sm font-medium text-gray-300 mb-2">Endereço</label>
-                <input id="address" name="address" value={formState.address} onChange={handleInputChange} className="w-full bg-[#303134] border border-gray-600/50 text-gray-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-fuchsia-500 focus:border-fuchsia-500 outline-none transition shadow-inner" />
+                <input id="address" name="address" value={formState.address} onChange={handleInputChange} className={`w-full bg-[#303134] border text-gray-300 rounded-lg p-3 text-sm focus:ring-2 outline-none transition shadow-inner ${errors.address ? 'border-red-500 focus:ring-red-500' : 'border-gray-600/50 focus:ring-fuchsia-500 focus:border-fuchsia-500'}`} />
+                {errors.address && <p className="text-red-400 text-xs mt-1">{errors.address}</p>}
             </div>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
                     <label htmlFor="whatsapp" className="block text-sm font-medium text-gray-300 mb-2">WhatsApp</label>
-                    <input id="whatsapp" name="whatsapp" value={formState.whatsapp} onChange={handleInputChange} className="w-full bg-[#303134] border border-gray-600/50 text-gray-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-fuchsia-500 focus:border-fuchsia-500 outline-none transition shadow-inner" />
+                    <input id="whatsapp" name="whatsapp" value={formState.whatsapp} onChange={handleInputChange} className={`w-full bg-[#303134] border text-gray-300 rounded-lg p-3 text-sm focus:ring-2 outline-none transition shadow-inner ${errors.whatsapp ? 'border-red-500 focus:ring-red-500' : 'border-gray-600/50 focus:ring-fuchsia-500 focus:border-fuchsia-500'}`} />
+                    {errors.whatsapp && <p className="text-red-400 text-xs mt-1">{errors.whatsapp}</p>}
                 </div>
                 <div>
                     <label htmlFor="site" className="block text-sm font-medium text-gray-300 mb-2">Site</label>
@@ -204,15 +351,18 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ onLogout }) => {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
                     <label htmlFor="pixKey" className="block text-sm font-medium text-gray-300 mb-2">Chave PIX (CNPJ)</label>
-                    <input id="pixKey" name="pixKey" value={formState.pixKey} onChange={handleInputChange} className="w-full bg-[#303134] border border-gray-600/50 text-gray-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-fuchsia-500 focus:border-fuchsia-500 outline-none transition shadow-inner" />
+                    <input id="pixKey" name="pixKey" value={formState.pixKey} onChange={handleInputChange} className={`w-full bg-[#303134] border text-gray-300 rounded-lg p-3 text-sm focus:ring-2 outline-none transition shadow-inner ${errors.pixKey ? 'border-red-500 focus:ring-red-500' : 'border-gray-600/50 focus:ring-fuchsia-500 focus:border-fuchsia-500'}`} />
+                    {errors.pixKey && <p className="text-red-400 text-xs mt-1">{errors.pixKey}</p>}
                 </div>
                 <div>
                     <label htmlFor="companyName" className="block text-sm font-medium text-gray-300 mb-2">Razão Social</label>
-                    <input id="companyName" name="companyName" value={formState.companyName} onChange={handleInputChange} className="w-full bg-[#303134] border border-gray-600/50 text-gray-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-fuchsia-500 focus:border-fuchsia-500 outline-none transition shadow-inner" />
+                    <input id="companyName" name="companyName" value={formState.companyName} onChange={handleInputChange} className={`w-full bg-[#303134] border text-gray-300 rounded-lg p-3 text-sm focus:ring-2 outline-none transition shadow-inner ${errors.companyName ? 'border-red-500 focus:ring-red-500' : 'border-gray-600/50 focus:ring-fuchsia-500 focus:border-fuchsia-500'}`} />
+                    {errors.companyName && <p className="text-red-400 text-xs mt-1">{errors.companyName}</p>}
                 </div>
                  <div>
                     <label htmlFor="bankName" className="block text-sm font-medium text-gray-300 mb-2">Nome do Banco</label>
-                    <input id="bankName" name="bankName" value={formState.bankName} onChange={handleInputChange} className="w-full bg-[#303134] border border-gray-600/50 text-gray-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-fuchsia-500 focus:border-fuchsia-500 outline-none transition shadow-inner" />
+                    <input id="bankName" name="bankName" value={formState.bankName} onChange={handleInputChange} className={`w-full bg-[#303134] border text-gray-300 rounded-lg p-3 text-sm focus:ring-2 outline-none transition shadow-inner ${errors.bankName ? 'border-red-500 focus:ring-red-500' : 'border-gray-600/50 focus:ring-fuchsia-500 focus:border-fuchsia-500'}`} />
+                    {errors.bankName && <p className="text-red-400 text-xs mt-1">{errors.bankName}</p>}
                 </div>
             </div>
           </div>
@@ -269,11 +419,11 @@ export const SettingsPage: React.FC<SettingsPageProps> = ({ onLogout }) => {
             />
           </div>
           
-          <div className="flex items-center justify-end pt-4">
-            {showSuccess && <p className="text-green-400 mr-4 transition-opacity duration-300">Configurações salvas com sucesso!</p>}
-            <button type="submit" className="px-6 py-2 bg-green-600 text-white font-semibold rounded-lg shadow-md hover:bg-green-700 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-900 focus:ring-green-500">
-              Salvar Todas as Configurações
-            </button>
+          <div className="flex items-center justify-end pt-4 h-10">
+            {saveStatus === 'saving' && <p className="text-gray-400 text-sm animate-pulse">Salvando alterações...</p>}
+            {saveStatus === 'saved' && <p className="text-green-400 text-sm">Todas as alterações foram salvas.</p>}
+            {saveStatus === 'error' && <p className="text-red-400 text-sm">Por favor, corrija os erros para salvar as alterações.</p>}
+            {saveStatus === 'idle' && formState !== settings && <p className="text-gray-500 text-sm">Suas alterações são salvas automaticamente.</p>}
           </div>
         </form>
       </div>
