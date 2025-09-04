@@ -78,3 +78,36 @@ export const processPrescription = async (file: File, systemPrompt: string): Pro
         throw new Error("Falha na comunicação com a IA. Verifique o console para mais detalhes.");
     }
 };
+
+export const pingAI = async (userMessage: string, settingsIncomplete: boolean): Promise<string> => {
+    if (!process.env.API_KEY) {
+        throw new Error("A chave da API do Gemini não foi configurada.");
+    }
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+
+    let systemInstruction = "Você é Ísis, uma assistente de IA. Responda de forma breve e amigável em português.";
+    if (settingsIncomplete) {
+        systemInstruction = "Você é Ísis, uma assistente de IA. Um administrador está testando a conexão. Responda de forma amigável e concisa em português que você está online e funcional, mas que as configurações da associação ainda não foram preenchidas na página 'Configurações', e por isso você ainda não pode gerar orçamentos de receitas. Avise-o para completar o cadastro para liberar todas as suas funcionalidades.";
+    }
+
+    try {
+        const response = await ai.models.generateContent({
+            model: 'gemini-2.5-flash',
+            contents: userMessage,
+            config: {
+                systemInstruction: systemInstruction,
+            }
+        });
+
+        const responseText = response.text;
+        if (!responseText) {
+            throw new Error("A IA não retornou uma resposta de texto.");
+        }
+        
+        return responseText;
+
+    } catch (error) {
+        console.error("Erro ao chamar a API Gemini:", error);
+        throw new Error("Falha na comunicação com a IA. Verifique o console para mais detalhes.");
+    }
+};
