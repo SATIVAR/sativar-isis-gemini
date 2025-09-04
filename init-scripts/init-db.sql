@@ -1,10 +1,33 @@
-import React, { createContext, useState, useContext, useEffect, useMemo } from 'react';
-import type { Settings } from '../types';
-import { getAppSettings, updateAppSettings } from '../services/dbService';
+-- Create tables for the application
 
-const SETTINGS_KEY = 'sativar_isis_settings';
+-- Table for admin users
+CREATE TABLE IF NOT EXISTS admin_users (
+    id SERIAL PRIMARY KEY,
+    username VARCHAR(50) UNIQUE NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
 
-const defaultSystemPrompt = `
+-- Table for application settings
+CREATE TABLE IF NOT EXISTS app_settings (
+    id SERIAL PRIMARY KEY,
+    system_prompt TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Table for quote history
+CREATE TABLE IF NOT EXISTS quote_history (
+    id SERIAL PRIMARY KEY,
+    patient_name VARCHAR(100) NOT NULL,
+    internal_summary TEXT,
+    patient_message TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Insert default settings if not exists
+INSERT INTO app_settings (system_prompt) 
+SELECT $$
 [0. DADOS DE CONFIGURAÇÃO ESSENCIAL]
 Instrução: Antes de usar, preencha todos os placeholders abaixo com as informações corretas da Associação. Você, Ísis, deve usar estes dados como sua única fonte para essas informações.
 
@@ -69,7 +92,7 @@ Conforme sua receita médica, segue o orçamento do seu tratamento:
 
 O pagamento pode ser via PIX ou Cartão de Crédito (com taxa de {{TAXA_CARTAO_CREDITO_PERCENTUAL}}%).
 
-Para pagar com PIX, nossa chave CNPJ é: \`{{CHAVE_PIX_CNPJ}}\`
+Para pagar com PIX, nossa chave CNPJ é: `{{CHAVE_PIX_CNPJ}}`
 * **Favorecido:** {{RAZAO_SOCIAL}}
 * **Instituição:** {{NOME_BANCO}}
 
@@ -84,81 +107,5 @@ Site: {{SITE}}
 
 [5. REGRAS DE SEGURANÇA E LIMITES]
 NÃO DÊ CONSELHOS MÉDICOS. Se houver perguntas sobre dosagem ou efeitos, instrua seu colega a redirecionar para o médico. NÃO ADIVINHE INFORMAÇÕES. Se algo for ilegível, peça ajuda. SIGA O PROCESSO.
-`;
-
-const defaultSettings: Settings = {
-  systemPrompt: defaultSystemPrompt,
-};
-
-interface SettingsContextType {
-  settings: Settings;
-  saveSettings: (newSettings: Settings) => Promise<void>;
-  isLoaded: boolean;
-}
-
-const SettingsContext = createContext<SettingsContextType | undefined>(undefined);
-
-export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [settings, setSettings] = useState<Settings>(defaultSettings);
-  const [isLoaded, setIsLoaded] = useState(false);
-
-  useEffect(() => {
-    const loadSettings = async () => {
-      try {
-        const dbSettings = await getAppSettings();
-        if (dbSettings) {
-          setSettings({ systemPrompt: dbSettings.system_prompt });
-        } else {
-          // Fallback to localStorage if DB is not available
-          const storedSettings = localStorage.getItem(SETTINGS_KEY);
-          if (storedSettings) {
-            setSettings(JSON.parse(storedSettings));
-          }
-        }
-      } catch (error) {
-        console.error("Failed to load settings from database", error);
-        // Fallback to localStorage
-        try {
-          const storedSettings = localStorage.getItem(SETTINGS_KEY);
-          if (storedSettings) {
-            setSettings(JSON.parse(storedSettings));
-          }
-        } catch (localStorageError) {
-          console.error("Failed to load settings from localStorage", localStorageError);
-        }
-      } finally {
-        setIsLoaded(true);
-      }
-    };
-
-    loadSettings();
-  }, []);
-
-  const saveSettings = async (newSettings: Settings) => {
-    try {
-      await updateAppSettings(newSettings.systemPrompt);
-      setSettings(newSettings);
-    } catch (error) {
-      console.error("Failed to save settings to database", error);
-      // Fallback to localStorage
-      try {
-        localStorage.setItem(SETTINGS_KEY, JSON.stringify(newSettings));
-        setSettings(newSettings);
-      } catch (localStorageError) {
-        console.error("Failed to save settings to localStorage", localStorageError);
-      }
-    }
-  };
-
-  const value = useMemo(() => ({ settings, saveSettings, isLoaded }), [settings, isLoaded]);
-
-  return React.createElement(SettingsContext.Provider, { value: value }, children);
-};
-
-export const useSettings = (): SettingsContextType => {
-  const context = useContext(SettingsContext);
-  if (context === undefined) {
-    throw new Error('useSettings must be used within a SettingsProvider');
-  }
-  return context;
-};
+$$
+WHERE NOT EXISTS (SELECT 1 FROM app_settings);

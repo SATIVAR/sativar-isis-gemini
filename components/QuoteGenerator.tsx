@@ -1,6 +1,7 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { useSettings } from '../hooks/useSettings';
 import { processPrescription } from '../services/geminiService';
+import { saveQuoteHistory } from '../services/dbService';
 import type { ChatMessage, QuoteResult, MessageContent } from '../types';
 import { AlertTriangleIcon, ClipboardCheckIcon, ClipboardIcon, PlusIcon, SendIcon, UserIcon } from './icons';
 import { Loader } from './Loader';
@@ -137,76 +138,86 @@ const ChatInput: React.FC<{
 };
 
 export const QuoteGenerator: React.FC = () => {
-    const { settings, isLoaded } = useSettings();
-    const [messages, setMessages] = useState<ChatMessage[]>([]);
-    const [isLoading, setIsLoading] = useState(false);
-    const [showSettingsWarning, setShowSettingsWarning] = useState(false);
-    const chatEndRef = useRef<HTMLDivElement | null>(null);
+  const { settings, isLoaded } = useSettings();
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [showSettingsWarning, setShowSettingsWarning] = useState(false);
+  const chatEndRef = useRef<HTMLDivElement | null>(null);
 
-    // Set initial greeting message
-    useEffect(() => {
-        setMessages([
-            {
-                id: 'init',
-                sender: 'ai',
-                content: { type: 'text', text: 'Olá! Sou a Ísis. Envie uma receita médica (imagem ou PDF) para que eu possa analisar e gerar um orçamento.' },
-            }
-        ]);
-    }, []);
+  // Set initial greeting message
+  useEffect(() => {
+    setMessages([
+      {
+        id: 'init',
+        sender: 'ai',
+        content: { type: 'text', text: 'Olá! Sou a Ísis. Envie uma receita médica (imagem ou PDF) para que eu possa analisar e gerar um orçamento.' },
+      }
+    ]);
+  }, []);
 
-    // Check for settings completeness
-    useEffect(() => {
-        if (isLoaded && settings.systemPrompt.includes("[Insira")) {
-             setShowSettingsWarning(true);
-        } else {
-            setShowSettingsWarning(false);
-        }
-    }, [settings, isLoaded]);
-    
-    // Scroll to bottom of chat
-    useEffect(() => {
-        chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-    }, [messages]);
+  // Check for settings completeness
+  useEffect(() => {
+    if (isLoaded && settings.systemPrompt.includes("[Insira")) {
+         setShowSettingsWarning(true);
+    } else {
+      setShowSettingsWarning(false);
+    }
+  }, [settings, isLoaded]);
+  
+  // Scroll to bottom of chat
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
 
-    const handleSendFile = useCallback(async (file: File) => {
-        if (!settings) return;
+  const handleSendFile = useCallback(async (file: File) => {
+    if (!settings) return;
 
-        const userMessage: ChatMessage = {
-            id: `user-${Date.now()}`,
-            sender: 'user',
-            content: { type: 'file_request', fileName: file.name },
-        };
-        const loadingMessage: ChatMessage = {
-            id: `ai-loading-${Date.now()}`,
-            sender: 'ai',
-            content: { type: 'loading' },
-        };
+    const userMessage: ChatMessage = {
+      id: `user-${Date.now()}`,
+      sender: 'user',
+      content: { type: 'file_request', fileName: file.name },
+    };
+    const loadingMessage: ChatMessage = {
+      id: `ai-loading-${Date.now()}`,
+      sender: 'ai',
+      content: { type: 'loading' },
+    };
 
-        setMessages(prev => [...prev, userMessage, loadingMessage]);
-        setIsLoading(true);
+    setMessages(prev => [...prev, userMessage, loadingMessage]);
+    setIsLoading(true);
 
-        try {
-            const result = await processPrescription(file, settings);
-            const resultMessage: ChatMessage = {
-                id: `ai-result-${Date.now()}`,
-                sender: 'ai',
-                content: { type: 'quote', result },
-            };
-            setMessages(prev => [...prev.slice(0, -1), resultMessage]);
-        } catch (err) {
-            const errorMessage: ChatMessage = {
-                id: `ai-error-${Date.now()}`,
-                sender: 'ai',
-                content: { type: 'error', message: err instanceof Error ? err.message : 'Ocorreu um erro desconhecido.' },
-            };
-            setMessages(prev => [...prev.slice(0, -1), errorMessage]);
-        } finally {
-            setIsLoading(false);
-        }
-    }, [settings]);
+    try {
+      const result = await processPrescription(file, settings);
+      
+      // Save to quote history
+      try {
+        const patientNameMatch = result.internalSummary.match(/Paciente: (.+)/);
+        const patientName = patientNameMatch ? patientNameMatch[1].trim() : 'Desconhecido';
+        await saveQuoteHistory(patientName, result.internalSummary, result.patientMessage);
+      } catch (saveError) {
+        console.error('Failed to save quote to history:', saveError);
+      }
 
-    return (
-        <div className="flex h-full flex-col">
+      const resultMessage: ChatMessage = {
+        id: `ai-result-${Date.now()}`,
+        sender: 'ai',
+        content: { type: 'quote', result },
+      };
+      setMessages(prev => [...prev.slice(0, -1), resultMessage]);
+    } catch (err) {
+      const errorMessage: ChatMessage = {
+        id: `ai-error-${Date.now()}`,
+        sender: 'ai',
+        content: { type: 'error', message: err instanceof Error ? err.message : 'Ocorreu um erro desconhecido.' },
+      };
+      setMessages(prev => [...prev.slice(0, -1), errorMessage]);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [settings]);
+
+  return (
+    <div className="flex h-full flex-col">
             {showSettingsWarning && (
                 <div className="flex-shrink-0 p-2">
                     <div className="mx-auto max-w-4xl rounded-md bg-yellow-900/50 p-3 text-sm text-yellow-300 flex items-center gap-3 border border-yellow-700/50">
