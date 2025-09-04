@@ -1,0 +1,231 @@
+import React, { useState, useCallback, useEffect, useRef } from 'react';
+import { useSettings } from '../hooks/useSettings';
+import { processPrescription } from '../services/geminiService';
+import type { ChatMessage, QuoteResult, MessageContent } from '../types';
+import { AlertTriangleIcon, ClipboardCheckIcon, ClipboardIcon, PlusIcon, SendIcon, UserIcon } from './icons';
+import { Loader } from './Loader';
+
+const AIAvatar: React.FC = () => (
+    <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-fuchsia-900">
+        <span className="text-sm font-bold text-fuchsia-200">I</span>
+    </div>
+);
+
+const UserAvatar: React.FC = () => (
+    <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-gray-600">
+        <UserIcon className="h-5 w-5 text-gray-300" />
+    </div>
+);
+
+const QuoteResultDisplay: React.FC<{result: QuoteResult}> = ({ result }) => {
+    const [copied, setCopied] = useState(false);
+
+    const handleCopy = () => {
+        navigator.clipboard.writeText(result.patientMessage);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+    };
+
+    return (
+        <div className="mt-2 w-full space-y-4 text-sm">
+            <div>
+                <h3 className="font-semibold text-fuchsia-300 mb-1">Resumo Interno para a Equipe</h3>
+                <div className="p-3 bg-[#202124] rounded-lg border border-gray-700 whitespace-pre-wrap font-mono text-xs">
+                    {result.internalSummary}
+                </div>
+            </div>
+            <div>
+                <h3 className="font-semibold text-fuchsia-300 mb-1">Mensagem Pronta para o Paciente</h3>
+                <div className="relative p-3 bg-[#202124] rounded-lg border border-gray-700">
+                    <button onClick={handleCopy} className="absolute top-2 right-2 p-1 bg-gray-700 rounded-md hover:bg-gray-600 transition-colors">
+                        {copied ? <ClipboardCheckIcon className="w-4 h-4 text-green-400" /> : <ClipboardIcon className="w-4 h-4 text-gray-400" />}
+                    </button>
+                    <pre className="whitespace-pre-wrap font-sans">{result.patientMessage}</pre>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+
+const MessageBubble: React.FC<{ message: ChatMessage }> = ({ message }) => {
+    const renderContent = (content: MessageContent) => {
+        switch (content.type) {
+            case 'text':
+                return <p>{content.text}</p>;
+            case 'file_request':
+                return <p className="text-gray-300">Arquivo enviado: <span className="font-medium text-white">{content.fileName}</span></p>
+            case 'loading':
+                return <div className="flex items-center gap-2"><Loader /><span>Analisando a receita...</span></div>;
+            case 'quote':
+                return <QuoteResultDisplay result={content.result} />;
+            case 'error':
+                 return <p className="text-red-400">{content.message}</p>;
+            default:
+                return null;
+        }
+    };
+
+    const isAI = message.sender === 'ai';
+
+    return (
+        <div className={`flex items-start gap-3 ${!isAI ? 'justify-end' : ''}`}>
+            {isAI && <AIAvatar />}
+            <div className={`max-w-xl rounded-xl px-4 py-3 ${isAI ? 'bg-[#303134]' : 'bg-brand-primary text-white'}`}>
+                {renderContent(message.content)}
+            </div>
+            {!isAI && <UserAvatar />}
+        </div>
+    );
+};
+
+const ChatInput: React.FC<{
+    onSendFile: (file: File) => void;
+    disabled: boolean;
+}> = ({ onSendFile, disabled }) => {
+    const [file, setFile] = useState<File | null>(null);
+    const fileInputRef = useRef<HTMLInputElement>(null);
+
+    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (e.target.files && e.target.files.length > 0) {
+            setFile(e.target.files[0]);
+        }
+    };
+
+    const handleSend = () => {
+        if (file) {
+            onSendFile(file);
+            setFile(null);
+            if(fileInputRef.current) {
+                fileInputRef.current.value = "";
+            }
+        }
+    };
+
+    return (
+        <div className="mx-auto w-full max-w-4xl">
+            <div className="flex items-center gap-2 rounded-xl bg-[#303134] p-2">
+                <button
+                    onClick={() => fileInputRef.current?.click()}
+                    className="rounded-full p-2 transition-colors hover:bg-gray-700"
+                    disabled={disabled}
+                    aria-label="Attach file"
+                >
+                    <PlusIcon className="h-6 w-6 text-gray-400" />
+                </button>
+                <input
+                    ref={fileInputRef}
+                    type="file"
+                    className="hidden"
+                    accept="image/*,application/pdf"
+                    onChange={handleFileChange}
+                />
+                <div className="flex-grow px-2 text-sm text-gray-400">
+                    {file ? file.name : "Anexar uma receita (PDF ou imagem)"}
+                </div>
+                <button
+                    onClick={handleSend}
+                    disabled={!file || disabled}
+                    className="rounded-full p-2 transition-colors bg-gray-700 hover:bg-brand-primary disabled:bg-gray-600 disabled:cursor-not-allowed"
+                    aria-label="Send message"
+                >
+                    <SendIcon className="h-5 w-5 text-white" />
+                </button>
+            </div>
+        </div>
+    );
+};
+
+export const QuoteGenerator: React.FC = () => {
+    const { settings, isLoaded } = useSettings();
+    const [messages, setMessages] = useState<ChatMessage[]>([]);
+    const [isLoading, setIsLoading] = useState(false);
+    const [showSettingsWarning, setShowSettingsWarning] = useState(false);
+    const chatEndRef = useRef<HTMLDivElement | null>(null);
+
+    // Set initial greeting message
+    useEffect(() => {
+        setMessages([
+            {
+                id: 'init',
+                sender: 'ai',
+                content: { type: 'text', text: 'Olá! Sou a Ísis. Envie uma receita médica (imagem ou PDF) para que eu possa analisar e gerar um orçamento.' },
+            }
+        ]);
+    }, []);
+
+    // Check for settings completeness
+    useEffect(() => {
+        if (isLoaded && settings.systemPrompt.includes("[Insira")) {
+             setShowSettingsWarning(true);
+        } else {
+            setShowSettingsWarning(false);
+        }
+    }, [settings, isLoaded]);
+    
+    // Scroll to bottom of chat
+    useEffect(() => {
+        chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }, [messages]);
+
+    const handleSendFile = useCallback(async (file: File) => {
+        if (!settings) return;
+
+        const userMessage: ChatMessage = {
+            id: `user-${Date.now()}`,
+            sender: 'user',
+            content: { type: 'file_request', fileName: file.name },
+        };
+        const loadingMessage: ChatMessage = {
+            id: `ai-loading-${Date.now()}`,
+            sender: 'ai',
+            content: { type: 'loading' },
+        };
+
+        setMessages(prev => [...prev, userMessage, loadingMessage]);
+        setIsLoading(true);
+
+        try {
+            const result = await processPrescription(file, settings);
+            const resultMessage: ChatMessage = {
+                id: `ai-result-${Date.now()}`,
+                sender: 'ai',
+                content: { type: 'quote', result },
+            };
+            setMessages(prev => [...prev.slice(0, -1), resultMessage]);
+        } catch (err) {
+            const errorMessage: ChatMessage = {
+                id: `ai-error-${Date.now()}`,
+                sender: 'ai',
+                content: { type: 'error', message: err instanceof Error ? err.message : 'Ocorreu um erro desconhecido.' },
+            };
+            setMessages(prev => [...prev.slice(0, -1), errorMessage]);
+        } finally {
+            setIsLoading(false);
+        }
+    }, [settings]);
+
+    return (
+        <div className="flex h-full flex-col">
+            {showSettingsWarning && (
+                <div className="flex-shrink-0 p-2">
+                    <div className="mx-auto max-w-4xl rounded-md bg-yellow-900/50 p-3 text-sm text-yellow-300 flex items-center gap-3 border border-yellow-700/50">
+                        <AlertTriangleIcon className="h-5 w-5 flex-shrink-0" />
+                        <span>As configurações da associação parecem incompletas. Visite a página de 'Configurações' para preenchê-las.</span>
+                    </div>
+                </div>
+            )}
+            
+            <div className="flex-grow space-y-6 overflow-y-auto p-4 md:p-6">
+                 {messages.map((msg) => (
+                    <MessageBubble key={msg.id} message={msg} />
+                ))}
+                <div ref={chatEndRef} />
+            </div>
+            
+            <div className="flex-shrink-0 border-t border-gray-700/50 bg-[#131314] p-4">
+                <ChatInput onSendFile={handleSendFile} disabled={isLoading || showSettingsWarning} />
+            </div>
+        </div>
+    );
+};
