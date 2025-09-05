@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teste API Frontend</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .status {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+        }
+        .success { background-color: #d4edda; color: #155724; }
+        .error { background-color: #f8d7da; color: #721c24; }
+        .warning { background-color: #fff3cd; color: #856404; }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        pre {
+            background-color: #f8f9fa;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Teste de Conexão API - SATIVAR ISIS</h1>
+        
+        <div id="status"></div>
+        
+        <button onclick="testHealth()">Testar Health Check</button>
+        <button onclick="testDbStatus()">Testar Status do Banco</button>
+        <button onclick="testReminders()">Testar Lembretes</button>
+        <button onclick="testSettings()">Testar Configurações</button>
+        
+        <div id="results"></div>
+    </div>
+
+    <script>
+        const API_BASE_URL = 'http://localhost:3001';
+        
+        function showStatus(message, type = 'success') {
+            const statusDiv = document.getElementById('status');
+            statusDiv.innerHTML = `<div class="status ${type}">${message}</div>`;
+        }
+        
+        function showResults(data) {
+            const resultsDiv = document.getElementById('results');
+            resultsDiv.innerHTML = `<pre>${JSON.stringify(data, null, 2)}</pre>`;
+        }
+        
+        async function makeRequest(endpoint, options = {}) {
+            try {
+                const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+                    headers: {
+                        'Content-Type': 'application/json',
+                        ...options.headers,
+                    },
+                    ...options,
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                return await response.json();
+            } catch (error) {
+                console.error('Request failed:', error);
+                throw error;
+            }
+        }
+        
+        async function testHealth() {
+            try {
+                showStatus('Testando health check...', 'warning');
+                const result = await makeRequest('/api/health');
+                showStatus('Health check passou!', 'success');
+                showResults(result);
+            } catch (error) {
+                showStatus(`Erro no health check: ${error.message}`, 'error');
+                showResults({ error: error.message });
+            }
+        }
+        
+        async function testDbStatus() {
+            try {
+                showStatus('Testando status do banco...', 'warning');
+                const result = await makeRequest('/api/db/status');
+                showStatus('Status do banco obtido!', 'success');
+                showResults(result);
+            } catch (error) {
+                showStatus(`Erro no status do banco: ${error.message}`, 'error');
+                showResults({ error: error.message });
+            }
+        }
+        
+        async function testReminders() {
+            try {
+                showStatus('Testando lembretes...', 'warning');
+                const result = await makeRequest('/api/reminders');
+                showStatus('Lembretes obtidos!', 'success');
+                showResults(result);
+            } catch (error) {
+                showStatus(`Erro nos lembretes: ${error.message}`, 'error');
+                showResults({ error: error.message });
+            }
+        }
+        
+        async function testSettings() {
+            try {
+                showStatus('Testando configurações...', 'warning');
+                const result = await makeRequest('/api/settings');
+                showStatus('Configurações obtidas!', 'success');
+                showResults(result);
+            } catch (error) {
+                showStatus(`Erro nas configurações: ${error.message}`, 'error');
+                showResults({ error: error.message });
+            }
+        }
+        
+        // Teste automático ao carregar a página
+        window.onload = function() {
+            testHealth();
+        };
+    </script>
+</body>
+</html>
