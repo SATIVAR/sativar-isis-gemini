@@ -1,30 +1,27 @@
 import React from 'react';
 
 export const Logo: React.FC<{ className?: string }> = ({ className }) => (
-  <svg
-    className={className}
-    viewBox="0 0 24 24"
-    fill="none"
-    xmlns="http://www.w3.org/2000/svg"
-    aria-label="SATIVAR - Isis Logo"
-  >
-    <defs>
-      <linearGradient id="logoGradient" x1="0" y1="0" x2="1" y2="1">
-        <stop offset="0%" stopColor="#86efac" />
-        <stop offset="100%" stopColor="#166534" />
-      </linearGradient>
-    </defs>
-    {/* Main bot head/body, shaped like a chat bubble */}
-    <path 
-        d="M18 3H6C4.34315 3 3 4.34315 3 6V14C3 15.6569 4.34315 17 6 17H7V21L11.6667 17H18C19.6569 17 21 15.6569 21 14V6C21 4.34315 19.6569 3 18 3Z" 
-        fill="url(#logoGradient)" 
-    />
-    
-    {/* Robot Eyes */}
-    <circle cx="10" cy="10" r="1.5" fill="#dcfce7"/>
-    <circle cx="14" cy="10" r="1.5" fill="#dcfce7"/>
-    
-    {/* Robot Mouth */}
-    <path d="M10 14H14" stroke="#dcfce7" strokeWidth="1.5" strokeLinecap="round"/>
-  </svg>
+    <div className={`relative bg-gradient-to-br from-green-500 to-emerald-600 rounded-full flex items-center justify-center shadow-lg shadow-green-500/25 dark:shadow-green-500/10 ${className}`}>
+        <div className="absolute inset-0 bg-white/10 rounded-full backdrop-blur-sm"></div>
+        <svg 
+            xmlns="http://www.w3.org/2000/svg" 
+            width="24" 
+            height="24" 
+            viewBox="0 0 24 24" 
+            fill="none" 
+            stroke="currentColor" 
+            strokeWidth="2" 
+            strokeLinecap="round" 
+            strokeLinejoin="round" 
+            className="w-1/2 h-1/2 text-white relative z-10"
+            aria-label="SATIVAR - Isis Logo"
+        >
+            <path d="M12 6V2H8"></path>
+            <path d="m8 18-4 4V8a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2Z"></path>
+            <path d="M2 12h2"></path>
+            <path d="M9 11v2"></path>
+            <path d="M15 11v2"></path>
+            <path d="M20 12h2"></path>
+        </svg>
+    </div>
 );
