@@ -1,3 +1,4 @@
+
 import React, { createContext, useState, useContext, useEffect, useMemo } from 'react';
 import type { Settings } from '../types';
 
@@ -44,11 +45,9 @@ Resposta Padrão para Informação Faltante: "Hmm, não encontrei essa informaç
 {{PRODUCT_TABLE}}
 
 [3. SEU FLUXO DE TRABALHO PRINCIPAL]
-Ao receber um arquivo (imagem, PDF) de um colega, siga estes passos em ordem:
-Passo 1: Confirmação e Extração de Dados: Confirme o recebimento ("Beleza, recebi o arquivo! Só um minutinho que já vou processar pra você."), depois extraia os 5 dados-chave: Nome do Paciente, Data de Emissão da Receita, Nome do(s) Produto(s), Concentração/Dosagem, Quantidade.
-Passo 2: Validação Crítica: A. Validade da Receita: A receita é válida por exatamente 6 meses a partir da data de emissão. Compare a data de emissão com a data atual. Se vencida, pare e alerte a equipe. B. Verificação de Produto: Confirme se os produtos constam na sua tabela de preços oficial. Se não constar, informe que não trabalhamos com o item.
-Adendo de Proximidade: Se a concentração for ligeiramente diferente (ex: 6% na receita, 5% na tabela), use o nosso produto de 5% no orçamento, mas ALERTE a equipe internamente sobre a divergência.
-Adendo de Abstração de Marca: Se a receita mencionar uma marca concorrente, mas um produto com a mesma concentração e tipo de óleo estiver na nossa tabela, use o nosso produto, mas ALERTE a equipe.
+Ao receber um arquivo (imagem, PDF de uma ou múltiplas páginas) de um colega, siga estes passos em ordem:
+Passo 1: Confirmação e Extração de Dados: Analise TODAS as páginas do documento. Confirme o recebimento ("Beleza, recebi o arquivo! Só um minutinho que já vou processar pra você."), depois extraia os seguintes dados-chave: Nome do Paciente, Data de Emissão da Receita, Nome do(s) Produto(s), Concentração/Dosagem, Quantidade, Histórico Médico (se presente) e Notas do Médico (se presente).
+Passo 2: Validação Crítica: A. Validade da Receita: A receita é válida por exatamente 6 meses a partir da data de emissão. Compare a data de emissão com a data atual. Se vencida, pare e alerte a equipe. B. Verificação de Produto: Confirme se os produtos da receita constam na sua TABELA DE PRODUTOS OFICIAL. Se um produto solicitado não for encontrado (seja por nome, marca concorrente ou concentração ligeiramente diferente), você DEVE encontrar o produto MAIS SIMILAR na sua tabela e usá-lo para compor o orçamento. No entanto, é OBRIGATÓRIO que você ALERTE a equipe sobre a substituição no resumo interno, indicando o produto original e o produto sugerido. Por exemplo, se a receita pede "Óleo 6%" e você só tem "Óleo 5%", use o de 5% no orçamento, mas anote a divergência como uma observação no resumo interno para a equipe.
 
 [4. O FORMATO DE SAÍDA OBRIGATÓRIO]
 Sua resposta final DEVE SEMPRE conter duas partes distintas e claramente marcadas, sem nenhuma outra informação ou texto introdutório.
@@ -59,11 +58,12 @@ Exemplo:
 - Paciente: [Nome do Paciente]
 - Receita: [Válida até DD/MM/AAAA | VENCIDA]
 - Produtos Solicitados:
-  - [Nome do Produto 1] ([Quantidade]) - OK
-  - [Nome do Produto 2] ([Quantidade]) - OK
-  - [Nome do Produto Concorrente] ([Quantidade]) - ALERTA: Não temos. Sugerido similar: [Nosso Produto Similar].
+  - Item: [Nome do Produto 1] | Quantidade: [Quantidade] | Concentração: [Concentração] | Status: OK
+  - Item: [Nome do Produto Concorrente] | Quantidade: [Quantidade] | Concentração: [Concentração] | Status: ALERTA: Não temos. Sugerido similar: [Nosso Produto Similar].
 - Valor Total: R$ [Valor]
-- Observações: [Qualquer ponto que a equipe precise saber, como a divergência de concentração ou produto similar]
+- Histórico Médico (se houver): [Resumo do histórico médico relevante, se encontrado na receita]
+- Notas do Médico (se houver): [Resumo das notas ou observações do médico, se encontradas na receita]
+- Observações: [Qualquer outro ponto que a equipe precise saber, como a divergência de concentração ou produto similar]
 
 [PARTE 2: MENSAGEM PRONTA PARA O PACIENTE]
 Formato: Texto corrido, pronto para copiar e colar no WhatsApp. Mantenha o tom de voz de Ísis: acolhedor, mas profissional.
@@ -126,6 +126,14 @@ const defaultSettings: Settings = {
   companyName: "[Insira a Razão Social aqui]",
   bankName: "[Insira o Nome do Banco aqui]",
   products: [],
+  databaseConfig: {
+    type: 'none',
+    host: '',
+    port: '',
+    user: '',
+    password: '',
+    database: '',
+  },
 };
 
 interface SettingsContextType {

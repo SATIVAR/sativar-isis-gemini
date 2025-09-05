@@ -1,262 +1,19 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
-import { jsPDF } from 'jspdf';
 import { useSettings } from '../hooks/useSettings';
-import { processPrescription, pingAI, isApiKeyConfigured } from '../services/geminiService';
-import type { ChatMessage, QuoteResult, MessageContent } from '../types';
-import { AlertTriangleIcon, ClipboardCheckIcon, ClipboardIcon, DownloadIcon, PlusIcon, SendIcon, UserIcon } from './icons';
-import { Loader } from './Loader';
+import { processPrescription, pingAI, isApiKeyConfigured, API_KEY_STORAGE_KEY } from '../services/geminiService';
+import type { ChatMessage } from '../types';
+import { AlertTriangleIcon } from './icons';
+import { Chat } from './Chat';
 
-const AIAvatar: React.FC = () => (
-    <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-fuchsia-900">
-        <span className="text-sm font-bold text-fuchsia-200">I</span>
-    </div>
-);
-
-const UserAvatar: React.FC = () => (
-    <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-gray-600">
-        <UserIcon className="h-5 w-5 text-gray-300" />
-    </div>
-);
-
-const QuoteResultDisplay: React.FC<{result: QuoteResult}> = ({ result }) => {
-    const [copied, setCopied] = useState(false);
-    const { settings } = useSettings();
-
-    const handleCopy = () => {
-        navigator.clipboard.writeText(result.patientMessage);
-        setCopied(true);
-        setTimeout(() => setCopied(false), 2000);
-    };
-
-    const handleDownloadPDF = () => {
-        const doc = new jsPDF();
-        const pageWidth = doc.internal.pageSize.getWidth();
-        const margin = 15;
-        const maxLineWidth = pageWidth - margin * 2;
-        let y = 20;
-
-        // Extract patient name
-        const patientNameMatch = result.internalSummary.match(/- Paciente:\s*(.*)/i);
-        const patientName = patientNameMatch ? patientNameMatch[1].trim() : 'Paciente';
-        const today = new Date().toLocaleDateString('pt-BR').replace(/\//g, '-');
-        const fileName = `orcamento-${patientName.replace(/\s+/g, '_')}-${today}.pdf`;
-
-        // Title
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(18);
-        const title = `Orçamento - ${settings.associationName || 'Associação'}`;
-        doc.text(title, pageWidth / 2, y, { align: 'center' });
-        y += 15;
-
-        // Internal Summary
-        doc.setFontSize(14);
-        doc.text('Resumo Interno para a Equipe', margin, y);
-        y += 7;
-
-        doc.setFont('courier', 'normal');
-        doc.setFontSize(10);
-        const internalLines = doc.splitTextToSize(result.internalSummary, maxLineWidth);
-        doc.text(internalLines, margin, y);
-        y += internalLines.length * 4.5 + 10;
-
-        // Check for page break
-        if (y > 280) { // a bit of margin from bottom
-            doc.addPage();
-            y = 20;
-        }
-
-        // Patient Message
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(14);
-        doc.text('Mensagem para o Paciente', margin, y);
-        y += 7;
-        
-        doc.setFont('helvetica', 'normal');
-        doc.setFontSize(11);
-        const patientLines = doc.splitTextToSize(result.patientMessage, maxLineWidth);
-        doc.text(patientLines, margin, y);
-
-        doc.save(fileName);
-    };
-
-    return (
-        <div className="mt-2 w-full space-y-4 text-sm">
-            <div>
-                <h3 className="font-semibold text-fuchsia-300 mb-1">Resumo Interno para a Equipe</h3>
-                <div className="p-3 bg-[#202124] rounded-lg border border-gray-700 whitespace-pre-wrap font-mono text-xs">
-                    {result.internalSummary}
-                </div>
-            </div>
-            <div>
-                <h3 className="font-semibold text-fuchsia-300 mb-1">Mensagem Pronta para o Paciente</h3>
-                <div className="relative p-3 bg-[#202124] rounded-lg border border-gray-700">
-                    <button onClick={handleCopy} className="absolute top-2 right-2 p-1 bg-gray-700 rounded-md hover:bg-gray-600 transition-colors" aria-label="Copiar mensagem para o paciente">
-                        {copied ? <ClipboardCheckIcon className="w-4 h-4 text-green-400" /> : <ClipboardIcon className="w-4 h-4 text-gray-400" />}
-                    </button>
-                    <pre className="whitespace-pre-wrap font-sans">{result.patientMessage}</pre>
-                </div>
-            </div>
-             <div className="flex justify-end pt-2">
-                <button 
-                    onClick={handleDownloadPDF}
-                    className="flex items-center gap-2 px-4 py-2 bg-gray-700 text-sm text-gray-200 font-medium rounded-lg hover:bg-gray-600 transition-colors"
-                    aria-label="Baixar orçamento como PDF"
-                >
-                    <DownloadIcon className="w-4 h-4" />
-                    Baixar PDF do Orçamento
-                </button>
-            </div>
-        </div>
-    );
-};
-
-
-const MessageBubble: React.FC<{ message: ChatMessage }> = ({ message }) => {
-    const [copied, setCopied] = useState(false);
-
-    const handleCopy = (textToCopy: string) => {
-        if (!textToCopy) return;
-        navigator.clipboard.writeText(textToCopy);
-        setCopied(true);
-        setTimeout(() => setCopied(false), 2000);
-    };
-
-    const renderContent = (content: MessageContent) => {
-        switch (content.type) {
-            case 'text':
-                return <p className="whitespace-pre-wrap">{content.text}</p>;
-            case 'file_request':
-                return <p className="text-gray-300">Arquivo enviado: <span className="font-medium text-white">{content.fileName}</span></p>
-            case 'loading':
-                return <div className="flex items-center gap-2"><Loader /><span>Analisando...</span></div>;
-            case 'quote':
-                return <QuoteResultDisplay result={content.result} />;
-            case 'error':
-                 return <p className="text-red-400">{content.message}</p>;
-            default:
-                return null;
-        }
-    };
-
-    const isAI = message.sender === 'ai';
-    const canBeCopied = message.content.type === 'text';
-    const copyButtonClass = isAI
-        ? "bg-gray-700 hover:bg-gray-600"
-        : "bg-green-900 hover:bg-green-800";
-
-    return (
-        <div className={`flex items-start gap-3 ${!isAI ? 'justify-end' : ''}`}>
-            {isAI && <AIAvatar />}
-            <div className={`group relative max-w-xl rounded-xl px-4 py-3 ${isAI ? 'bg-[#303134]' : 'bg-brand-primary text-white'}`}>
-                {canBeCopied && (
-                    <button 
-                        onClick={() => handleCopy(message.content.type === 'text' ? message.content.text : '')} 
-                        className={`absolute top-2 right-2 p-1 rounded-md transition-all opacity-0 group-hover:opacity-100 z-10 ${copyButtonClass}`}
-                        aria-label="Copiar mensagem"
-                    >
-                        {copied ? <ClipboardCheckIcon className="w-4 h-4 text-green-400" /> : <ClipboardIcon className="w-4 h-4 text-gray-400" />}
-                    </button>
-                )}
-                <div className={canBeCopied ? 'pr-8' : ''}>
-                    {renderContent(message.content)}
-                </div>
-            </div>
-            {!isAI && <UserAvatar />}
-        </div>
-    );
-};
-
-const ChatInput: React.FC<{
-    onSend: (data: { text: string; file: File | null }) => void;
-    isLoading: boolean;
-    disabled: boolean;
-    disabledReason: string;
-}> = ({ onSend, isLoading, disabled, disabledReason }) => {
-    const [text, setText] = useState('');
-    const [file, setFile] = useState<File | null>(null);
-    const fileInputRef = useRef<HTMLInputElement>(null);
-
-    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (e.target.files && e.target.files.length > 0) {
-            setFile(e.target.files[0]);
-            // Allow sending a file without text
-            if (text.trim() === '') {
-                setText(e.target.files[0].name);
-            }
-        }
-    };
-
-    const handleSend = () => {
-        if (disabled || isLoading || (!file && !text.trim())) return;
-
-        // If the text is just the filename, we only send the file.
-        const textToSend = file && text === file.name ? '' : text;
-
-        onSend({ text: textToSend, file });
-        setText('');
-        setFile(null);
-        if (fileInputRef.current) {
-            fileInputRef.current.value = "";
-        }
-    };
-
-    const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-        if (e.key === 'Enter' && !e.shiftKey) {
-            e.preventDefault();
-            handleSend();
-        }
-    };
-
-    return (
-        <div className="mx-auto w-full max-w-4xl">
-            <div className="flex items-center gap-2 rounded-xl bg-[#303134] p-2">
-                <button
-                    onClick={() => fileInputRef.current?.click()}
-                    className="rounded-full p-2 transition-colors hover:bg-gray-700 disabled:cursor-not-allowed disabled:opacity-50"
-                    disabled={isLoading || disabled}
-                    aria-label="Attach file"
-                    title={disabled ? disabledReason : "Anexar arquivo"}
-                >
-                    <PlusIcon className="h-6 w-6 text-gray-400" />
-                </button>
-                <input
-                    ref={fileInputRef}
-                    type="file"
-                    className="hidden"
-                    accept="image/*,application/pdf"
-                    onChange={handleFileChange}
-                    disabled={isLoading || disabled}
-                />
-                <input
-                    type="text"
-                    value={text}
-                    onChange={(e) => setText(e.target.value)}
-                    onKeyDown={handleKeyDown}
-                    placeholder={disabled ? disabledReason : (file ? file.name : "Digite uma mensagem ou anexe uma receita...")}
-                    className="flex-grow bg-transparent px-2 text-sm text-gray-200 placeholder-gray-400 focus:outline-none"
-                    disabled={isLoading || disabled}
-                />
-                <button
-                    onClick={handleSend}
-                    disabled={(!file && !text.trim()) || isLoading || disabled}
-                    className="rounded-full p-2 transition-colors bg-gray-700 hover:bg-brand-primary disabled:bg-gray-600 disabled:cursor-not-allowed"
-                    aria-label="Send message"
-                >
-                    <SendIcon className="h-5 w-5 text-white" />
-                </button>
-            </div>
-        </div>
-    );
-};
 
 export const QuoteGenerator: React.FC = () => {
     const { settings, systemPrompt, isLoaded } = useSettings();
     const [messages, setMessages] = useState<ChatMessage[]>([]);
     const [isLoading, setIsLoading] = useState(false);
+    const [loadingAction, setLoadingAction] = useState<'file' | 'text' | null>(null);
     const [showSettingsWarning, setShowSettingsWarning] = useState(false);
     const [apiKeyMissing, setApiKeyMissing] = useState(false);
     const [apiKeyInput, setApiKeyInput] = useState('');
-    const chatEndRef = useRef<HTMLDivElement | null>(null);
     const initialMessageSent = useRef(false);
 
     // Check for API key on mount
@@ -294,11 +51,6 @@ export const QuoteGenerator: React.FC = () => {
             setShowSettingsWarning(false);
         }
     }, [systemPrompt, isLoaded]);
-    
-    // Scroll to bottom of chat
-    useEffect(() => {
-        chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-    }, [messages]);
 
     const handleSend = useCallback(async ({ text, file }: { text: string; file: File | null }) => {
         if (file) {
@@ -324,6 +76,7 @@ export const QuoteGenerator: React.FC = () => {
 
         setMessages(prev => [...prev, userMessage, loadingMessage]);
         setIsLoading(true);
+        setLoadingAction('file');
 
         try {
             const result = await processPrescription(file, systemPrompt);
@@ -342,6 +95,7 @@ export const QuoteGenerator: React.FC = () => {
             setMessages(prev => [...prev.slice(0, -1), errorMessage]);
         } finally {
             setIsLoading(false);
+            setLoadingAction(null);
         }
     }, [systemPrompt, showSettingsWarning, apiKeyMissing]);
 
@@ -359,6 +113,7 @@ export const QuoteGenerator: React.FC = () => {
 
         setMessages(prev => [...prev, userMessage, loadingMessage]);
         setIsLoading(true);
+        setLoadingAction('text');
         
         try {
             const result = await pingAI(text, showSettingsWarning);
@@ -377,6 +132,7 @@ export const QuoteGenerator: React.FC = () => {
             setMessages(prev => [...prev.slice(0, -1), errorMessage]);
         } finally {
             setIsLoading(false);
+            setLoadingAction(null);
         }
     }, [showSettingsWarning]);
 
@@ -386,7 +142,7 @@ export const QuoteGenerator: React.FC = () => {
             return;
         }
         try {
-            localStorage.setItem('sativar_isis_gemini_api_key', apiKeyInput.trim());
+            localStorage.setItem(API_KEY_STORAGE_KEY, apiKeyInput.trim());
             setApiKeyMissing(false);
             setApiKeyInput('');
         } catch (e) {
@@ -446,20 +202,14 @@ export const QuoteGenerator: React.FC = () => {
                 </div>
             )}
             
-            <div className="flex-grow space-y-6 overflow-y-auto p-4 md:p-6">
-                 {messages.map((msg) => (
-                    <MessageBubble key={msg.id} message={msg} />
-                ))}
-                <div ref={chatEndRef} />
-            </div>
-            
-            <div className="flex-shrink-0 border-t border-gray-700/50 bg-[#131314] p-4">
-                <ChatInput 
-                    onSend={handleSend} 
-                    isLoading={isLoading} 
-                    disabled={isChatDisabled} 
-                    disabledReason={disabledReason} />
-            </div>
+            <Chat 
+                messages={messages}
+                onSend={handleSend}
+                isLoading={isLoading}
+                disabled={isChatDisabled}
+                disabledReason={disabledReason}
+                loadingAction={loadingAction}
+            />
         </div>
     );
 };

@@ -1,7 +1,18 @@
 import { GoogleGenAI } from "@google/genai";
-import type { QuoteResult } from "../types";
+import type { QuoteResult, QuotedProduct } from "../types";
 
-const API_KEY_STORAGE_KEY = 'sativar_isis_gemini_api_key';
+export const API_KEY_STORAGE_KEY = 'sativar_isis_gemini_api_key';
+const API_CALL_COUNTER_KEY = 'sativar_isis_api_call_count';
+
+const incrementApiCallCount = () => {
+    try {
+        const currentCount = parseInt(localStorage.getItem(API_CALL_COUNTER_KEY) || '0', 10);
+        localStorage.setItem(API_CALL_COUNTER_KEY, (currentCount + 1).toString());
+    } catch (e) {
+        console.error("Could not update API call count in localStorage", e);
+    }
+};
+
 
 const getApiKey = (): string | undefined => {
     try {
@@ -44,15 +55,19 @@ const parseGeminiResponse = (responseText: string): QuoteResult => {
     const patientMessageIndex = responseText.indexOf(patientMessageMarker);
 
     if (internalSummaryIndex === -1 || patientMessageIndex === -1) {
-        // Fallback if markers are not found
         console.warn("Could not find response markers. Returning full text as patient message.");
         return {
+            id: crypto.randomUUID(),
+            patientName: "Paciente Desconhecido",
             internalSummary: "Não foi possível analisar a resposta da IA. Verifique o formato do prompt nas configurações.",
             patientMessage: responseText,
+            validity: 'Não encontrado',
+            products: [],
+            totalValue: 'Não encontrado',
         };
     }
 
-    const internalSummary = responseText
+    const internalSummaryText = responseText
         .substring(internalSummaryIndex + internalSummaryMarker.length, patientMessageIndex)
         .trim();
         
@@ -60,38 +75,97 @@ const parseGeminiResponse = (responseText: string): QuoteResult => {
         .substring(patientMessageIndex + patientMessageMarker.length)
         .trim();
     
-    return { internalSummary, patientMessage };
+    // Helper to extract single-line values
+    const extractValue = (regex: RegExp): string => {
+        const match = internalSummaryText.match(regex);
+        return match ? match[1].trim() : '';
+    };
+
+    const patientName = extractValue(/- Paciente:\s*(.*)/i);
+    const validity = extractValue(/- Receita:\s*(.*)/i);
+    const totalValue = extractValue(/- Valor Total:\s*(.*)/i);
+    const medicalHistory = extractValue(/-\s*Histórico Médico \(se houver\):\s*(.*)/is);
+    const doctorNotes = extractValue(/-\s*Notas do Médico \(se houver\):\s*(.*)/is);
+    const observations = extractValue(/-\s*Observações:\s*(.*)/is);
+    
+    const products: QuotedProduct[] = [];
+    const productLines = internalSummaryText.match(/- Item:\s*.*/gi) || [];
+
+    for (const line of productLines) {
+        const productMatch = line.match(/- Item:\s*(.*?)\s*\|\s*Quantidade:\s*(.*?)\s*\|\s*Concentração:\s*(.*?)\s*\|\s*Status:\s*(.*)/i);
+        if (productMatch) {
+            products.push({
+                name: productMatch[1].trim(),
+                quantity: productMatch[2].trim(),
+                concentration: productMatch[3].trim(),
+                status: productMatch[4].trim(),
+            });
+        }
+    }
+    
+    return { 
+        id: crypto.randomUUID(),
+        patientName: patientName || 'Não encontrado',
+        internalSummary: internalSummaryText, // Keep the raw text for display/debug
+        patientMessage, 
+        validity,
+        products,
+        totalValue,
+        medicalHistory, 
+        doctorNotes,
+        observations,
+    };
 };
 
 const handleGeminiError = (error: unknown): Error => {
     console.error("Erro ao chamar a API Gemini:", error);
 
     if (error instanceof Error) {
-        const message = error.message.toLowerCase();
-        
-        if (message.includes('api key not valid') || message.includes('api_key_invalid')) {
-            return new Error("A chave da API do Gemini é inválida ou não foi configurada corretamente.");
+        const message = error.message;
+        const lowerMessage = message.toLowerCase();
+
+        // API Key issues
+        if (lowerMessage.includes('api key not valid') || lowerMessage.includes('api_key_invalid') || message.includes('[401]') || message.includes('[403]')) {
+            return new Error("A chave da API do Gemini é inválida ou não foi configurada corretamente. Verifique a chave nas configurações.");
         }
         
-        if (message.includes('quota')) {
-            return new Error("A cota de uso da API foi excedida. Por favor, tente novamente mais tarde.");
+        // Quota issues
+        if (lowerMessage.includes('quota') || message.includes('[429]')) {
+            return new Error("A cota de uso da API foi excedida. Por favor, tente novamente mais tarde ou verifique seu plano de faturamento do Google AI.");
         }
 
-        if (message.includes('safety') || message.includes('blocked')) {
-            return new Error("A solicitação foi bloqueada por políticas de segurança. Tente usar um arquivo ou texto diferente.");
+        // Safety/Content policy issues
+        if (lowerMessage.includes('safety') || lowerMessage.includes('blocked')) {
+            return new Error("A solicitação foi bloqueada por políticas de segurança. O conteúdo do arquivo ou do texto pode ser sensível. Tente usar um arquivo ou texto diferente.");
         }
         
-        if (message.includes('fetch failed') || message.includes('network error')) {
+        // Network issues
+        if (lowerMessage.includes('fetch failed') || lowerMessage.includes('network error')) {
             return new Error("Erro de rede ao tentar se comunicar com a IA. Verifique sua conexão com a internet.");
         }
 
-        // For other 4xx/5xx errors, the message might be descriptive enough
-        if (message.match(/\[\d{3}\]/)) {
-             return new Error(`Ocorreu um erro na API: ${error.message}`);
+        // HTTP status code parsing for more generic errors
+        const httpStatusMatch = message.match(/\[(\d{3})\]/);
+        if (httpStatusMatch) {
+            const statusCode = parseInt(httpStatusMatch[1], 10);
+            if (statusCode === 400) {
+                 return new Error("A solicitação para a IA foi mal formatada. Isso pode ser um problema com o arquivo enviado ou com a estrutura do pedido. Por favor, tente um arquivo diferente.");
+            }
+            if (statusCode >= 400 && statusCode < 500) {
+                return new Error(`Ocorreu um erro na sua solicitação (Código: ${statusCode}). Verifique os dados enviados e tente novamente.`);
+            }
+            if (statusCode >= 500) {
+                return new Error(`O serviço de IA está enfrentando problemas técnicos (Código: ${statusCode}). Por favor, tente novamente mais tarde.`);
+            }
         }
         
-        // Return a slightly more informative generic error
-        return new Error(`Falha na comunicação com a IA: ${error.message}`);
+        // Return a slightly more informative generic error if it's from Gemini
+        if (lowerMessage.includes('gemini')) {
+            return new Error(`Ocorreu um erro inesperado com a IA Gemini: ${message}`);
+        }
+        
+        // Generic fallback with original error message
+        return new Error(`Falha na comunicação com a IA: ${message}`);
     }
 
     // Fallback for non-Error objects
@@ -119,6 +193,8 @@ export const processPrescription = async (file: File, systemPrompt: string): Pro
                 systemInstruction: systemPrompt,
             }
         });
+
+        incrementApiCallCount();
 
         const responseText = response.text;
         if (!responseText) {
@@ -152,6 +228,8 @@ export const pingAI = async (userMessage: string, settingsIncomplete: boolean): 
                 systemInstruction: systemInstruction,
             }
         });
+        
+        incrementApiCallCount();
 
         const responseText = response.text;
         if (!responseText) {

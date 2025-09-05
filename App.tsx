@@ -5,6 +5,7 @@ import { SettingsPage } from './components/SettingsPage';
 import { AdminLogin } from './components/AdminLogin';
 import { AdminRegistration } from './components/AdminRegistration';
 import { SettingsProvider } from './hooks/useSettings';
+import { RemindersProvider } from './hooks/useReminders';
 
 export type Page = 'chat' | 'settings';
 
@@ -57,17 +58,19 @@ function App() {
 
   return (
     <SettingsProvider>
-      <div className="flex h-screen flex-col bg-[#131314] font-sans text-gray-200">
-        <Header setCurrentPage={setCurrentPage} currentPage={currentPage} />
-        <main className="flex-grow overflow-y-auto">
-          {currentPage === 'chat' && <QuoteGenerator />}
-          {currentPage === 'settings' && 
-            <div className="p-4 md:p-8 h-full">
-              {renderSettingsContent()}
-            </div>
-          }
-        </main>
-      </div>
+      <RemindersProvider>
+        <div className="flex h-screen flex-col bg-[#131314] font-sans text-gray-200">
+          <Header setCurrentPage={setCurrentPage} currentPage={currentPage} />
+          <main className="flex-grow overflow-y-auto">
+            {currentPage === 'chat' && <QuoteGenerator />}
+            {currentPage === 'settings' && 
+              <div className="p-4 md:p-8 h-full">
+                {renderSettingsContent()}
+              </div>
+            }
+          </main>
+        </div>
+      </RemindersProvider>
     </SettingsProvider>
   );
 }

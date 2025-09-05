@@ -1,8 +1,19 @@
+
 export interface Product {
   id: string;
   name: string;
   price: string;
   description: string;
+  icon?: string;
+}
+
+export interface DatabaseConfig {
+  type: 'none' | 'mysql' | 'postgres';
+  host: string;
+  port: string;
+  user: string;
+  password: string;
+  database: string;
 }
 
 export interface Settings {
@@ -18,11 +29,47 @@ export interface Settings {
   companyName: string;
   bankName: string;
   products: Product[];
+  databaseConfig: DatabaseConfig;
+}
+
+export interface Task {
+  id: string;
+  text: string;
+  isCompleted: boolean;
+}
+
+export interface Reminder {
+  id: string;
+  title: string;
+  tasks: Task[];
+  dueDate: string; // YYYY-MM-DD format
+  dueTime?: string; // HH:MM format
+  isCompleted: boolean;
+  quoteId?: string;
+  patientName?: string;
+  recurrence?: 'none' | 'daily' | 'weekly' | 'monthly';
+  endDate?: string;
+  parentId?: string;
+}
+
+export interface QuotedProduct {
+  name: string;
+  quantity: string;
+  concentration: string;
+  status: string; // e.g., "OK", "ALERTA: Não temos..."
 }
 
 export interface QuoteResult {
-    internalSummary: string;
+    id: string;
+    patientName: string;
+    internalSummary: string; // Will hold the raw summary for reference/debugging
     patientMessage: string;
+    medicalHistory?: string;
+    doctorNotes?: string;
+    observations?: string;
+    validity: string;
+    products: QuotedProduct[];
+    totalValue: string;
 }
 
 export type MessageSender = 'user' | 'ai';
