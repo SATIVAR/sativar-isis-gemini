@@ -3,6 +3,7 @@
 const express = require('express');
 const { query, testMysqlConnection } = require('./db');
 const router = express.Router();
+const chalk = require('chalk');
 
 // --- Helper Functions ---
 
@@ -33,7 +34,7 @@ router.get('/health', (req, res) => {
 // --- Settings Routes ---
 
 // GET /api/settings
-router.get('/settings', async (req, res) => {
+router.get('/settings', async (req, res, next) => {
   try {
     const rows = await query('SELECT data FROM settings WHERE id = 1');
     if (rows.length > 0) {
@@ -45,13 +46,13 @@ router.get('/settings', async (req, res) => {
       res.json(null); // No settings found
     }
   } catch (err) {
-    console.error('Error fetching settings:', err);
-    res.status(500).json({ error: 'Internal Server Error' });
+    console.error(chalk.red(`[${req.method} ${req.originalUrl}] Error fetching settings:`), err.message);
+    next(err);
   }
 });
 
 // POST /api/settings
-router.post('/settings', async (req, res) => {
+router.post('/settings', async (req, res, next) => {
   const settingsData = req.body;
   // The 'data' column expects a JSON type. The mysql2 driver requires objects to be
   // stringified for JSON columns. We stringify it to ensure compatibility.
@@ -71,8 +72,8 @@ router.post('/settings', async (req, res) => {
     
     res.status(200).json({ success: true });
   } catch (err) {
-    console.error('Error saving settings:', err);
-    res.status(500).json({ error: 'Internal Server Error' });
+    console.error(chalk.red(`[${req.method} ${req.originalUrl}] Error saving settings:`), err.message);
+    next(err);
   }
 });
 
@@ -80,18 +81,18 @@ router.post('/settings', async (req, res) => {
 // --- Reminders CRUD Routes ---
 
 // GET /api/reminders - Get all reminders
-router.get('/reminders', async (req, res) => {
+router.get('/reminders', async (req, res, next) => {
   try {
     const rows = await query('SELECT * FROM reminders ORDER BY dueDate ASC');
     res.json(rows.map(parseReminderTasks));
   } catch (err) {
-    console.error('Error fetching reminders:', err);
-    res.status(500).json({ error: 'Internal Server Error' });
+    console.error(chalk.red(`[${req.method} ${req.originalUrl}] Error fetching reminders:`), err.message);
+    next(err);
   }
 });
 
 // POST /api/reminders - Create a new reminder
-router.post('/reminders', async (req, res) => {
+router.post('/reminders', async (req, res, next) => {
   const { id, quoteId, patientName, dueDate, notes, tasks, recurrence, priority } = req.body;
   // Ensure isCompleted has a value to prevent DB errors on NOT NULL constraint.
   const isCompleted = req.body.isCompleted ?? false;
@@ -108,13 +109,13 @@ router.post('/reminders', async (req, res) => {
     res.status(201).json(parseReminderTasks(newReminders[0]));
 
   } catch (err) {
-    console.error('Error creating reminder:', err);
-    res.status(500).json({ error: 'Internal Server Error' });
+    console.error(chalk.red(`[${req.method} ${req.originalUrl}] Error creating reminder:`), err.message);
+    next(err);
   }
 });
 
 // PUT /api/reminders/:id - Update an existing reminder
-router.put('/reminders/:id', async (req, res) => {
+router.put('/reminders/:id', async (req, res, next) => {
   const { id } = req.params;
   const { quoteId, patientName, dueDate, notes, tasks, recurrence, priority } = req.body;
   // Ensure isCompleted has a value to prevent DB errors on NOT NULL constraint.
@@ -136,26 +137,26 @@ router.put('/reminders/:id', async (req, res) => {
         res.status(404).json({ error: 'Reminder not found.' });
     }
   } catch (err) {
-    console.error(`Error updating reminder ${id}:`, err);
-    res.status(500).json({ error: 'Internal Server Error' });
+    console.error(chalk.red(`[${req.method} ${req.originalUrl}] Error updating reminder:`), err.message);
+    next(err);
   }
 });
 
 // DELETE /api/reminders/:id - Delete a reminder
-router.delete('/reminders/:id', async (req, res) => {
+router.delete('/reminders/:id', async (req, res, next) => {
   const { id } = req.params;
   try {
     const deleteQuery = 'DELETE FROM reminders WHERE id = ?';
     await query(deleteQuery, [id]);
     res.status(204).send(); // No content
   } catch (err) {
-    console.error(`Error deleting reminder ${id}:`, err);
-    res.status(500).json({ error: 'Internal Server Error' });
+    console.error(chalk.red(`[${req.method} ${req.originalUrl}] Error deleting reminder:`), err.message);
+    next(err);
   }
 });
 
 // Endpoint for testing DB connection from frontend settings
-router.post('/test-db-connection', async (req, res) => {
+router.post('/test-db-connection', async (req, res, next) => {
     const config = req.body;
     try {
         const result = await testMysqlConnection(config);
@@ -165,8 +166,8 @@ router.post('/test-db-connection', async (req, res) => {
             res.status(400).json({ success: false, message: 'Connection failed.', details: result.error });
         }
     } catch (err) {
-        console.error('Error testing DB connection:', err);
-        res.status(500).json({ error: 'Internal Server Error' });
+        console.error(chalk.red(`[${req.method} ${req.originalUrl}] Error testing DB connection:`), err.message);
+        next(err);
     }
 });
 

@@ -2,6 +2,7 @@
 const express = require('express');
 const cors = require('cors');
 const apiRoutes = require('./routes');
+const chalk = require('chalk');
 require('dotenv').config();
 
 const app = express();
@@ -24,7 +25,7 @@ const apiKeyAuth = (req, res, next) => {
   // Security Hardening: If API_SECRET_KEY is not set on the server, all protected requests must fail.
   // This prevents accidentally exposing the API in production.
   if (!serverKey) {
-    console.error('CRITICAL: API_SECRET_KEY is not set. The API is un Gaccessible. Please set this variable in your .env file.');
+    console.error(chalk.red.bold('CRITICAL: API_SECRET_KEY is not set. The API is inaccessible. Please set this variable in your .env file.'));
     return res.status(503).json({ error: 'Service Unavailable: API secret key not configured on the server.' });
   }
 
@@ -39,9 +40,24 @@ const apiKeyAuth = (req, res, next) => {
 // API Routes - all are protected by the auth middleware
 app.use('/api', apiKeyAuth, apiRoutes);
 
+// Catch-all error handler middleware
+app.use((err, req, res, next) => {
+    console.error(chalk.red.bold('\n===== UNHANDLED ERROR ====='));
+    console.error(chalk.red('Request:', `${req.method} ${req.originalUrl}`));
+    console.error(err.stack);
+    console.error(chalk.red.bold('===========================\n'));
+    
+    // Avoid sending stack trace to client in production
+    if (res.headersSent) {
+        return next(err);
+    }
+    res.status(500).json({ error: 'Internal Server Error' });
+});
+
+
 app.listen(port, () => {
-  console.log(`SATIVAR-ISIS Backend listening at http://localhost:${port}`);
+  console.log(chalk.green(`SATIVAR-ISIS Backend listening at http://localhost:${port}`));
   if (!process.env.API_SECRET_KEY) {
-      console.error('CRITICAL SECURITY WARNING: API_SECRET_KEY is not defined in the environment. The API will not be accessible.');
+      console.error(chalk.yellow.bold('CRITICAL SECURITY WARNING: API_SECRET_KEY is not defined in the environment. The API will not be accessible.'));
   }
 });
