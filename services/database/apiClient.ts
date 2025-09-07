@@ -1,14 +1,13 @@
-// In a Vite project, environment variables are accessed via `import.meta.env`
-// and must be prefixed with `VITE_` to be exposed to the client-side code.
-// FIX: Cast `import.meta` to `any` to resolve TypeScript error about missing 'env' property for Vite env variables.
-const API_BASE_URL = (import.meta as any).env.VITE_API_URL || 'http://localhost:3001';
+// The execution environment provides environment variables via `process.env`.
+// Using `import.meta.env` causes a runtime error, so we switch to `process.env` for consistency
+// with how the Gemini API key is accessed.
+const API_BASE_URL = process.env.VITE_API_URL || 'http://localhost:3001';
 
 class ApiClient {
   private async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
     const url = `${API_BASE_URL}${endpoint}`;
     
-    // FIX: Cast `import.meta` to `any` to resolve TypeScript error about missing 'env' property for Vite env variables.
-    const apiKey = (import.meta as any).env.VITE_API_SECRET_KEY;
+    const apiKey = process.env.VITE_API_SECRET_KEY;
     
     const headers: HeadersInit = {
       'Content-Type': 'application/json',
@@ -48,6 +47,15 @@ class ApiClient {
       }
 
     } catch (error) {
+      // Improve network error handling to provide a more descriptive message.
+      if (error instanceof TypeError && error.message.toLowerCase().includes('failed to fetch')) {
+        const enhancedError = new Error(
+          `Network error: Failed to connect to the API server at ${API_BASE_URL}. Please check if the server is running and accessible.`
+        );
+        console.error(`API request failed for endpoint: ${endpoint}`, enhancedError);
+        throw enhancedError;
+      }
+
       if (endpoint !== '/health') {
         console.error(`API request failed for endpoint: ${endpoint}`, error);
       }

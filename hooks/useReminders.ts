@@ -53,7 +53,7 @@ const RemindersContext = createContext<RemindersContextType | undefined>(undefin
 
 // --- Provider ---
 export const RemindersProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { isOnline } = useConnection();
+  const { isOnline, reportOffline } = useConnection();
   const [reminders, setReminders] = useState<Reminder[]>([]);
   const [isSyncingReminders, setIsSyncingReminders] = useState(false);
   const [remindersSyncQueueCount, setRemindersSyncQueueCount] = useState(0);
@@ -99,12 +99,15 @@ export const RemindersProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
     } catch (error) {
       console.error("Failed to sync reminders:", error);
+      if (error instanceof Error && error.message.toLowerCase().includes('network error')) {
+        reportOffline();
+      }
       // We don't clear the queue, so it will be retried later.
     } finally {
       setIsSyncingReminders(false);
       setRemindersSyncQueueCount(getSyncQueue().length);
     }
-  }, [isOnline, isSyncingReminders, apiRepo, localRepo]);
+  }, [isOnline, isSyncingReminders, apiRepo, localRepo, reportOffline]);
 
   // Effect to trigger sync when coming online
   useEffect(() => {
@@ -113,20 +116,23 @@ export const RemindersProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     }
   }, [isOnline, processSync]);
   
-  // Load initial local reminders and check queue
+  // Load initial data on mount or when coming back online
   useEffect(() => {
     const loadData = async () => {
       let initialReminders: Reminder[] = [];
-      if (isOnline) {
-        try {
+      try {
+        if (isOnline) {
           initialReminders = await apiRepo.getAllReminders();
           await localRepo.saveAllReminders(initialReminders); // Cache fresh data
-        } catch {
-          console.warn("Could not fetch from API, falling back to local storage.");
+        } else {
           initialReminders = await localRepo.getAllReminders();
         }
-      } else {
-        initialReminders = await localRepo.getAllReminders();
+      } catch (error) {
+          console.warn("Could not fetch from API, falling back to local storage.", error);
+          if (error instanceof Error && error.message.toLowerCase().includes('network error')) {
+              reportOffline();
+          }
+          initialReminders = await localRepo.getAllReminders();
       }
       
       // OPTIMIZATION: Clean up old, completed reminders from the cache.
@@ -151,7 +157,7 @@ export const RemindersProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       setRemindersSyncQueueCount(getSyncQueue().length);
     };
     loadData();
-  }, [apiRepo, localRepo]); // Only run on initial mount
+  }, [isOnline, apiRepo, localRepo, reportOffline]);
 
   const addReminder = useCallback(async (reminderData: Omit<Reminder, 'id' | 'isCompleted'>) => {
     const newReminder: Reminder = {
@@ -171,12 +177,15 @@ export const RemindersProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       } catch (error) {
         console.error("Failed to add reminder to API. Queuing for sync.", error);
         addToSyncQueue({ type: 'add', payload: newReminder });
+         if (error instanceof Error && error.message.toLowerCase().includes('network error')) {
+            reportOffline();
+        }
       }
     } else {
       addToSyncQueue({ type: 'add', payload: newReminder });
     }
     setRemindersSyncQueueCount(getSyncQueue().length);
-  }, [isOnline, apiRepo, localRepo]);
+  }, [isOnline, apiRepo, localRepo, reportOffline]);
 
   const updateReminder = useCallback(async (updatedReminder: Reminder) => {
     // Optimistic update
@@ -189,12 +198,15 @@ export const RemindersProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       } catch (error) {
         console.error("Failed to update reminder to API. Queuing for sync.", error);
         addToSyncQueue({ type: 'update', payload: updatedReminder });
+         if (error instanceof Error && error.message.toLowerCase().includes('network error')) {
+            reportOffline();
+        }
       }
     } else {
       addToSyncQueue({ type: 'update', payload: updatedReminder });
     }
     setRemindersSyncQueueCount(getSyncQueue().length);
-  }, [isOnline, apiRepo, localRepo]);
+  }, [isOnline, apiRepo, localRepo, reportOffline]);
 
   const deleteReminder = useCallback(async (id: string) => {
     // Optimistic update
@@ -207,12 +219,15 @@ export const RemindersProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       } catch (error) {
         console.error("Failed to delete reminder from API. Queuing for sync.", error);
         addToSyncQueue({ type: 'delete', payload: id });
+         if (error instanceof Error && error.message.toLowerCase().includes('network error')) {
+            reportOffline();
+        }
       }
     } else {
       addToSyncQueue({ type: 'delete', payload: id });
     }
     setRemindersSyncQueueCount(getSyncQueue().length);
-  }, [isOnline, apiRepo, localRepo]);
+  }, [isOnline, apiRepo, localRepo, reportOffline]);
   
   const toggleReminderCompletion = useCallback(async (id: string) => {
     const reminderToToggle = reminders.find(r => r.id === id);
