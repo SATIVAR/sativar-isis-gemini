@@ -1,12 +1,19 @@
-// The execution environment provides environment variables via `process.env`.
-// Using `import.meta.env` causes a runtime error, so we switch to `process.env` for consistency
-// with how the Gemini API key is accessed.
-const API_BASE_URL = process.env.VITE_API_URL || 'http://localhost:3001';
+// In a Vite project, environment variables are exposed on `import.meta.env`.
+// They must be prefixed with `VITE_` to be accessible in the client-side code.
+// FIX: Switched from import.meta.env to process.env to resolve TypeScript error and align with project's environment variable handling.
+const API_BASE_URL = process.env.VITE_API_URL;
 
 class ApiClient {
   private async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
+    if (!API_BASE_URL) {
+      // This is a configured-offline state, not a network error.
+      // Throw a specific error that can be handled gracefully by other parts of the app.
+      throw new Error('API server not configured. Running in offline mode.');
+    }
+    
     const url = `${API_BASE_URL}${endpoint}`;
     
+    // FIX: Switched from import.meta.env to process.env to resolve TypeScript error and align with project's environment variable handling.
     const apiKey = process.env.VITE_API_SECRET_KEY;
     
     const headers: HeadersInit = {
@@ -47,19 +54,19 @@ class ApiClient {
       }
 
     } catch (error) {
+      let finalError = error;
       // Improve network error handling to provide a more descriptive message.
       if (error instanceof TypeError && error.message.toLowerCase().includes('failed to fetch')) {
-        const enhancedError = new Error(
+        finalError = new Error(
           `Network error: Failed to connect to the API server at ${API_BASE_URL}. Please check if the server is running and accessible.`
         );
-        console.error(`API request failed for endpoint: ${endpoint}`, enhancedError);
-        throw enhancedError;
       }
 
+      // Only log errors for endpoints that are not the health check to avoid console spam.
       if (endpoint !== '/health') {
-        console.error(`API request failed for endpoint: ${endpoint}`, error);
+        console.error(`API request failed for endpoint: ${endpoint}`, finalError);
       }
-      throw error;
+      throw finalError;
     }
   }
 
