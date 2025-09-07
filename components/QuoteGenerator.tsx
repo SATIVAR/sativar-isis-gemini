@@ -256,6 +256,7 @@ export const QuoteGenerator: React.FC = () => {
                         <div>
                             <p className="font-semibold">Ação Necessária: Chave da API do Gemini ausente</p>
                             <p className="mt-1">
+                                {/* FIX: Updated environment variable name to API_KEY to match Gemini guidelines. */}
                                 A aplicação está em modo de funcionalidade limitada. Para habilitar a análise de receitas, um administrador deve configurar a variável de ambiente <code>API_KEY</code> no painel de controle do ambiente de hospedagem.
                             </p>
                         </div>

@@ -1,9 +1,9 @@
-
 import React, { useState, useEffect } from 'react';
 import { useSettings } from '../../hooks/useSettings.ts';
 import { useReminders } from '../../hooks/useReminders.ts';
 import { DatabaseIcon, BarChart2Icon, ServerIcon, CheckCircleIcon, AlertTriangleIcon, AlertCircleIcon } from '../icons.tsx';
 import { Loader } from '../Loader.tsx';
+import { apiClient } from '../../services/database/apiClient.ts';
 
 const ConnectionStatusIndicator: React.FC<{ isOnline: boolean }> = ({ isOnline }) => (
     <div className="flex items-center gap-2" title={isOnline ? 'Conectado ao servidor' : 'Operando offline'}>
@@ -54,26 +54,14 @@ export const AdvancedPage: React.FC = () => {
         setDbConnectionError(null);
 
         try {
-            // NOTE: This will call the real backend endpoint.
-            const response = await fetch('http://localhost:3001/api/test-db-connection', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(formState.databaseConfig),
-            });
-
-            if (response.ok) {
-                setDbConnectionStatus('success');
-            } else {
-                const errorData = await response.json();
-                setDbConnectionStatus('error');
-                setDbConnectionError(errorData.details || 'Falha na conexão. Verifique os dados.');
-            }
+            // Use the centralized apiClient to ensure the correct backend URL and auth headers are used.
+            // The backend requires an API key even for this test endpoint.
+            await apiClient.post('/test-db-connection', formState.databaseConfig);
+            setDbConnectionStatus('success');
         } catch (error) {
             console.error('API call to test DB connection failed:', error);
             setDbConnectionStatus('error');
-            setDbConnectionError('Não foi possível conectar ao servidor. O backend está rodando?');
+            setDbConnectionError(error instanceof Error ? error.message : 'Falha na conexão. Verifique os dados.');
         }
 
         setTimeout(() => setDbConnectionStatus('idle'), 5000);

@@ -1,11 +1,14 @@
-const API_BASE_URL = process.env.API_URL || 'http://localhost:3001'; // The backend server URL
+// In a Vite project, environment variables are accessed via `import.meta.env`
+// and must be prefixed with `VITE_` to be exposed to the client-side code.
+// FIX: Cast `import.meta` to `any` to resolve TypeScript error about missing 'env' property for Vite env variables.
+const API_BASE_URL = (import.meta as any).env.VITE_API_URL || 'http://localhost:3001';
 
 class ApiClient {
   private async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
     const url = `${API_BASE_URL}${endpoint}`;
     
-    // It's assumed that process.env.API_SECRET_KEY is exposed to the frontend build process.
-    const apiKey = process.env.API_SECRET_KEY;
+    // FIX: Cast `import.meta` to `any` to resolve TypeScript error about missing 'env' property for Vite env variables.
+    const apiKey = (import.meta as any).env.VITE_API_SECRET_KEY;
     
     const headers: HeadersInit = {
       'Content-Type': 'application/json',
@@ -18,20 +21,22 @@ class ApiClient {
 
     try {
       const response = await fetch(url, {
-        headers, // Use the new headers object
+        headers,
         ...options,
       });
 
       if (!response.ok) {
-        // Handle specific auth error from our new middleware
-        if (response.status === 401 || response.status === 503) {
+        let errorMessage = `HTTP error! status: ${response.status}`;
+        try {
           const errorJson = await response.json();
-          throw new Error(errorJson.error || 'API authentication failed.');
+          // Use a specific error from our backend if available
+          errorMessage = errorJson.details || errorJson.error || errorJson.message || errorMessage;
+        } catch (e) {
+          // Response was not JSON or had no body
         }
-        throw new Error(`HTTP error! status: ${response.status}`);
+        throw new Error(errorMessage);
       }
       
-      // Handle cases where the response might be empty (e.g., a 204 No Content)
       if (response.status === 204) {
         return undefined as T;
       }
@@ -39,15 +44,14 @@ class ApiClient {
       if (contentType && contentType.indexOf("application/json") !== -1) {
         return response.json();
       } else {
-        return undefined as T; // Or handle as appropriate for your app
+        return undefined as T;
       }
 
     } catch (error) {
-      // Silence expected health check failures to avoid console noise when offline.
       if (endpoint !== '/health') {
         console.error(`API request failed for endpoint: ${endpoint}`, error);
       }
-      throw error; // Re-throw to be caught by the calling hook
+      throw error;
     }
   }
 
@@ -78,5 +82,4 @@ class ApiClient {
   }
 }
 
-// Singleton instance to be used across the app
 export const apiClient = new ApiClient();

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useReminders } from '../hooks/useReminders.ts';
 import type { Reminder, Task } from '../types.ts';
-import { BellIcon, CalendarIcon, CheckIcon, EditIcon, RepeatIcon, Trash2Icon, XCircleIcon, UserIcon, PackageIcon, FileTextIcon, PlusCircleIcon } from './icons.tsx';
+import { BellIcon, CalendarIcon, CheckIcon, EditIcon, RepeatIcon, Trash2Icon, XCircleIcon, UserIcon, PackageIcon, FileTextIcon, PlusCircleIcon, ChevronDownIcon } from './icons.tsx';
 import { Loader } from './Loader.tsx';
 
 interface ReminderModalProps {
@@ -289,12 +289,15 @@ const TaskItem: React.FC<{ task: Task; onToggle: (taskId: string) => void }> = (
 
 const ReminderItem: React.FC<{ reminder: Reminder; onEdit: (reminder: Reminder) => void; }> = ({ reminder, onEdit }) => {
     const { toggleReminderCompletion, deleteReminder, updateReminder } = useReminders();
+    const [isExpanded, setIsExpanded] = useState(false);
     const isOverdue = !reminder.isCompleted && new Date(reminder.dueDate) < new Date();
     const dueDate = new Date(reminder.dueDate);
     const formattedDate = isNaN(dueDate.getTime()) ? 'Data inválida' : new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeStyle: 'short' }).format(dueDate);
     
     const [isJustCompleted, setIsJustCompleted] = useState(false);
     const prevIsCompleted = useRef(reminder.isCompleted);
+    
+    const hasDetails = !!reminder.notes || (reminder.tasks && reminder.tasks.length > 0);
 
     useEffect(() => {
         if (reminder.isCompleted && !prevIsCompleted.current) {
@@ -322,6 +325,18 @@ const ReminderItem: React.FC<{ reminder: Reminder; onEdit: (reminder: Reminder) 
         high: { color: 'bg-red-500', label: 'Alta' },
     };
 
+    const detailSummary = () => {
+        const parts = [];
+        if (reminder.tasks && reminder.tasks.length > 0) {
+            const taskText = reminder.tasks.length === 1 ? '1 subtarefa' : `${reminder.tasks.length} subtarefas`;
+            parts.push(taskText);
+        }
+        if (reminder.notes) {
+            parts.push('1 nota');
+        }
+        return parts.join(', ');
+    };
+
     return (
         <div className={`rounded-lg flex items-start gap-0 transition-colors ${reminder.isCompleted ? 'bg-green-900/20' : isOverdue ? 'bg-red-900/30' : 'bg-gray-700/50'} ${isJustCompleted ? 'highlight-complete' : ''}`}>
             <div className={`w-1.5 self-stretch rounded-l-lg ${priorityInfo[priority].color}`} title={`Prioridade: ${priorityInfo[priority].label}`}></div>
@@ -342,13 +357,30 @@ const ReminderItem: React.FC<{ reminder: Reminder; onEdit: (reminder: Reminder) 
                         <span>{formattedDate}</span>
                         {reminder.recurrence !== 'none' && <RepeatIcon className="w-3 h-3 ml-1"><title>Repete {reminder.recurrence}</title></RepeatIcon>}
                     </div>
-                     {reminder.notes && <p className="text-xs text-gray-400 mt-1 italic">"{reminder.notes}"</p>}
-                     {reminder.tasks && reminder.tasks.length > 0 && (
-                        <ul className="mt-2 space-y-1 pl-1 border-l-2 border-gray-600/50">
-                            {reminder.tasks.map(task => (
-                                <TaskItem key={task.id} task={task} onToggle={handleToggleTask} />
-                            ))}
-                        </ul>
+
+                    {hasDetails && (
+                        <button
+                            onClick={() => setIsExpanded(!isExpanded)}
+                            className="flex items-center gap-1 text-xs text-gray-400 hover:text-white mt-2 p-1 -ml-1 rounded focus:outline-none focus:ring-2 focus:ring-fuchsia-500"
+                            aria-expanded={isExpanded}
+                            aria-controls={`reminder-details-${reminder.id}`}
+                        >
+                            <span>{isExpanded ? 'Ocultar detalhes' : `Mostrar ${detailSummary()}`}</span>
+                            <ChevronDownIcon className={`w-3 h-3 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} />
+                        </button>
+                    )}
+
+                    {isExpanded && hasDetails && (
+                         <div id={`reminder-details-${reminder.id}`} className="mt-2 space-y-2 animate-fade-in">
+                            {reminder.notes && <p className="text-xs text-gray-400 italic mb-2">"{reminder.notes}"</p>}
+                            {reminder.tasks && reminder.tasks.length > 0 && (
+                               <ul className="space-y-1 pl-1 border-l-2 border-gray-600/50">
+                                   {reminder.tasks.map(task => (
+                                       <TaskItem key={task.id} task={task} onToggle={handleToggleTask} />
+                                   ))}
+                               </ul>
+                           )}
+                        </div>
                     )}
                 </div>
                 <div className="flex-shrink-0 flex items-center gap-1">
@@ -394,6 +426,13 @@ export const RemindersList: React.FC<{ onClose: () => void }> = ({ onClose }) =>
                 }
                 .checkmark-pop-in {
                     animation: checkmark-pop 0.5s ease-out;
+                }
+                @keyframes fade-in {
+                    from { opacity: 0; transform: translateY(-5px); }
+                    to { opacity: 1; transform: translateY(0); }
+                }
+                .animate-fade-in {
+                    animation: fade-in 0.3s ease-out forwards;
                 }
             `}</style>
             {editingReminder && <ReminderModal reminder={editingReminder} onClose={() => setEditingReminder(null)} />}

@@ -1,9 +1,9 @@
-
 import { GoogleGenAI } from "@google/genai";
 import type { QuoteResult, QuotedProduct } from "../types.ts";
 import { addApiCall } from "./apiHistoryService.ts";
 
 const API_CALL_COUNTER_KEY = 'sativar_isis_api_call_count';
+// FIX: Updated error message to refer to API_KEY as per Gemini API guidelines.
 const API_KEY_MISSING_ERROR = "A chave da API do Gemini não foi configurada no ambiente. Um administrador precisa definir a variável de ambiente API_KEY.";
 
 const incrementApiCallCount = () => {
@@ -16,6 +16,9 @@ const incrementApiCallCount = () => {
 };
 
 const getApiKey = (): string | undefined => {
+    // In a Vite project, client-side environment variables must be prefixed with VITE_
+    // and are accessed via import.meta.env.
+    // FIX: Switched from import.meta.env.VITE_API_KEY to process.env.API_KEY to follow Gemini API guidelines and resolve TypeScript error.
     return process.env.API_KEY;
 };
 
@@ -111,6 +114,7 @@ const handleGeminiError = (error: unknown): Error => {
 
         // API Key issues
         if (lowerMessage.includes('api key not valid') || lowerMessage.includes('api_key_invalid') || message.includes('[401]') || message.includes('[403]')) {
+            // FIX: Updated error message to refer to API_KEY as per Gemini API guidelines.
             return new Error("A chave da API do Gemini é inválida, expirou ou não possui as permissões necessárias. Um administrador deve verificar a configuração da variável de ambiente API_KEY no servidor.");
         }
         
