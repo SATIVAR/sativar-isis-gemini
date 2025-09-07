@@ -12,28 +12,6 @@ export default defineConfig(({ mode }) => {
         alias: {
           '@': path.resolve(__dirname, '.'),
         }
-      },
-      server: {
-        proxy: {
-          '/api': {
-            target: 'http://localhost:3001',
-            changeOrigin: true,
-          },
-        },
-      },
-      build: {
-        rollupOptions: {
-          external: [
-            'child_process',
-            'path',
-            'fs',
-            'fs/promises',
-            'util',
-            'crypto',
-            'pg',
-            'pg-native'
-          ]
-        }
       }
     };
 });

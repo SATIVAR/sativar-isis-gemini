@@ -1,110 +1,82 @@
-// Cliente API simplificado para comunicação com o backend
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+const API_BASE_URL = process.env.API_URL || 'http://localhost:3001'; // The backend server URL
 
 class ApiClient {
-  private baseUrl: string;
-
-  constructor(baseUrl: string = API_BASE_URL) {
-    this.baseUrl = baseUrl;
-  }
-
   private async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
-    const url = `${this.baseUrl}${endpoint}`;
+    const url = `${API_BASE_URL}${endpoint}`;
     
-    const config: RequestInit = {
-      headers: {
-        'Content-Type': 'application/json',
-        ...options.headers,
-      },
-      ...options,
+    // It's assumed that process.env.API_SECRET_KEY is exposed to the frontend build process.
+    const apiKey = process.env.API_SECRET_KEY;
+    
+    const headers: HeadersInit = {
+      'Content-Type': 'application/json',
+      ...options.headers,
     };
 
+    if (apiKey) {
+      headers['X-API-Key'] = apiKey;
+    }
+
     try {
-      const response = await fetch(url, config);
-      
+      const response = await fetch(url, {
+        headers, // Use the new headers object
+        ...options,
+      });
+
       if (!response.ok) {
+        // Handle specific auth error from our new middleware
+        if (response.status === 401 || response.status === 503) {
+          const errorJson = await response.json();
+          throw new Error(errorJson.error || 'API authentication failed.');
+        }
         throw new Error(`HTTP error! status: ${response.status}`);
       }
       
-      return await response.json();
+      // Handle cases where the response might be empty (e.g., a 204 No Content)
+      if (response.status === 204) {
+        return undefined as T;
+      }
+      const contentType = response.headers.get("content-type");
+      if (contentType && contentType.indexOf("application/json") !== -1) {
+        return response.json();
+      } else {
+        return undefined as T; // Or handle as appropriate for your app
+      }
+
     } catch (error) {
-      console.error(`API request failed: ${endpoint}`, error);
-      throw error;
+      // Silence expected health check failures to avoid console noise when offline.
+      if (endpoint !== '/health') {
+        console.error(`API request failed for endpoint: ${endpoint}`, error);
+      }
+      throw error; // Re-throw to be caught by the calling hook
     }
   }
 
-  // Generic query method
-  async query<T = any>(sql: string, params: any[] = []): Promise<T[]> {
-    const response = await this.request<{ success: boolean; rows: T[]; error?: string }>('/api/db/query', {
-      method: 'POST',
-      body: JSON.stringify({ query: sql, params }),
-    });
-
-    if (!response.success) {
-      throw new Error(response.error || 'Query failed');
-    }
-
-    return response.rows;
+  async healthCheck(): Promise<{ status: 'ok' }> {
+    return this.request('/health');
   }
 
-  // Settings methods
-  async getSettings(): Promise<Record<string, any>> {
-    return this.request<Record<string, any>>('/api/settings');
+  async get<T>(endpoint: string): Promise<T> {
+    return this.request<T>(`/api${endpoint}`, { method: 'GET' });
   }
 
-  async setSetting(key: string, value: any): Promise<void> {
-    await this.request('/api/settings', {
+  async post<T>(endpoint: string, data: any): Promise<T> {
+    return this.request<T>(`/api${endpoint}`, {
       method: 'POST',
-      body: JSON.stringify({ key, value }),
+      body: JSON.stringify(data),
     });
   }
 
-  // Products methods
-  async getProducts(): Promise<any[]> {
-    return this.request<any[]>('/api/products');
-  }
-
-  async createProduct(product: { name: string; price: number; description?: string }): Promise<any> {
-    return this.request('/api/products', {
-      method: 'POST',
-      body: JSON.stringify(product),
+  async put<T>(endpoint: string, data: any): Promise<T> {
+    return this.request<T>(`/api${endpoint}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
     });
   }
 
-  // Quotes methods
-  async getQuotes(): Promise<any[]> {
-    return this.request<any[]>('/api/quotes');
-  }
-
-  async createQuote(quote: { patient_name: string; prescription_text: string; total_amount: number }): Promise<any> {
-    return this.request('/api/quotes', {
-      method: 'POST',
-      body: JSON.stringify(quote),
-    });
-  }
-
-  // Reminders methods
-  async getReminders(): Promise<any[]> {
-    return this.request<any[]>('/api/reminders');
-  }
-
-  async createReminder(reminder: { title: string; description?: string; due_date?: string }): Promise<any> {
-    return this.request('/api/reminders', {
-      method: 'POST',
-      body: JSON.stringify(reminder),
-    });
-  }
-
-  // Health check
-  async healthCheck(): Promise<{ status: string; timestamp: string }> {
-    return this.request<{ status: string; timestamp: string }>('/api/health');
-  }
-
-  // Database status
-  async getDatabaseStatus(): Promise<{ success: boolean; connected: boolean; timestamp?: string; error?: string }> {
-    return this.request<{ success: boolean; connected: boolean; timestamp?: string; error?: string }>('/api/db/status');
+  async delete<T>(endpoint: string): Promise<T> {
+    return this.request<T>(`/api${endpoint}`, { method: 'DELETE' });
   }
 }
 
+// Singleton instance to be used across the app
 export const apiClient = new ApiClient();
-export default apiClient;

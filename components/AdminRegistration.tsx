@@ -1,4 +1,6 @@
+
 import React, { useState } from 'react';
+import { EyeIcon, EyeOffIcon } from './icons.tsx';
 
 interface AdminRegistrationProps {
   onRegistrationSuccess: () => void;
@@ -11,6 +13,8 @@ export const AdminRegistration: React.FC<AdminRegistrationProps> = ({ onRegistra
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
+  const [isPasswordVisible, setIsPasswordVisible] = useState(false);
+  const [isConfirmVisible, setIsConfirmVisible] = useState(false);
 
   const handleRegister = (e: React.FormEvent) => {
     e.preventDefault();
@@ -58,27 +62,47 @@ export const AdminRegistration: React.FC<AdminRegistrationProps> = ({ onRegistra
             <label htmlFor="password" className="block text-sm font-medium text-gray-300 mb-2">
               Senha
             </label>
-            <input
-              type="password"
-              id="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full bg-[#303134] border border-gray-600/50 text-white rounded-lg px-3 py-2 focus:ring-2 focus:ring-fuchsia-500 focus:border-fuchsia-500 outline-none transition"
-              required
-            />
+            <div className="relative">
+                <input
+                  type={isPasswordVisible ? 'text' : 'password'}
+                  id="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="w-full bg-[#303134] border border-gray-600/50 text-white rounded-lg px-3 py-2 focus:ring-2 focus:ring-fuchsia-500 focus:border-fuchsia-500 outline-none transition pr-10"
+                  required
+                />
+                <button
+                    type="button"
+                    onClick={() => setIsPasswordVisible(!isPasswordVisible)}
+                    className="absolute inset-y-0 right-0 px-3 flex items-center text-gray-400 hover:text-white"
+                    aria-label={isPasswordVisible ? "Esconder senha" : "Mostrar senha"}
+                >
+                    {isPasswordVisible ? <EyeOffIcon className="w-5 h-5" /> : <EyeIcon className="w-5 h-5" />}
+                </button>
+            </div>
           </div>
            <div>
             <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-300 mb-2">
               Confirmar Senha
             </label>
-            <input
-              type="password"
-              id="confirmPassword"
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              className="w-full bg-[#303134] border border-gray-600/50 text-white rounded-lg px-3 py-2 focus:ring-2 focus:ring-fuchsia-500 focus:border-fuchsia-500 outline-none transition"
-              required
-            />
+            <div className="relative">
+                <input
+                  type={isConfirmVisible ? 'text' : 'password'}
+                  id="confirmPassword"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  className="w-full bg-[#303134] border border-gray-600/50 text-white rounded-lg px-3 py-2 focus:ring-2 focus:ring-fuchsia-500 focus:border-fuchsia-500 outline-none transition pr-10"
+                  required
+                />
+                <button
+                    type="button"
+                    onClick={() => setIsConfirmVisible(!isConfirmVisible)}
+                    className="absolute inset-y-0 right-0 px-3 flex items-center text-gray-400 hover:text-white"
+                    aria-label={isConfirmVisible ? "Esconder senha" : "Mostrar senha"}
+                >
+                    {isConfirmVisible ? <EyeOffIcon className="w-5 h-5" /> : <EyeIcon className="w-5 h-5" />}
+                </button>
+            </div>
           </div>
           
           {error && <p className="text-sm text-red-400 text-center">{error}</p>}

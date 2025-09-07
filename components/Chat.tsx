@@ -1,14 +1,34 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { jsPDF } from 'jspdf';
-import { useSettings } from '../hooks/useSettings';
-import type { ChatMessage, QuoteResult, MessageContent } from '../types';
-import { AlertTriangleIcon, ClipboardCheckIcon, ClipboardIcon, DownloadIcon, PlusIcon, SendIcon, UserIcon, BellIcon } from './icons';
-import { Loader } from './Loader';
-import { ReminderModal } from './Reminders';
+import { useSettings } from '../hooks/useSettings.ts';
+import type { ChatMessage, QuoteResult, MessageContent } from '../types.ts';
+import { AlertTriangleIcon, ClipboardCheckIcon, ClipboardIcon, DownloadIcon, PlusIcon, SendIcon, UserIcon, BellIcon, RefreshCwIcon, CheckIcon } from './icons.tsx';
+import { Loader } from './Loader.tsx';
+import { ReminderModal } from './Reminders.tsx';
+import { TypingIndicator } from './TypingIndicator.tsx';
 
 const AIAvatar: React.FC = () => (
     <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-fuchsia-900">
-        <span className="text-sm font-bold text-fuchsia-200">I</span>
+        <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="24"
+            height="24"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className="w-5 h-5 text-fuchsia-200"
+            aria-label="Ísis AI Avatar"
+        >
+            <path d="M12 6V2H8"></path>
+            <path d="m8 18-4 4V8a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2Z"></path>
+            <path d="M2 12h2"></path>
+            <path d="M9 11v2"></path>
+            <path d="M15 11v2"></path>
+            <path d="M20 12h2"></path>
+        </svg>
     </div>
 );
 
@@ -18,7 +38,7 @@ const UserAvatar: React.FC = () => (
     </div>
 );
 
-const QuoteResultDisplay: React.FC<{result: QuoteResult}> = ({ result }) => {
+const QuoteResultDisplay: React.FC<{result: QuoteResult, onResetChat: () => void}> = ({ result, onResetChat }) => {
     const [copied, setCopied] = useState(false);
     const [isReminderModalOpen, setIsReminderModalOpen] = useState(false);
     const { settings } = useSettings();
@@ -139,8 +159,20 @@ const QuoteResultDisplay: React.FC<{result: QuoteResult}> = ({ result }) => {
                                 ))}
                              </ul>
                              <p className="pt-1"><span className="text-gray-400">Valor Total:</span> {result.totalValue}</p>
-                             {result.observations && <p className="pt-1"><span className="text-gray-400">Observações:</span> {result.observations}</p>}
                         </div>
+                        {result.observations && (
+                            <div className="p-3 bg-yellow-900/30 rounded-lg border border-yellow-700/50">
+                                <div className="flex items-start gap-2">
+                                    <AlertTriangleIcon className="w-4 h-4 text-yellow-400 mt-0.5 flex-shrink-0" />
+                                    <div>
+                                        <h4 className="font-semibold text-yellow-300 text-sm">Observações da IA</h4>
+                                        <div className="whitespace-pre-wrap font-sans text-sm text-yellow-300/90 mt-1">
+                                            {result.observations}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
                         {result.medicalHistory && (
                             <div className="pt-4 border-t border-gray-700/50">
                                 <h4 className="font-semibold text-fuchsia-300/80 mb-1">Histórico Médico Relevante</h4>
@@ -175,23 +207,39 @@ const QuoteResultDisplay: React.FC<{result: QuoteResult}> = ({ result }) => {
                         aria-label="Criar um lembrete para este orçamento"
                     >
                         <BellIcon className="w-4 h-4" />
-                        Criar Tarefa
+                        Criar Lembrete
                     </button>
-                    <button 
-                        onClick={handleDownloadPDF}
-                        className="flex items-center gap-2 px-4 py-2 bg-gray-700 text-sm text-gray-200 font-medium rounded-lg hover:bg-gray-600 transition-colors"
-                        aria-label="Baixar orçamento como PDF"
-                    >
-                        <DownloadIcon className="w-4 h-4" />
-                        Baixar PDF
-                    </button>
+                    <div className="flex items-center gap-2">
+                        <button 
+                            onClick={handleDownloadPDF}
+                            className="flex items-center gap-2 px-4 py-2 bg-gray-700 text-sm text-gray-200 font-medium rounded-lg hover:bg-gray-600 transition-colors"
+                            aria-label="Baixar orçamento como PDF"
+                        >
+                            <DownloadIcon className="w-4 h-4" />
+                            Baixar PDF
+                        </button>
+                        <button
+                            onClick={onResetChat}
+                            className="flex items-center gap-2 px-4 py-2 bg-fuchsia-700 text-sm text-white font-semibold rounded-lg shadow-md hover:bg-fuchsia-600 transition-colors"
+                            aria-label="Analisar nova receita"
+                        >
+                            <RefreshCwIcon className="w-4 h-4" />
+                            Analisar Nova Receita
+                        </button>
+                    </div>
                 </div>
             </div>
         </>
     );
 };
 
-const MessageBubble: React.FC<{ message: ChatMessage }> = ({ message }) => {
+const MessageBubble: React.FC<{ 
+    message: ChatMessage; 
+    onAction: (messageId: string, payload: string) => void; 
+    processingAction: { messageId: string; payload: string } | null;
+    loadingAction: 'file' | 'text' | null;
+    onResetChat: () => void;
+}> = ({ message, onAction, processingAction, loadingAction, onResetChat }) => {
     const [copied, setCopied] = useState(false);
 
     const handleCopy = (textToCopy: string) => {
@@ -207,12 +255,49 @@ const MessageBubble: React.FC<{ message: ChatMessage }> = ({ message }) => {
                 return <p className="whitespace-pre-wrap">{content.text}</p>;
             case 'file_request':
                 return <p className="text-gray-300">Arquivo enviado: <span className="font-medium text-white">{content.fileName}</span></p>
-            case 'loading':
-                return <div className="flex items-center gap-2"><Loader /><span>Analisando...</span></div>;
+            case 'loading': {
+                return <TypingIndicator />;
+            }
             case 'quote':
-                return <QuoteResultDisplay result={content.result} />;
+                return <QuoteResultDisplay result={content.result} onResetChat={onResetChat} />;
             case 'error':
-                 return <p className="text-red-400">{content.message}</p>;
+                 return (
+                    <div className="flex items-start gap-3 p-3 bg-red-900/20 rounded-lg border border-red-700/50">
+                        <AlertTriangleIcon className="w-5 h-5 text-red-400 flex-shrink-0" />
+                        <p className="text-sm text-red-300">{content.message}</p>
+                    </div>
+                 );
+            case 'actions':
+                const isThisGroupProcessing = processingAction?.messageId === message.id;
+                return (
+                    <div>
+                        {content.text && <p className="whitespace-pre-wrap mb-3">{content.text}</p>}
+                        <div className="flex flex-wrap gap-2">
+                            {content.actions.map(action => {
+                                const isThisButtonProcessing = isThisGroupProcessing && processingAction?.payload === action.payload;
+                                return (
+                                    <button
+                                        key={action.payload}
+                                        onClick={() => onAction(message.id, action.payload)}
+                                        disabled={isThisGroupProcessing}
+                                        className={`text-white text-sm font-medium py-1.5 px-3 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-fuchsia-500
+                                            ${isThisButtonProcessing
+                                                ? 'bg-fuchsia-900 animate-pulse'
+                                                : 'bg-gray-700'
+                                            }
+                                            ${isThisGroupProcessing
+                                                ? 'opacity-70 cursor-not-allowed'
+                                                : 'hover:bg-fuchsia-800'
+                                            }
+                                        `}
+                                    >
+                                        {action.label}
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    </div>
+                );
             default:
                 return null;
         }
@@ -223,6 +308,8 @@ const MessageBubble: React.FC<{ message: ChatMessage }> = ({ message }) => {
     const copyButtonClass = isAI
         ? "bg-gray-700 hover:bg-gray-600"
         : "bg-green-900 hover:bg-green-800";
+    
+    const isUserActionCompleteText = message.sender === 'user' && message.content.type === 'text' && message.isActionComplete;
 
     return (
         <div className={`flex items-start gap-3 ${!isAI ? 'justify-end' : ''}`}>
@@ -237,9 +324,19 @@ const MessageBubble: React.FC<{ message: ChatMessage }> = ({ message }) => {
                         {copied ? <ClipboardCheckIcon className="w-4 h-4 text-green-400" /> : <ClipboardIcon className="w-4 h-4 text-gray-400" />}
                     </button>
                 )}
-                <div className={canBeCopied ? 'pr-8' : ''}>
-                    {renderContent(message.content)}
-                </div>
+                {isUserActionCompleteText ? (
+                    <div className="flex items-end gap-1.5">
+                        <div className={canBeCopied ? 'pr-8' : ''}>
+                           {renderContent(message.content)}
+                        </div>
+                        {/* FIX: The `title` prop is not valid for Icon components. Replaced with a child `<title>` element for accessibility. */}
+                        <CheckIcon className="w-4 h-4 text-white/70 flex-shrink-0 mb-0.5"><title>Ação concluída</title></CheckIcon>
+                    </div>
+                ) : (
+                    <div className={canBeCopied ? 'pr-8' : ''}>
+                        {renderContent(message.content)}
+                    </div>
+                )}
             </div>
             {!isAI && <UserAvatar />}
         </div>
@@ -299,12 +396,16 @@ const ChatInput: React.FC<{
             <div className="flex items-center gap-2 rounded-xl bg-[#303134] p-2">
                 <button
                     onClick={() => fileInputRef.current?.click()}
-                    className="rounded-full p-2 transition-colors hover:bg-gray-700 disabled:cursor-not-allowed disabled:opacity-50"
+                    className="flex h-10 w-10 items-center justify-center rounded-full p-2 transition-colors hover:bg-gray-700 disabled:cursor-not-allowed disabled:opacity-50"
                     disabled={isLoading || disabled}
                     aria-label="Attach file"
                     title={disabled ? disabledReason : "Anexar arquivo"}
                 >
-                    <PlusIcon className="h-6 w-6 text-gray-400" />
+                    {isLoading && loadingAction === 'file' ? (
+                        <Loader />
+                    ) : (
+                        <PlusIcon className="h-6 w-6 text-gray-400" />
+                    )}
                 </button>
                 <input
                     ref={fileInputRef}
@@ -343,6 +444,9 @@ interface ChatProps {
     disabled: boolean;
     disabledReason: string;
     loadingAction: 'file' | 'text' | null;
+    onAction: (messageId: string, payload: string) => void;
+    processingAction: { messageId: string; payload: string } | null;
+    onResetChat: () => void;
 }
 
 export const Chat: React.FC<ChatProps> = ({
@@ -351,7 +455,10 @@ export const Chat: React.FC<ChatProps> = ({
     isLoading,
     disabled,
     disabledReason,
-    loadingAction
+    loadingAction,
+    onAction,
+    processingAction,
+    onResetChat,
 }) => {
     const chatEndRef = useRef<HTMLDivElement | null>(null);
 
@@ -363,7 +470,14 @@ export const Chat: React.FC<ChatProps> = ({
         <>
             <div className="flex-grow space-y-6 overflow-y-auto p-4 md:p-6">
                  {messages.map((msg) => (
-                    <MessageBubble key={msg.id} message={msg} />
+                    <MessageBubble 
+                        key={msg.id} 
+                        message={msg} 
+                        onAction={onAction} 
+                        processingAction={processingAction} 
+                        loadingAction={loadingAction}
+                        onResetChat={onResetChat}
+                    />
                 ))}
                 <div ref={chatEndRef} />
             </div>

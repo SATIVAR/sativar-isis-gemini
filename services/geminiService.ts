@@ -1,8 +1,10 @@
-import { GoogleGenAI } from "@google/genai";
-import type { QuoteResult, QuotedProduct } from "../types";
 
-export const API_KEY_STORAGE_KEY = 'sativar_isis_gemini_api_key';
+import { GoogleGenAI } from "@google/genai";
+import type { QuoteResult, QuotedProduct } from "../types.ts";
+import { addApiCall } from "./apiHistoryService.ts";
+
 const API_CALL_COUNTER_KEY = 'sativar_isis_api_call_count';
+const API_KEY_MISSING_ERROR = "A chave da API do Gemini não foi configurada no ambiente. Um administrador precisa definir a variável de ambiente API_KEY.";
 
 const incrementApiCallCount = () => {
     try {
@@ -13,17 +15,8 @@ const incrementApiCallCount = () => {
     }
 };
 
-
 const getApiKey = (): string | undefined => {
-    try {
-        const storedKey = localStorage.getItem(API_KEY_STORAGE_KEY);
-        if (storedKey) {
-            return storedKey;
-        }
-    } catch (e) {
-        console.error("Could not access localStorage for API key", e);
-    }
-    return (typeof process !== 'undefined' ? process.env.API_KEY : undefined) || import.meta.env.VITE_GEMINI_API_KEY;
+    return process.env.API_KEY;
 };
 
 export const isApiKeyConfigured = (): boolean => {
@@ -55,16 +48,8 @@ const parseGeminiResponse = (responseText: string): QuoteResult => {
     const patientMessageIndex = responseText.indexOf(patientMessageMarker);
 
     if (internalSummaryIndex === -1 || patientMessageIndex === -1) {
-        console.warn("Could not find response markers. Returning full text as patient message.");
-        return {
-            id: crypto.randomUUID(),
-            patientName: "Paciente Desconhecido",
-            internalSummary: "Não foi possível analisar a resposta da IA. Verifique o formato do prompt nas configurações.",
-            patientMessage: responseText,
-            validity: 'Não encontrado',
-            products: [],
-            totalValue: 'Não encontrado',
-        };
+        // Throw a user-friendly error if the response format is incorrect
+        throw new Error("A resposta da IA está em um formato inesperado. Não foi possível encontrar os marcadores de seção necessários para a análise. Por favor, tente novamente ou verifique a configuração do prompt do sistema.");
     }
 
     const internalSummaryText = responseText
@@ -95,10 +80,10 @@ const parseGeminiResponse = (responseText: string): QuoteResult => {
         const productMatch = line.match(/- Item:\s*(.*?)\s*\|\s*Quantidade:\s*(.*?)\s*\|\s*Concentração:\s*(.*?)\s*\|\s*Status:\s*(.*)/i);
         if (productMatch) {
             products.push({
-                name: productMatch[1].trim(),
-                quantity: productMatch[2].trim(),
-                concentration: productMatch[3].trim(),
-                status: productMatch[4].trim(),
+                name: productMatch[1].trim() || 'Produto não identificado',
+                quantity: productMatch[2].trim() || 'N/A',
+                concentration: productMatch[3].trim() || 'N/A',
+                status: productMatch[4].trim() || 'Status desconhecido',
             });
         }
     }
@@ -106,11 +91,11 @@ const parseGeminiResponse = (responseText: string): QuoteResult => {
     return { 
         id: crypto.randomUUID(),
         patientName: patientName || 'Não encontrado',
-        internalSummary: internalSummaryText, // Keep the raw text for display/debug
+        internalSummary: internalSummaryText,
         patientMessage, 
-        validity,
+        validity: validity || 'Informação ausente',
         products,
-        totalValue,
+        totalValue: totalValue || 'Não encontrado',
         medicalHistory, 
         doctorNotes,
         observations,
@@ -126,7 +111,7 @@ const handleGeminiError = (error: unknown): Error => {
 
         // API Key issues
         if (lowerMessage.includes('api key not valid') || lowerMessage.includes('api_key_invalid') || message.includes('[401]') || message.includes('[403]')) {
-            return new Error("A chave da API do Gemini é inválida ou não foi configurada corretamente. Verifique a chave nas configurações.");
+            return new Error("A chave da API do Gemini é inválida, expirou ou não possui as permissões necessárias. Um administrador deve verificar a configuração da variável de ambiente API_KEY no servidor.");
         }
         
         // Quota issues
@@ -142,6 +127,11 @@ const handleGeminiError = (error: unknown): Error => {
         // Network issues
         if (lowerMessage.includes('fetch failed') || lowerMessage.includes('network error')) {
             return new Error("Erro de rede ao tentar se comunicar com a IA. Verifique sua conexão com a internet.");
+        }
+
+        // Specific message for empty responses
+        if (message === "A IA não retornou uma resposta de texto.") {
+             return new Error("A IA retornou uma resposta vazia. Isso pode ocorrer por um problema temporário ou devido a filtros de segurança. Tente novamente ou ajuste a sua solicitação.");
         }
 
         // HTTP status code parsing for more generic errors
@@ -160,8 +150,8 @@ const handleGeminiError = (error: unknown): Error => {
         }
         
         // Return a slightly more informative generic error if it's from Gemini
-        if (lowerMessage.includes('gemini')) {
-            return new Error(`Ocorreu um erro inesperado com a IA Gemini: ${message}`);
+        if (lowerMessage.includes('gemini') || message.includes('A resposta da IA está em um formato inesperado')) {
+            return new Error(`Falha na comunicação com a IA: ${message}`);
         }
         
         // Generic fallback with original error message
@@ -175,7 +165,7 @@ const handleGeminiError = (error: unknown): Error => {
 export const processPrescription = async (file: File, systemPrompt: string): Promise<QuoteResult> => {
     const apiKey = getApiKey();
     if (!apiKey) {
-        throw new Error("A chave da API do Gemini não foi configurada.");
+        throw new Error(API_KEY_MISSING_ERROR);
     }
     const ai = new GoogleGenAI({ apiKey });
     
@@ -195,6 +185,7 @@ export const processPrescription = async (file: File, systemPrompt: string): Pro
         });
 
         incrementApiCallCount();
+        addApiCall({ type: 'prescription_analysis', status: 'success', details: file.name });
 
         const responseText = response.text;
         if (!responseText) {
@@ -204,6 +195,7 @@ export const processPrescription = async (file: File, systemPrompt: string): Pro
         return parseGeminiResponse(responseText);
 
     } catch (error) {
+        addApiCall({ type: 'prescription_analysis', status: 'error', details: file.name, error: error instanceof Error ? error.message : String(error) });
         throw handleGeminiError(error);
     }
 };
@@ -211,7 +203,7 @@ export const processPrescription = async (file: File, systemPrompt: string): Pro
 export const pingAI = async (userMessage: string, settingsIncomplete: boolean): Promise<string> => {
     const apiKey = getApiKey();
     if (!apiKey) {
-        throw new Error("A chave da API do Gemini não foi configurada.");
+        throw new Error(API_KEY_MISSING_ERROR);
     }
     const ai = new GoogleGenAI({ apiKey });
 
@@ -230,6 +222,8 @@ export const pingAI = async (userMessage: string, settingsIncomplete: boolean): 
         });
         
         incrementApiCallCount();
+        const details = userMessage.length > 75 ? `${userMessage.substring(0, 75)}...` : userMessage;
+        addApiCall({ type: 'text_query', status: 'success', details });
 
         const responseText = response.text;
         if (!responseText) {
@@ -239,6 +233,8 @@ export const pingAI = async (userMessage: string, settingsIncomplete: boolean): 
         return responseText;
 
     } catch (error) {
+        const details = userMessage.length > 75 ? `${userMessage.substring(0, 75)}...` : userMessage;
+        addApiCall({ type: 'text_query', status: 'error', details, error: error instanceof Error ? error.message : String(error) });
         throw handleGeminiError(error);
     }
 };

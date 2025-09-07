@@ -1,4 +1,6 @@
+
 import React, { useState } from 'react';
+import { EyeIcon, EyeOffIcon } from './icons.tsx';
 
 interface AdminLoginProps {
   onLoginSuccess: () => void;
@@ -10,6 +12,7 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({ onLoginSuccess }) => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [isPasswordVisible, setIsPasswordVisible] = useState(false);
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
@@ -20,13 +23,17 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({ onLoginSuccess }) => {
         return;
     }
 
-    const admin = JSON.parse(storedCreds);
+    try {
+        const admin = JSON.parse(storedCreds);
 
-    if (username === admin.username && password === admin.password) {
-      setError('');
-      onLoginSuccess();
-    } else {
-      setError('Credenciais inválidas. Por favor, tente novamente.');
+        if (username === admin.username && password === admin.password) {
+          setError('');
+          onLoginSuccess();
+        } else {
+          setError('Credenciais inválidas. Por favor, tente novamente.');
+        }
+    } catch (e) {
+        setError('Falha ao verificar credenciais. O armazenamento local pode estar corrompido.');
     }
   };
 
@@ -54,14 +61,24 @@ export const AdminLogin: React.FC<AdminLoginProps> = ({ onLoginSuccess }) => {
             <label htmlFor="password" className="block text-sm font-medium text-gray-300 mb-2">
               Senha
             </label>
-            <input
-              type="password"
-              id="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full bg-[#303134] border border-gray-600/50 text-white rounded-lg px-3 py-2 focus:ring-2 focus:ring-fuchsia-500 focus:border-fuchsia-500 outline-none transition"
-              required
-            />
+            <div className="relative">
+                <input
+                  type={isPasswordVisible ? 'text' : 'password'}
+                  id="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="w-full bg-[#303134] border border-gray-600/50 text-white rounded-lg px-3 py-2 focus:ring-2 focus:ring-fuchsia-500 focus:border-fuchsia-500 outline-none transition pr-10"
+                  required
+                />
+                <button
+                    type="button"
+                    onClick={() => setIsPasswordVisible(!isPasswordVisible)}
+                    className="absolute inset-y-0 right-0 px-3 flex items-center text-gray-400 hover:text-white"
+                    aria-label={isPasswordVisible ? "Esconder senha" : "Mostrar senha"}
+                >
+                    {isPasswordVisible ? <EyeOffIcon className="w-5 h-5" /> : <EyeIcon className="w-5 h-5" />}
+                </button>
+            </div>
           </div>
           
           {error && <p className="text-sm text-red-400 text-center">{error}</p>}

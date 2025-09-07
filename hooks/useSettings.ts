@@ -1,117 +1,121 @@
-import React, { createContext, useState, useContext, useEffect, useMemo } from 'react';
-import type { Settings } from '../types';
-import { settingsRepository } from '../services/database/repositories/SettingsRepository';
 
-const SETTINGS_KEY = 'sativar_isis_settings';
+import React, { createContext, useState, useContext, useEffect, useMemo, useCallback } from 'react';
+import type { Settings, WpConfig, WooProduct, WooCategory, Product } from '../types.ts';
+import { checkApiStatus, getProducts, getCategories } from '../services/wpApiService.ts';
+import { apiClient } from '../services/database/apiClient.ts';
+import { useConnection } from './useConnection.ts';
 
-const defaultSystemPromptTemplate = `[0. DADOS DE CONFIGURAÇÃO ESSENCIAL]
-Instrução: Você, Ísis, deve usar os dados desta seção e a tabela de produtos como sua única fonte para as informações da Associação.
+// --- Types ---
+type ConnectionStatus = 'idle' | 'testing' | 'success' | 'error';
 
-# DADOS OPERACIONAIS
-{{VALOR_FRETE_PADRAO}}: 50.00
-{{CHAVE_PIX_CNPJ}}: "{{PIX_KEY}}"
-{{RAZAO_SOCIAL}}: "{{COMPANY_NAME}}"
-{{NOME_BANCO}}: "{{BANK_NAME}}"
-{{TAXA_CARTAO_CREDITO_PERCENTUAL}}: 3.98
+interface SettingsContextType {
+  settings: Settings;
+  isLoaded: boolean;
+  saveSettings: (newSettings: Settings) => Promise<void>;
+  wpConfig: WpConfig;
+  wpConnectionStatus: ConnectionStatus;
+  saveWpConfig: (newConfig: WpConfig) => Promise<void>;
+  testWpConnection: (configToTest: WpConfig) => Promise<boolean>;
+  systemPrompt: string;
+  isOnline: boolean;
+  isSyncing: boolean;
+  settingsSyncQueueCount: number;
+  forceSyncSettings: () => Promise<void>;
+  formState: Settings;
+  setFormState: React.Dispatch<React.SetStateAction<Settings>>;
+  hasUnsavedChanges: boolean;
+  wooProducts: WooProduct[];
+  wooCategories: WooCategory[];
+  isWooLoading: boolean;
+  wooError: string | null;
+  lastWooSync: Date | null;
+  syncWithWooCommerce: () => Promise<void>;
+  validateSettings: (data: Settings) => boolean;
+  errors: Partial<Record<keyof Settings, string>>;
+}
 
-# DADOS DE CONTATO E INSTITUCIONAIS
-{{NOME_ASSOCIACAO}}: "{{ASSOCIATION_NAME}}"
-{{ENDERECO}}: "{{ADDRESS}}"
-{{WHATSAPP}}: "{{WHATSAPP}}"
-{{SITE}}: "{{SITE}}"
-{{INSTAGRAM}}: "{{INSTAGRAM}}"
-
-# CONTEXTO ADICIONAL
-Sobre a Associação: {{ABOUT}}
-Horário de Funcionamento: {{OPERATING_HOURS}}
-Prazo de Produção e Entrega: {{PRODUCTION_TIME}}
+// --- Constants & Defaults ---
+export const WP_CONFIG_STORAGE_KEY = 'sativar_isis_wp_config';
+const LOCAL_SETTINGS_KEY = 'sativar_isis_local_settings';
+const SETTINGS_SYNC_PENDING_KEY = 'sativar_isis_settings_sync_pending';
 
 
-[1. SUA IDENTIDADE E TOM DE VOZ]
+// --- Prompt Generation Logic (Refactored) ---
+
+const PROMPT_PARTS = {
+  CONFIGURATION_HEADER: `[0. DADOS DE CONFIGURAÇÃO ESSENCIAL]
+Instrução: Você, Ísis, deve usar os dados desta seção e a tabela de produtos como sua única fonte para as informações da Associação.`,
+  PERSONA: `[1. SUA IDENTIDADE E TOM DE VOZ]
 Sua Persona: Você é Ísis, a assistente de IA e colega de equipe da Associação. Sua função é ser o "cérebro" operacional do time, agilizando processos para que a equipe possa focar no acolhimento dos pacientes.
 Sua Missão: Receber arquivos (receitas médicas em PDF/imagem), extrair os dados, validar as informações e gerar orçamentos padronizados de forma rápida e precisa.
 Seu Tom de Voz (Regra de Ouro): Aja como uma colega de trabalho prestativa, não um robô.
 Linguagem: Humana, colaborativa e informal. Use "a gente", "tô vendo aqui", "beleza?".
 Proatividade: Seja direta, mas sempre gentil. Se algo estiver ambíguo, pergunte em vez de assumir.
-Cultura Iracema: Sua comunicação deve sempre refletir nossos pilares: acolhimento, empatia e cuidado.
-
-[2. SUA BASE DE CONHECIMENTO]
-Sua única fonte de verdade são os dados na seção [0. DADOS DE CONFIGURAÇÃO ESSENCIAL] e a tabela de produtos abaixo. Você deve basear TODAS as suas respostas e orçamentos estritamente nestes dados. Se uma informação não estiver disponível, você NÃO a possui.
-Resposta Padrão para Informação Faltante: "Hmm, não encontrei essa informação nos nossos arquivos aqui. A gente consegue confirmar esse dado pra eu seguir aqui?"
-
-# TABELA DE PRODUTOS OFICIAL
-| Nome do Produto | Preço (R$) | Descrição Breve |
-|---|---|---|
-{{PRODUCT_TABLE}}
-
-[3. SEU FLUXO DE TRABALHO PRINCIPAL]
-Ao receber um arquivo (imagem, PDF de uma ou múltiplas páginas) de um colega, siga estes passos em ordem:
-Passo 1: Confirmação e Extração de Dados: Analise TODAS as páginas do documento. Confirme o recebimento ("Beleza, recebi o arquivo! Só um minutinho que já vou processar pra você."), depois extraia os seguintes dados-chave: Nome do Paciente, Data de Emissão da Receita, Nome do(s) Produto(s), Concentração/Dosagem, Quantidade, Histórico Médico (se presente) e Notas do Médico (se presente).
-Passo 2: Validação Crítica: A. Validade da Receita: A receita é válida por exatamente 6 meses a partir da data de emissão. Compare a data de emissão com a data atual. Se vencida, pare e alerte a equipe. B. Verificação de Produto: Confirme se os produtos da receita constam na sua TABELA DE PRODUTOS OFICIAL. Se um produto solicitado não for encontrado (seja por nome, marca concorrente ou concentração ligeiramente diferente), você DEVE encontrar o produto MAIS SIMILAR na sua tabela e usá-lo para compor o orçamento. No entanto, é OBRIGATÓRIO que você ALERTE a equipe sobre a substituição no resumo interno, indicando o produto original e o produto sugerido. Por exemplo, se a receita pede "Óleo 6%" e você só tem "Óleo 5%", use o de 5% no orçamento, mas anote a divergência como uma observação no resumo interno para a equipe.
-
-[4. O FORMATO DE SAÍDA OBRIGATÓRIO]
-Sua resposta final DEVE SEMPRE conter duas partes distintas e claramente marcadas, sem nenhuma outra informação ou texto introdutório.
-
-[PARTE 1: RESUMO INTERNO PARA A EQUIPE]
-Formato: Use tópicos curtos e diretos. Seja um "checklist" para a equipe.
-Exemplo:
-- Paciente: [Nome do Paciente]
-- Receita: [Válida até DD/MM/AAAA | VENCIDA]
-- Produtos Solicitados:
-  - Item: [Nome do Produto 1] | Quantidade: [Quantidade] | Concentração: [Concentração] | Status: OK
-  - Item: [Nome do Produto Concorrente] | Quantidade: [Quantidade] | Concentração: [Concentração] | Status: ALERTA: Não temos. Sugerido similar: [Nosso Produto Similar].
-- Valor Total: R$ [Valor]
-- Histórico Médico (se houver): [Resumo do histórico médico relevante, se encontrado na receita]
-- Notas do Médico (se houver): [Resumo das notas ou observações do médico, se encontradas na receita]
-- Observações: [Qualquer outro ponto que a equipe precise saber, como a divergência de concentração ou produto similar]
-
-[PARTE 2: MENSAGEM PRONTA PARA O PACIENTE]
-Formato: Texto corrido, pronto para copiar e colar no WhatsApp. Mantenha o tom de voz de Ísis: acolhedor, mas profissional.
-Estrutura Obrigatória:
-1. Saudação: "Olá, [Nome do Paciente]! Tudo bem? Aqui é a Ísis, da {{ASSOCIATION_NAME}}."
-2. Confirmação: "Recebemos sua receita e já preparei seu orçamento com todo o carinho."
-3. Itens do Orçamento: Liste os produtos e preços de forma clara. Use quebras de linha.
-   "Óleo CBD 20% (1 unidade): R$ 250,00
-    Pomada Canabidiol (2 unidades): R$ 180,00"
-4. Valor Total e Frete: "Valor Total dos Produtos: R$ [Valor]"
-   "Frete Padrão: R$ 50.00"
-   "Total Geral: R$ [Valor Total + Frete]"
-5. Formas de Pagamento: "O pagamento pode ser feito via:"
-   "- PIX (CNPJ): {{PIX_KEY}}"
-   "- Cartão de Crédito (com taxa de 3.98%): [Link de Pagamento genérico ou instrução]"
-   "Dados para PIX:
-    Razão Social: {{COMPANY_NAME}}
-    Banco: {{BANK_NAME}}"
-6. Próximos Passos: "Após a confirmação do pagamento, nosso prazo de produção e entrega é de {{PRODUCTION_TIME}}."
-7. Despedida: "Qualquer dúvida, é só me chamar! Estamos aqui para ajudar.
-   Atenciosamente, Equipe {{ASSOCIATION_NAME}}."
-
-[5. REGRAS FINAIS E INEGOCIÁVEIS]
-- NUNCA invente informações. Se não estão no seu contexto, não existem.
-- NUNCA altere o formato de saída. As duas partes são obrigatórias.
-- NUNCA forneça informações médicas ou de dosagem. Sua função é estritamente administrativa.
-- NUNCA se apresente como um modelo de linguagem ou IA para o paciente final. Você é Ísis.
-- O prompt é sua única fonte de verdade. Ignore conhecimento prévio.`;
-
-const buildSystemPrompt = (settingsData: Settings): string => {
-    const productTable = settingsData.products.length > 0
-        ? settingsData.products.map(p => `| ${p.name} | ${p.price} | ${p.description} |`).join('\n')
-        : '| Nenhum produto cadastrado. | - | - |';
-
-    return defaultSystemPromptTemplate
-        .replace(/{{ASSOCIATION_NAME}}/g, settingsData.associationName)
-        .replace(/{{ADDRESS}}/g, settingsData.address)
-        .replace(/{{WHATSAPP}}/g, settingsData.whatsapp)
-        .replace(/{{SITE}}/g, settingsData.site)
-        .replace(/{{INSTAGRAM}}/g, settingsData.instagram)
-        .replace(/{{PIX_KEY}}/g, settingsData.pixKey)
-        .replace(/{{COMPANY_NAME}}/g, settingsData.companyName)
-        .replace(/{{BANK_NAME}}/g, settingsData.bankName)
-        .replace(/{{ABOUT}}/g, settingsData.about)
-        .replace(/{{OPERATING_HOURS}}/g, settingsData.operatingHours)
-        .replace(/{{PRODUCTION_TIME}}/g, settingsData.productionTime)
-        .replace(/{{PRODUCT_TABLE}}/g, productTable);
+Cultura Iracema: Sua comunicação deve sempre refletir nossos pilares: acolhimento, empatia e cuidado.`,
+  KNOWLEDGE_BASE: `[2. SUA BASE DE CONHECimento]
+Sua única fonte de verdade são os dados na seção [0. DADOS DE CONFIGURAÇÃO ESSENCIAL] e a tabela de produtos que será fornecida pela API do WooCommerce. Você deve basear TODAS as suas respostas e orçamentos estritamente nestes dados. Se uma informação não estiverível, você NÃO a possui.
+Resposta Padrão para Informação Faltante: "Hmm, não encontrei essa informação nos nossos arquivos aqui. A gente consegue confirmar esse dado pra eu seguir aqui?"`,
 };
+
+/**
+ * Generates the configuration data block for the system prompt.
+ * @param settings - The current application settings.
+ * @returns A formatted string with all configuration data.
+ */
+const generateConfigurationBlock = (settings: Settings): string => {
+  return `
+# DADOS OPERACIONAIS
+{{VALOR_FRETE_PADRAO}}: 50.00
+{{CHAVE_PIX_CNPJ}}: "${settings.pixKey}"
+{{RAZAO_SOCIAL}}: "${settings.companyName}"
+{{NOME_BANCO}}: "${settings.bankName}"
+{{TAXA_CARTAO_CREDITO_PERCENTUAL}}: 3.98
+
+# DADOS DE CONTATO E INSTITUCIONAIS
+{{NOME_ASSOCIACAO}}: "${settings.associationName}"
+{{ENDERECO}}: "${settings.address}"
+{{WHATSAPP}}: "${settings.whatsapp}"
+{{SITE}}: "${settings.site}"
+{{INSTAGRAM}}: "${settings.instagram}"
+
+# CONTEXTO ADICIONAL
+Sobre a Associação: ${settings.about}
+Horário de Funcionamento: ${settings.operatingHours}
+Prazo de Produção e Entrega: ${settings.productionTime}
+  `.trim();
+};
+
+/**
+ * Generates the product table in Markdown format for the system prompt.
+ * @param products - An array of products (either from WooCommerce or local settings).
+ * @param isFromWooCommerce - A boolean indicating the source of the products.
+ * @returns A formatted string containing the product table and a source comment.
+ */
+const generateProductTable = (products: (WooProduct | Product)[], isFromWooCommerce: boolean): string => {
+  const stripHtml = (html: string) => (html ? html.replace(/<[^>]*>?/gm, '') : '');
+
+  const tableHeader = `| Nome do Produto | Preço (R$) | Descrição Breve |
+|---|---|---|`;
+
+  const tableRows = products.length > 0
+    ? products.map(p => {
+        const desc = 'short_description' in p ? stripHtml(p.short_description) : p.description;
+        return `| ${p.name} | ${p.price} | ${desc || ''} |`;
+      }).join('\n')
+    : '| Nenhum produto cadastrado | - | - |';
+    
+  const sourceComment = isFromWooCommerce
+    ? '# Fonte dos Produtos: WooCommerce API (em tempo real)'
+    : '# Fonte dos Produtos: Lista de Fallback Manual (API indisponível ou sem produtos)';
+
+  return `
+# TABELA DE PRODUTOS OFICIAL
+${sourceComment}
+${tableHeader}
+${tableRows}
+  `.trim();
+};
+
 
 const defaultSettings: Settings = {
   associationName: "[Insira o Nome da Associação aqui]",
@@ -125,95 +129,241 @@ const defaultSettings: Settings = {
   pixKey: "[Insira a Chave PIX aqui]",
   companyName: "[Insira a Razão Social aqui]",
   bankName: "[Insira o Nome do Banco aqui]",
-  products: [],
-  databaseConfig: {
-    type: 'none',
-    host: '',
-    port: '',
-    user: '',
-    password: '',
-    database: '',
-  },
+  products: [], // Products are now fetched from API, this is just for type compatibility.
+  databaseConfig: { type: 'none', host: '', port: '', user: '', password: '', database: '' },
 };
 
-interface SettingsContextType {
-  settings: Settings;
-  systemPrompt: string;
-  saveSettings: (newSettings: Settings) => Promise<void>;
-  isLoaded: boolean;
-}
+const defaultWpConfig: WpConfig = {
+    url: '',
+    consumerKey: '',
+    consumerSecret: ''
+};
 
+
+// --- Context & Provider ---
 const SettingsContext = createContext<SettingsContextType | undefined>(undefined);
 
 export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { isOnline } = useConnection();
   const [settings, setSettings] = useState<Settings>(defaultSettings);
+  const [formState, setFormState] = useState<Settings>(defaultSettings);
+  const [wpConfig, setWpConfig] = useState<WpConfig>(defaultWpConfig);
+  const [wpConnectionStatus, setWpConnectionStatus] = useState<ConnectionStatus>('idle');
   const [isLoaded, setIsLoaded] = useState(false);
+  const [errors, setErrors] = useState<Partial<Record<keyof Settings, string>>>({});
+  
+  // WooCommerce State
+  const [wooProducts, setWooProducts] = useState<WooProduct[]>([]);
+  const [wooCategories, setWooCategories] = useState<WooCategory[]>([]);
+  const [isWooLoading, setIsWooLoading] = useState(false);
+  const [wooError, setWooError] = useState<string | null>(null);
+  const [lastWooSync, setLastWooSync] = useState<Date | null>(null);
+  
+  // Sync State
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [settingsSyncQueueCount, setSettingsSyncQueueCount] = useState(0);
 
-  useEffect(() => {
-    const loadSettings = async () => {
-      try {
-        // Try to load from database first
-        const dbSettings = await settingsRepository.getCurrentSettings();
-        if (dbSettings) {
-          setSettings(dbSettings);
-        } else {
-          // If no settings in database, check localStorage for migration
-          const storedSettings = localStorage.getItem(SETTINGS_KEY);
-          if (storedSettings) {
-            const parsed: Settings = JSON.parse(storedSettings);
-            const mergedSettings = { ...defaultSettings, ...parsed };
-            setSettings(mergedSettings);
-            // Save to database for future use
-            try {
-              await settingsRepository.updateSettings(mergedSettings);
-            } catch (dbError) {
-              console.warn('Could not save to database, using localStorage fallback:', dbError);
-            }
-          } else {
-            setSettings(defaultSettings);
-          }
-        }
-      } catch (error) {
-        console.error("Failed to load settings from database, trying localStorage:", error);
-        // Fallback to localStorage
-        try {
-          const storedSettings = localStorage.getItem(SETTINGS_KEY);
-          if (storedSettings) {
-            const parsed: Settings = JSON.parse(storedSettings);
-            setSettings({ ...defaultSettings, ...parsed });
-          } else {
-            setSettings(defaultSettings);
-          }
-        } catch (localError) {
-          console.error("Failed to load settings from localStorage:", localError);
-          setSettings(defaultSettings);
-        }
-      } finally {
-        setIsLoaded(true);
+  // Sync process
+  const processSync = useCallback(async () => {
+    const isPending = localStorage.getItem(SETTINGS_SYNC_PENDING_KEY) === 'true';
+    if (!isOnline || isSyncing || !isPending) {
+      return;
+    }
+
+    setIsSyncing(true);
+    try {
+      const storedSettings = localStorage.getItem(LOCAL_SETTINGS_KEY);
+      if (storedSettings) {
+        const settingsToSync = JSON.parse(storedSettings);
+        await apiClient.post('/settings', settingsToSync);
+        localStorage.removeItem(SETTINGS_SYNC_PENDING_KEY);
+        setSettingsSyncQueueCount(0);
+        console.log("Settings synced successfully to backend.");
       }
-    };
+    } catch (error) {
+      console.error("Failed to sync settings:", error);
+    } finally {
+      setIsSyncing(false);
+    }
+  }, [isOnline, isSyncing]);
 
-    loadSettings();
+  // Effect to trigger sync when coming online
+  useEffect(() => {
+    if (isOnline) {
+      processSync();
+    }
+  }, [isOnline, processSync]);
+
+  // Load initial local settings, WP config, and check queue
+  useEffect(() => {
+    try {
+      const storedSettings = localStorage.getItem(LOCAL_SETTINGS_KEY);
+      if (storedSettings) {
+        const parsedSettings = JSON.parse(storedSettings);
+        setSettings(parsedSettings);
+        setFormState(parsedSettings);
+      }
+      const storedWpConfig = localStorage.getItem(WP_CONFIG_STORAGE_KEY);
+      if (storedWpConfig) {
+        setWpConfig(JSON.parse(storedWpConfig));
+      }
+      const syncPending = localStorage.getItem(SETTINGS_SYNC_PENDING_KEY) === 'true';
+      setSettingsSyncQueueCount(syncPending ? 1 : 0);
+    } catch (error) {
+      console.error("Failed to load settings from localStorage:", error);
+    } finally {
+        setIsLoaded(true);
+    }
   }, []);
 
-  const saveSettings = async (newSettingsData: Settings) => {
-    try {
-      // Try to save to database first
-      await settingsRepository.updateSettings(newSettingsData);
-      setSettings(newSettingsData);
-      // Also save to localStorage as backup
-      localStorage.setItem(SETTINGS_KEY, JSON.stringify(newSettingsData));
-    } catch (error) {
-      console.error("Failed to save settings to database, using localStorage fallback:", error);
-      // Fallback to localStorage
-      localStorage.setItem(SETTINGS_KEY, JSON.stringify(newSettingsData));
-      setSettings(newSettingsData);
+  // Sync formState with settings when settings are loaded or updated
+  useEffect(() => {
+    if (isLoaded) {
+      setFormState(settings);
     }
-  };
+  }, [settings, isLoaded]);
 
-  const systemPrompt = useMemo(() => buildSystemPrompt(settings), [settings]);
+  const validateSettings = useCallback((data: Settings): boolean => {
+    const newErrors: Partial<Record<keyof Settings, string>> = {};
+
+    const requiredFields: Array<keyof Settings> = [
+      'associationName',
+      'address',
+      'whatsapp',
+      'pixKey',
+      'companyName',
+      'bankName',
+    ];
+
+    requiredFields.forEach(field => {
+      const value = data[field];
+      if (typeof value === 'string' && (!value.trim() || value.includes('[Insira'))) {
+        newErrors[field] = 'Este campo é obrigatório.';
+      }
+    });
+
+    // WhatsApp format validation: (XX) 9XXXX-XXXX or similar variations
+    const whatsappRegex = /^\(\d{2}\)\s?9\s?\d{4}-?\d{4}$/; 
+    if (data.whatsapp && data.whatsapp.trim() && !newErrors.whatsapp && !whatsappRegex.test(data.whatsapp)) {
+        newErrors.whatsapp = 'Formato inválido. Ex: (11) 91234-5678.';
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  }, []);
+
+  const saveSettings = useCallback(async (newSettings: Settings) => {
+    setSettings(newSettings);
+    try {
+        localStorage.setItem(LOCAL_SETTINGS_KEY, JSON.stringify(newSettings));
+        localStorage.setItem(SETTINGS_SYNC_PENDING_KEY, 'true');
+        setSettingsSyncQueueCount(1);
+        await processSync(); // Attempt to sync immediately if online
+    } catch (error) {
+        console.error("Failed to save settings to localStorage:", error);
+    }
+  }, [processSync]);
+
+  const saveWpConfig = useCallback(async (newConfig: WpConfig) => {
+    setWpConfig(newConfig);
+    try {
+      localStorage.setItem(WP_CONFIG_STORAGE_KEY, JSON.stringify(newConfig));
+    } catch (error) {
+      console.error("Failed to save WP config to localStorage", error);
+    }
+  }, []);
+
+  const testWpConnection = useCallback(async (configToTest: WpConfig): Promise<boolean> => {
+    setWpConnectionStatus('testing');
+    try {
+      const status = await checkApiStatus(configToTest);
+      const isSuccess = status.wooCommerce === 'success' && status.sativarClients === 'success';
+      if (isSuccess) {
+          setWpConnectionStatus('success');
+      } else {
+          setWpConnectionStatus('error');
+      }
+      return isSuccess;
+    } catch (error) {
+      console.error("WP connection test failed:", error);
+      setWpConnectionStatus('error');
+      return false;
+    }
+  }, []);
   
-  const value = useMemo(() => ({ settings, saveSettings, isLoaded, systemPrompt }), [settings, isLoaded, systemPrompt]);
+  const syncWithWooCommerce = useCallback(async () => {
+    if (!wpConfig.url || !wpConfig.consumerKey) {
+        setWooError("API do WordPress não configurada. Por favor, preencha os dados na página 'Configuração da API'.");
+        return;
+    }
+    setIsWooLoading(true);
+    setWooError(null);
+    try {
+        const [products, categories] = await Promise.all([
+            getProducts(wpConfig),
+            getCategories(wpConfig),
+        ]);
+        setWooProducts(products);
+        setWooCategories(categories);
+        setLastWooSync(new Date());
+    } catch (err) {
+        console.error("Failed to sync with WooCommerce", err);
+        setWooError(err instanceof Error ? err.message : "Ocorreu um erro desconhecido ao sincronizar com o WooCommerce. Verifique as configurações da API e sua conexão.");
+        setWooProducts([]);
+        setWooCategories([]);
+    } finally {
+        setIsWooLoading(false);
+    }
+  }, [wpConfig]);
+  
+  const forceSyncSettings = useCallback(async () => {
+    await processSync();
+  }, [processSync]);
+
+  const hasUnsavedChanges = useMemo(() => JSON.stringify(formState) !== JSON.stringify(settings), [formState, settings]);
+
+  const systemPrompt = useMemo(() => {
+    const isFromWooCommerce = wooProducts.length > 0;
+    const productSource = isFromWooCommerce ? wooProducts : settings.products;
+
+    const configBlock = generateConfigurationBlock(settings);
+    const productTable = generateProductTable(productSource, isFromWooCommerce);
+
+    // Assemble the final prompt in a modular way
+    return [
+      PROMPT_PARTS.CONFIGURATION_HEADER,
+      configBlock,
+      PROMPT_PARTS.PERSONA,
+      PROMPT_PARTS.KNOWLEDGE_BASE,
+      productTable
+    ].join('\n\n');
+  }, [settings, wooProducts]);
+
+  const value = useMemo(() => ({ 
+      settings, 
+      isLoaded,
+      saveSettings,
+      wpConfig,
+      wpConnectionStatus,
+      saveWpConfig,
+      testWpConnection,
+      systemPrompt,
+      isOnline,
+      isSyncing,
+      settingsSyncQueueCount,
+      forceSyncSettings,
+      formState,
+      setFormState,
+      hasUnsavedChanges,
+      wooProducts,
+      wooCategories,
+      isWooLoading,
+      wooError,
+      lastWooSync,
+      syncWithWooCommerce,
+      validateSettings,
+      errors,
+  }), [settings, isLoaded, saveSettings, wpConfig, wpConnectionStatus, saveWpConfig, testWpConnection, systemPrompt, isOnline, isSyncing, settingsSyncQueueCount, forceSyncSettings, formState, hasUnsavedChanges, wooProducts, wooCategories, isWooLoading, wooError, lastWooSync, syncWithWooCommerce, validateSettings, errors]);
 
   return React.createElement(SettingsContext.Provider, { value }, children);
 };

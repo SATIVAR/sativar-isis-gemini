@@ -1,28 +1,117 @@
-A Filosofia: Por que react-dropzone é a Melhor Prática
-O que torna a react-dropzone uma excelente escolha é que ela é uma biblioteca "headless" (sem cabeça). Isso significa que ela não te entrega componentes de UI prontos e estilizados. Em vez disso, ela te dá um hook (um gancho, useDropzone) que contém toda a lógica complexa de manipulação de arquivos.
-Você continua com 100% de controle sobre a aparência (o HTML e o CSS) do seu input de chat. A biblioteca apenas injeta o comportamento necessário. Isso é ideal para manter a consistência visual do seu design e evitar "brigar" com os estilos de uma biblioteca externa.
-O Passo a Passo Lógico com react-dropzone
-1. Integrar a Lógica no seu Componente de Chat
-O primeiro passo é chamar o hook useDropzone dentro do seu componente de chat. Ao fazer isso, você passará um objeto de configuração para ele. A opção mais importante que você vai configurar é uma função de callback, geralmente chamada onDrop.
-2. A Função Mágica: O Callback onDrop
-A função onDrop é o centro de tudo. A biblioteca vai chamar essa sua função automaticamente sempre que um arquivo for recebido, seja por arrastar, por clique, ou por colar.
-O mais importante é que a biblioteca fará todo o trabalho pesado para você: ela vai processar a interação do usuário e te entregar uma lista de objetos do tipo File prontos para usar. Você não precisa mais se preocupar em inspecionar a área de transferência manualmente.
-3. Conectar a Biblioteca à sua UI (a parte "headless")
-O hook useDropzone te retorna um conjunto de propriedades que você precisa "espalhar" sobre os seus elementos HTML. Pense nisso como conectar fios:
-Propriedades da Raiz (getRootProps): Você pegará essas propriedades e as aplicará ao elemento que servirá como sua área de "soltar" (pode ser o div que envolve todo o seu input de chat). Isso automaticamente adiciona os ouvintes de eventos para arrastar, colar, clicar, etc.
-Propriedades do Input (getInputProps): Você aplicará essas a um elemento <input type="file"> escondido. A biblioteca gerencia esse input para você, usando-o para abrir a janela de seleção de arquivos quando o usuário clica na sua área de dropzone.
-4. Gerenciar o Estado da Imagem e a Pré-visualização
-Dentro da sua função onDrop, quando react-dropzone te entregar o arquivo de imagem:
-Você o armazenará no estado do seu componente React (usando useState).
-Assim como na abordagem manual, você usará a função do navegador (URL.createObjectURL) para criar uma URL de pré-visualização a partir desse arquivo.
-Você armazenará essa URL de preview em outro estado.
-Agora, a sua UI pode reagir a esses estados. Se houver uma URL de preview no estado, você renderiza um componente de miniatura (<img>) com a imagem e talvez um botão "X" para cancelar o envio.
-5. Habilitando o "Colar" de Forma Explícita
-Por padrão, react-dropzone já tem uma excelente capacidade de lidar com o evento de colar no nível do documento, mas para garantir que funcione perfeitamente no seu input, o processo é o seguinte: ao espalhar as propriedades getRootProps na sua área de chat, a biblioteca já está ouvindo os eventos de foco, clique, arrastar e colar naquele elemento específico. A maior parte do trabalho já está feita. Você apenas precisa garantir que a configuração do seu hook não desabilite a funcionalidade de colar (a configuração padrão geralmente funciona bem).
-6. Enviar a Imagem para o Servidor
-Este passo final permanece o mesmo. Quando o usuário clica no botão "Enviar Mensagem", você verifica se há um arquivo de imagem armazenado no seu estado. Se houver, você o anexa a um FormData e o envia para sua API. Depois de enviado, você limpa os estados do arquivo e da pré-visualização para deixar o input pronto para a próxima mensagem.
-Resumo da Abordagem com a Biblioteca
-Ao usar react-dropzone, você delega toda a complexidade da interação com arquivos (seja arrastar, clicar ou colar) para uma solução robusta e testada. Seu trabalho se concentra em:
-Configurar o hook useDropzone, dizendo a ele o que fazer quando um arquivo chegar (onDrop).
-Conectar as propriedades retornadas pelo hook aos seus elementos JSX.
-Gerenciar o estado da aplicação (o arquivo recebido e sua pré-visualização) em resposta ao callback onDrop.
+# SATIVAR-ISIS - Sistema Inteligente de Processamento de Receitas Médicas
+
+## Visão Geral
+
+O SATIVAR-ISIS é um sistema avançado que utiliza inteligência artificial para processar receitas médicas e gerar orçamentos automatizados. O sistema combina um frontend moderno (React, TypeScript) com um backend flexível em Node.js que oferece persistência de dados em PostgreSQL ou MySQL, além de um modo de fallback para `localStorage`, garantindo uma solução completa e robusta para associações de cannabis medicinal.
+
+## Funcionalidades Principais
+
+### 1. Processamento de Receitas com IA
+
+#### Descrição
+O núcleo do sistema é a capacidade de analisar receitas médicas em formatos de imagem ou PDF e extrair informações relevantes utilizando a API do Google Gemini.
+
+#### Componentes Envolvidos
+- `QuoteGenerator.tsx` - Interface principal para upload e processamento.
+- `geminiService.ts` - Serviço de integração com a API do Google Gemini.
+- `Chat.tsx` - Interface de chat para interação com a IA.
+
+### 2. Gerenciamento de Configurações
+
+#### Descrição
+Permite que os administradores configurem todos os dados da associação que serão utilizados pela IA para gerar orçamentos padronizados.
+
+#### Componentes Envolvidos
+- `SettingsPage.tsx` - Interface de configuração.
+- `useSettings.ts` - Hook para gerenciamento de estado das configurações.
+- `server/routes.js` - Endpoints da API para salvar e carregar configurações.
+
+#### Funcionalidades
+- Cadastro de dados institucionais e financeiros.
+- Gestão do catálogo de produtos.
+- Configuração do prompt do sistema que orienta a IA.
+- Configuração de conexão com banco de dados (PostgreSQL/MySQL).
+- Monitoramento do status de preservação de dados.
+
+### 3. Sistema de Lembretes e Tarefas
+
+#### Descrição
+Um sistema completo de gerenciamento de lembretes e tarefas com notificações, permitindo que a equipe acompanhe pendências e atividades.
+
+#### Componentes Envolvidos
+- `useReminders.ts` - Hook para gerenciamento de estado dos lembretes.
+- `Reminders.tsx` - Componentes de UI para listar e criar lembretes.
+- `server/routes.js` - Endpoints da API para persistência de lembretes.
+
+### 4. Autenticação Administrativa
+
+#### Descrição
+Sistema de login e registro para administradores, garantindo que apenas usuários autorizados possam acessar as configurações sensíveis. As credenciais são salvas localmente no navegador.
+
+#### Componentes Envolvidos
+- `AdminLogin.tsx` - Interface de login.
+- `AdminRegistration.tsx` - Interface de registro de superadministrador.
+
+### 5. Persistência de Dados Flexível com Fallback
+
+#### Descrição
+Arquitetura híbrida que utiliza um backend Node.js para se conectar a um banco de dados (PostgreSQL ou MySQL) como fonte principal, com fallback automático para `localStorage` em caso de falha de conexão com o servidor.
+
+#### Componentes Envolvidos
+- `server/index.js` - Servidor backend Express.
+- `server/db.js` - Módulo de conexão de banco de dados dinâmico (PG/MySQL).
+- `docker-compose.yml` - Orquestração do ambiente de desenvolvimento.
+- `useSettings.ts` e `useReminders.ts` - Hooks que gerenciam o estado online/offline e a fila de sincronização.
+
+#### Funcionalidades
+- Detecção automática de disponibilidade do backend.
+- Alternância transparente entre modo online (banco de dados) e offline (`localStorage`).
+- Sincronização automática de dados pendentes quando o backend fica disponível.
+- Configuração flexível para diferentes ambientes (desenvolvimento e produção).
+
+## Arquitetura Técnica
+
+### Frontend
+- **React 19** com hooks e context API para gerenciamento de estado.
+- **TypeScript** para tipagem estática e segurança.
+- **Tailwind CSS** para estilização.
+- Comunicação com o backend através de uma API RESTful.
+
+### Backend
+- **Node.js** com **Express** para a criação da API.
+- **Drivers `pg` e `mysql2`** para conectividade com bancos de dados.
+- Lógica de negócios centralizada para manipulação de dados.
+- Servido via **Docker** para consistência de ambiente.
+
+### Integração com IA
+- **Google Gemini API** para processamento de documentos.
+- **Prompt engineering** avançado para guiar a IA a fornecer resultados estruturados e consistentes.
+- Tratamento de erros robusto para falhas da API.
+
+### Persistência de Dados
+- **Fonte Primária:** PostgreSQL ou MySQL, configurado via variáveis de ambiente.
+- **Fonte de Fallback:** `localStorage` do navegador.
+- Camada de abstração no frontend (hooks) que gerencia onde os dados são lidos e escritos.
+
+## Fluxos de Trabalho Principais
+
+### 1. Processo de Orçamento
+1. Administrador configura os dados da associação e produtos via backend.
+2. Usuário faz upload de uma receita no frontend.
+3. Frontend envia a receita para a API do Google Gemini.
+4. IA analisa a receita e retorna informações estruturadas.
+5. Frontend processa a resposta, gera o orçamento e o exibe para o usuário.
+6. Opcionalmente, um lembrete pode ser criado e salvo no banco de dados através do backend.
+
+### 2. Gestão de Configurações
+1. Administrador acessa a página de configurações.
+2. Altera os dados e salva.
+3. Frontend envia as novas configurações para o endpoint `POST /api/settings`.
+4. Backend recebe os dados e os salva no banco de dados configurado (PostgreSQL ou MySQL).
+
+### 3. Operação Offline (Fallback)
+1. O frontend falha em se conectar com o backend (endpoint `/health`).
+2. A aplicação entra em modo offline.
+3. Todas as leituras e escritas de dados são redirecionadas para o `localStorage`.
+4. As operações de escrita são adicionadas a uma fila de sincronização.
+5. Quando a conexão com o backend é restaurada, a fila é processada e os dados são enviados para o banco de dados.
