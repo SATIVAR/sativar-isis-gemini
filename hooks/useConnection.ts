@@ -10,8 +10,7 @@ const ConnectionContext = createContext<ConnectionContextType | undefined>(undef
 
 export const ConnectionProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   // If the VITE_API_URL environment variable is not set, we start in offline mode by default.
-  // FIX: Switched from import.meta.env to process.env to resolve TypeScript error and align with project's environment variable handling.
-  const [isOnline, setIsOnline] = useState(!!process.env.VITE_API_URL);
+  const [isOnline, setIsOnline] = useState(!!import.meta.env.VITE_API_URL);
 
   const reportOffline = useCallback(() => {
     if (isOnline) {
@@ -22,8 +21,7 @@ export const ConnectionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
   useEffect(() => {
     // If no API URL is provided, we stay in offline mode and don't perform health checks.
-    // FIX: Switched from import.meta.env to process.env to resolve TypeScript error and align with project's environment variable handling.
-    if (!process.env.VITE_API_URL) {
+    if (!import.meta.env.VITE_API_URL) {
       return;
     }
 

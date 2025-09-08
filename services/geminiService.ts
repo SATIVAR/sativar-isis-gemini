@@ -1,10 +1,9 @@
-import { GoogleGenAI } from "@google/genai";
-import type { QuoteResult, QuotedProduct } from "../types.ts";
+import { GoogleGenAI, Type } from "@google/genai";
+import type { QuoteResult } from "../types.ts";
 import { addApiCall } from "./apiHistoryService.ts";
 
 const API_CALL_COUNTER_KEY = 'sativar_isis_api_call_count';
-// FIX: Updated error message to refer to API_KEY as per Gemini API guidelines.
-const API_KEY_MISSING_ERROR = "A chave da API do Gemini não foi configurada no ambiente. Um administrador precisa definir a variável de ambiente API_KEY.";
+const API_KEY_MISSING_ERROR = "A chave da API do Gemini não foi configurada. Um administrador precisa definir a variável de ambiente VITE_GEMINI_API_KEY.";
 
 const incrementApiCallCount = () => {
     try {
@@ -18,8 +17,7 @@ const incrementApiCallCount = () => {
 const getApiKey = (): string | undefined => {
     // In a Vite project, client-side environment variables must be prefixed with VITE_
     // and are accessed via import.meta.env.
-    // FIX: Switched from import.meta.env.VITE_API_KEY to process.env.API_KEY to follow Gemini API guidelines and resolve TypeScript error.
-    return process.env.API_KEY;
+    return import.meta.env.VITE_GEMINI_API_KEY;
 };
 
 export const isApiKeyConfigured = (): boolean => {
@@ -43,67 +41,35 @@ const fileToGenerativePart = async (file: File) => {
   };
 };
 
-const parseGeminiResponse = (responseText: string): QuoteResult => {
-    const internalSummaryMarker = "[PARTE 1: RESUMO INTERNO PARA A EQUIPE]";
-    const patientMessageMarker = "[PARTE 2: MENSAGEM PRONTA PARA O PACIENTE]";
-
-    const internalSummaryIndex = responseText.indexOf(internalSummaryMarker);
-    const patientMessageIndex = responseText.indexOf(patientMessageMarker);
-
-    if (internalSummaryIndex === -1 || patientMessageIndex === -1) {
-        // Throw a user-friendly error if the response format is incorrect
-        throw new Error("A resposta da IA está em um formato inesperado. Não foi possível encontrar os marcadores de seção necessários para a análise. Por favor, tente novamente ou verifique a configuração do prompt do sistema.");
-    }
-
-    const internalSummaryText = responseText
-        .substring(internalSummaryIndex + internalSummaryMarker.length, patientMessageIndex)
-        .trim();
-        
-    const patientMessage = responseText
-        .substring(patientMessageIndex + patientMessageMarker.length)
-        .trim();
-    
-    // Helper to extract single-line values
-    const extractValue = (regex: RegExp): string => {
-        const match = internalSummaryText.match(regex);
-        return match ? match[1].trim() : '';
-    };
-
-    const patientName = extractValue(/- Paciente:\s*(.*)/i);
-    const validity = extractValue(/- Receita:\s*(.*)/i);
-    const totalValue = extractValue(/- Valor Total:\s*(.*)/i);
-    const medicalHistory = extractValue(/-\s*Histórico Médico \(se houver\):\s*(.*)/is);
-    const doctorNotes = extractValue(/-\s*Notas do Médico \(se houver\):\s*(.*)/is);
-    const observations = extractValue(/-\s*Observações:\s*(.*)/is);
-    
-    const products: QuotedProduct[] = [];
-    const productLines = internalSummaryText.match(/- Item:\s*.*/gi) || [];
-
-    for (const line of productLines) {
-        const productMatch = line.match(/- Item:\s*(.*?)\s*\|\s*Quantidade:\s*(.*?)\s*\|\s*Concentração:\s*(.*?)\s*\|\s*Status:\s*(.*)/i);
-        if (productMatch) {
-            products.push({
-                name: productMatch[1].trim() || 'Produto não identificado',
-                quantity: productMatch[2].trim() || 'N/A',
-                concentration: productMatch[3].trim() || 'N/A',
-                status: productMatch[4].trim() || 'Status desconhecido',
-            });
-        }
-    }
-    
-    return { 
-        id: crypto.randomUUID(),
-        patientName: patientName || 'Não encontrado',
-        internalSummary: internalSummaryText,
-        patientMessage, 
-        validity: validity || 'Informação ausente',
-        products,
-        totalValue: totalValue || 'Não encontrado',
-        medicalHistory, 
-        doctorNotes,
-        observations,
-    };
+const quoteResultSchema = {
+    type: Type.OBJECT,
+    properties: {
+        patientName: { type: Type.STRING, description: "Nome completo do paciente encontrado na receita." },
+        internalSummary: { type: Type.STRING, description: "Um resumo conciso para a equipe interna, listando os produtos, quantidades e status." },
+        patientMessage: { type: Type.STRING, description: "A mensagem completa formatada para ser enviada diretamente ao paciente, incluindo saudação, produtos, valores e informações de pagamento." },
+        validity: { type: Type.STRING, description: "Status da validade da receita (ex: 'Válida', 'Vencida')." },
+        products: {
+            type: Type.ARRAY,
+            description: "Lista de produtos extraídos da receita.",
+            items: {
+                type: Type.OBJECT,
+                properties: {
+                    name: { type: Type.STRING, description: "Nome do produto." },
+                    quantity: { type: Type.STRING, description: "Quantidade solicitada." },
+                    concentration: { type: Type.STRING, description: "Concentração do produto." },
+                    status: { type: Type.STRING, description: "Status do produto (ex: 'OK', 'Alerta: Produto não encontrado no catálogo')." },
+                },
+                required: ['name', 'quantity', 'concentration', 'status']
+            }
+        },
+        totalValue: { type: Type.STRING, description: "Valor total do orçamento (ex: 'R$ 500,00')." },
+        medicalHistory: { type: Type.STRING, description: "Histórico médico relevante mencionado, se houver." },
+        doctorNotes: { type: Type.STRING, description: "Notas do médico na receita, se houver." },
+        observations: { type: Type.STRING, description: "Observações importantes ou alertas gerados pela IA para a equipe interna." },
+    },
+    required: ['patientName', 'internalSummary', 'patientMessage', 'validity', 'products', 'totalValue']
 };
+
 
 const handleGeminiError = (error: unknown): Error => {
     console.error("Erro ao chamar a API Gemini:", error);
@@ -114,8 +80,7 @@ const handleGeminiError = (error: unknown): Error => {
 
         // API Key issues
         if (lowerMessage.includes('api key not valid') || lowerMessage.includes('api_key_invalid') || message.includes('[401]') || message.includes('[403]')) {
-            // FIX: Updated error message to refer to API_KEY as per Gemini API guidelines.
-            return new Error("A chave da API do Gemini é inválida, expirou ou não possui as permissões necessárias. Um administrador deve verificar a configuração da variável de ambiente API_KEY no servidor.");
+            return new Error("A chave da API do Gemini é inválida, expirou ou não possui as permissões necessárias. Um administrador deve verificar a configuração da variável de ambiente VITE_GEMINI_API_KEY no servidor.");
         }
         
         // Quota issues
@@ -153,8 +118,8 @@ const handleGeminiError = (error: unknown): Error => {
             }
         }
         
-        // Return a slightly more informative generic error if it's from Gemini
-        if (lowerMessage.includes('gemini') || message.includes('A resposta da IA está em um formato inesperado')) {
+        // Return a slightly more informative generic error if it's from Gemini or involves JSON
+        if (lowerMessage.includes('gemini') || lowerMessage.includes('json')) {
             return new Error(`Falha na comunicação com a IA: ${message}`);
         }
         
@@ -176,7 +141,7 @@ export const processPrescription = async (file: File, systemPrompt: string): Pro
     const imagePart = await fileToGenerativePart(file);
     
     const textPart = {
-        text: "Analise a receita médica em anexo e gere o orçamento seguindo estritamente as instruções e o formato definidos no seu prompt de sistema."
+        text: "Analise a receita médica em anexo e gere o orçamento. Retorne os dados em um formato JSON que obedeça o schema definido."
     };
 
     try {
@@ -185,6 +150,8 @@ export const processPrescription = async (file: File, systemPrompt: string): Pro
             contents: { parts: [textPart, imagePart] },
             config: {
                 systemInstruction: systemPrompt,
+                responseMimeType: "application/json",
+                responseSchema: quoteResultSchema,
             }
         });
 
@@ -196,7 +163,17 @@ export const processPrescription = async (file: File, systemPrompt: string): Pro
             throw new Error("A IA não retornou uma resposta de texto.");
         }
         
-        return parseGeminiResponse(responseText);
+        try {
+            const parsedResult = JSON.parse(responseText);
+            // Add the client-side generated ID
+            return { 
+                ...parsedResult,
+                id: crypto.randomUUID(),
+            };
+        } catch (jsonError) {
+             console.error("Failed to parse JSON response from Gemini:", responseText);
+             throw new Error("A resposta da IA não estava no formato JSON esperado.");
+        }
 
     } catch (error) {
         addApiCall({ type: 'prescription_analysis', status: 'error', details: file.name, error: error instanceof Error ? error.message : String(error) });

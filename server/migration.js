@@ -1,3 +1,4 @@
+
 // server/migration.js
 
 const { pool } = require('./db'); 

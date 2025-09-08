@@ -1,3 +1,4 @@
+
 # SATIVAR - ISIS (Intelligent Prescription Processing System)
 
 ## Descrição
@@ -62,7 +63,7 @@ O frontend interage com o backend e com a API do Gemini.
 1.  **Configure as Variáveis de Ambiente (no seu Ambiente de Hospedagem):**
     A aplicação frontend espera que as seguintes variáveis de ambiente sejam injetadas pelo seu serviço de hospedagem (Vercel, Netlify, etc.). **Não as coloque em um arquivo `.env` no código-fonte por segurança.**
 
-    -   `API_KEY`: Sua chave da API do Google Gemini. **Obrigatória para a IA funcionar.**
+    -   `VITE_GEMINI_API_KEY`: Sua chave da API do Google Gemini. **Obrigatória para a IA funcionar.**
     -   `VITE_API_URL`: A URL onde seu backend está rodando. Para desenvolvimento local, é `http://localhost:3001`. Para produção, será a URL do seu servidor.
     -   `VITE_API_SECRET_KEY`: A **mesma** chave secreta que você definiu no `.env` do backend.
 
