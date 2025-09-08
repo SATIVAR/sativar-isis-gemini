@@ -1,10 +1,10 @@
 
 import React, { useState } from 'react';
 import type { Page } from '../App.tsx';
-import { SettingsIcon, BellIcon, PlusCircleIcon } from './icons.tsx';
+import { SettingsIcon, BellIcon } from './icons.tsx';
 import { useReminders } from '../hooks/useReminders.ts';
 import { useSettings } from '../hooks/useSettings.ts';
-import { RemindersList, ReminderModal } from './Reminders.tsx';
+import { RemindersList } from './Reminders.tsx';
 import { Logo } from './Logo.tsx';
 import { useConnection } from '../hooks/useConnection.ts';
 
@@ -15,7 +15,6 @@ interface HeaderProps {
 
 export const Header: React.FC<HeaderProps> = ({ setCurrentPage, currentPage }) => {
     const [isRemindersOpen, setIsRemindersOpen] = useState(false);
-    const [isAddModalOpen, setIsAddModalOpen] = useState(false);
     const { reminders, hasOverdueReminders } = useReminders();
     const { settings } = useSettings();
     const { isOnline } = useConnection();
@@ -51,7 +50,6 @@ export const Header: React.FC<HeaderProps> = ({ setCurrentPage, currentPage }) =
                     animation: pulse-red 2s infinite;
                 }
             `}</style>
-            {isAddModalOpen && <ReminderModal onClose={() => setIsAddModalOpen(false)} />}
             <header className="flex flex-shrink-0 items-center justify-between border-b border-gray-700/50 bg-[#131314] p-4">
                 <div className="flex items-center gap-4">
                      <Logo className="h-10 w-10" />
@@ -74,13 +72,6 @@ export const Header: React.FC<HeaderProps> = ({ setCurrentPage, currentPage }) =
                     </div>
                 </div>
                 <nav className="flex items-center gap-2">
-                    <button
-                        onClick={() => setIsAddModalOpen(true)}
-                        className="rounded-full p-2 transition-colors hover:bg-gray-700"
-                        aria-label="Adicionar nova tarefa"
-                    >
-                        <PlusCircleIcon className="h-6 w-6 text-gray-400" />
-                    </button>
                     <div className="relative">
                         <button 
                             onClick={() => setIsRemindersOpen(prev => !prev)}

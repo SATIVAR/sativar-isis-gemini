@@ -406,6 +406,7 @@ const ReminderItem: React.FC<{ reminder: Reminder; onEdit: (reminder: Reminder) 
 export const RemindersList: React.FC<{ onClose: () => void }> = ({ onClose }) => {
     const { reminders } = useReminders();
     const [editingReminder, setEditingReminder] = useState<Reminder | null>(null);
+    const [isAddModalOpen, setIsAddModalOpen] = useState(false);
 
     const pendingReminders = reminders.filter(r => !r.isCompleted).sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime());
     const completedReminders = reminders.filter(r => r.isCompleted).sort((a, b) => new Date(b.dueDate).getTime() - new Date(a.dueDate).getTime()).slice(0, 5); // show last 5 completed
@@ -437,10 +438,20 @@ export const RemindersList: React.FC<{ onClose: () => void }> = ({ onClose }) =>
                 }
             `}</style>
             {editingReminder && <ReminderModal reminder={editingReminder} onClose={() => setEditingReminder(null)} />}
+            {isAddModalOpen && <ReminderModal onClose={() => setIsAddModalOpen(false)} />}
             <div className="absolute right-0 top-14 mt-2 w-80 max-h-[80vh] overflow-y-auto bg-[#202124] rounded-xl border border-gray-700 shadow-2xl z-20" role="dialog">
                 <div className="p-4 border-b border-gray-700 flex justify-between items-center sticky top-0 bg-[#202124]/80 backdrop-blur-sm">
                     <h3 className="text-lg font-bold text-white">Tarefas e Lembretes</h3>
-                    <button onClick={onClose} className="p-1 rounded-full text-gray-400 hover:bg-gray-700 hover:text-white" aria-label="Fechar lembretes"><XCircleIcon className="w-5 h-5"/></button>
+                    <div className="flex items-center gap-2">
+                        <button
+                            onClick={() => setIsAddModalOpen(true)}
+                            className="p-1 rounded-full text-gray-400 hover:bg-gray-700 hover:text-white"
+                            aria-label="Adicionar nova tarefa"
+                        >
+                            <PlusCircleIcon className="w-5 h-5"/>
+                        </button>
+                        <button onClick={onClose} className="p-1 rounded-full text-gray-400 hover:bg-gray-700 hover:text-white" aria-label="Fechar lembretes"><XCircleIcon className="w-5 h-5"/></button>
+                    </div>
                 </div>
                 <div className="p-4">
                     {reminders.length === 0 ? (
