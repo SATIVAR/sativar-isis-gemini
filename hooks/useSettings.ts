@@ -1,5 +1,6 @@
 
 
+
 import React, { createContext, useState, useContext, useEffect, useMemo, useCallback } from 'react';
 import type { Settings, WpConfig, WooProduct, WooCategory, Product } from '../types.ts';
 import { checkApiStatus, getProducts, getCategories } from '../services/wpApiService.ts';
@@ -156,7 +157,9 @@ const defaultSettings: Settings = {
 const defaultWpConfig: WpConfig = {
     url: '',
     consumerKey: '',
-    consumerSecret: ''
+    consumerSecret: '',
+    username: '',
+    applicationPassword: '',
 };
 
 
@@ -225,7 +228,8 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       }
       const storedWpConfig = localStorage.getItem(WP_CONFIG_STORAGE_KEY);
       if (storedWpConfig) {
-        setWpConfig(JSON.parse(storedWpConfig));
+        // Merge with defaults to ensure new fields from updates are present
+        setWpConfig({ ...defaultWpConfig, ...JSON.parse(storedWpConfig) });
       }
       const syncPending = localStorage.getItem(SETTINGS_SYNC_PENDING_KEY) === 'true';
       setSettingsSyncQueueCount(syncPending ? 1 : 0);

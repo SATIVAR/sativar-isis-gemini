@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect } from 'react';
 import { useSettings } from '../../hooks/useSettings.ts';
 import type { WpConfig } from '../../types.ts';
@@ -6,7 +7,7 @@ import { checkApiStatus, type ApiStatus } from '../../services/wpApiService.ts';
 import { Loader } from '../Loader.tsx';
 import { CheckCircleIcon, AlertCircleIcon, ServerIcon, EyeIcon, EyeOffIcon, StoreIcon, UsersIcon } from '../icons.tsx';
 
-const PasswordInput: React.FC<{ value: string, onChange: (e: React.ChangeEvent<HTMLInputElement>) => void, id: string, name: string, hasError: boolean }> = ({ value, onChange, id, name, hasError }) => {
+const PasswordInput: React.FC<{ value: string, onChange: (e: React.ChangeEvent<HTMLInputElement>) => void, id: string, name: string, hasError: boolean, placeholder?: string }> = ({ value, onChange, id, name, hasError, placeholder }) => {
     const [isVisible, setIsVisible] = useState(false);
     return (
         <div className="relative">
@@ -16,6 +17,7 @@ const PasswordInput: React.FC<{ value: string, onChange: (e: React.ChangeEvent<H
                 type={isVisible ? 'text' : 'password'}
                 value={value}
                 onChange={onChange}
+                placeholder={placeholder}
                 className={`w-full bg-[#303134] border text-gray-300 rounded-lg p-3 text-sm outline-none transition shadow-inner pr-10 ${hasError ? 'border-red-500 focus:ring-red-500' : 'border-gray-600/50 focus:ring-fuchsia-500 focus:border-fuchsia-500'}`}
                 autoComplete="new-password"
             />
@@ -45,6 +47,7 @@ const StatusIndicator: React.FC<{ status: 'success' | 'error' | 'untested' | 'te
             {status === 'testing' && <Loader />}
             {status === 'success' && <CheckCircleIcon className="w-5 h-5" />}
             {status === 'error' && <AlertCircleIcon className="w-5 h-5" />}
+            {status === 'untested' && <span className="text-xs text-gray-500">Não testado</span>}
         </div>
     );
 };
@@ -59,14 +62,16 @@ export const ApiConfigPage: React.FC = () => {
     url: '',
     consumerKey: '',
     consumerSecret: '',
+    username: '',
+    applicationPassword: '',
   });
 
   useEffect(() => {
-    setFormState(wpConfig);
+    setFormState(prev => ({...prev, ...wpConfig}));
   }, [wpConfig]);
 
   const validateForm = (config: WpConfig): boolean => {
-    const newErrors = { url: '', consumerKey: '', consumerSecret: '' };
+    const newErrors = { url: '', consumerKey: '', consumerSecret: '', username: '', applicationPassword: '' };
     let isValid = true;
 
     if (!config.url.trim()) {
@@ -102,7 +107,6 @@ export const ApiConfigPage: React.FC = () => {
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setFormState(prev => ({ ...prev, [name]: value }));
-    // Clear error on change for better UX
     if (errors[name as keyof typeof errors]) {
         setErrors(prev => ({ ...prev, [name]: '' }));
     }
@@ -128,20 +132,27 @@ export const ApiConfigPage: React.FC = () => {
     const status = await checkApiStatus(formState);
     setApiStatus(status);
     
-    if (status.wooCommerce === 'success') {
+    const wcOK = status.wooCommerce === 'success';
+    const sativarOK = status.sativarUsers === 'success';
+
+    if (wcOK || sativarOK) { // Save if at least one works
         await saveWpConfig(formState);
-        if (status.sativarUsers === 'success') {
-            alert("Configurações salvas e conexão estabelecida com sucesso!");
-        } else {
-            alert("Atenção: Configurações salvas. A conexão com o WooCommerce foi bem-sucedida, mas o endpoint de Usuários (SATIVAR) falhou. A funcionalidade de produtos está ativa, mas a de busca de usuários não.");
+        let message = "Configurações salvas. ";
+        if (wcOK && sativarOK) {
+            message += "Ambos os endpoints estão funcionando!";
+        } else if (wcOK) {
+            message += "WooCommerce conectado, mas o endpoint de Usuários (SATIVAR) falhou. Verifique a Senha de Aplicativo.";
+        } else { // only sativarOK is true
+            message += "Usuários (SATIVAR) conectado, mas o endpoint do WooCommerce falhou. Verifique as chaves Consumer.";
         }
+        alert(message);
     } else {
-        alert("Erro ao salvar: Falha na conexão com o endpoint de Produtos (WooCommerce). Verifique os dados da API. As configurações não foram salvas.");
+        alert("Erro: Falha na conexão com ambos os endpoints. Verifique todas as credenciais. As configurações não foram salvas.");
     }
     setIsSaving(false);
   };
 
-  const isFormEmpty = !formState.url.trim() || !formState.consumerKey.trim() || !formState.consumerSecret.trim();
+  const isFormEmpty = !formState.url?.trim() || !formState.consumerKey?.trim() || !formState.consumerSecret?.trim();
   const isBusy = isTesting || isSaving;
 
   return (
@@ -157,18 +168,37 @@ export const ApiConfigPage: React.FC = () => {
       <form onSubmit={handleSave} className="space-y-6">
         <div>
           <label htmlFor="url" className="block text-sm font-medium text-gray-300 mb-2">URL do Site Sativar_WP_API</label>
-          <input id="url" name="url" value={formState.url} onChange={handleInputChange} placeholder="https://seu-site.com" className={`w-full bg-[#303134] border text-gray-300 rounded-lg p-3 text-sm focus:ring-2 outline-none transition shadow-inner ${errors.url ? 'border-red-500 focus:ring-red-500' : 'border-gray-600/50 focus:ring-fuchsia-500 focus:border-fuchsia-500'}`} required />
+          <input id="url" name="url" value={formState.url || ''} onChange={handleInputChange} placeholder="https://seu-site.com" className={`w-full bg-[#303134] border text-gray-300 rounded-lg p-3 text-sm focus:ring-2 outline-none transition shadow-inner ${errors.url ? 'border-red-500 focus:ring-red-500' : 'border-gray-600/50 focus:ring-fuchsia-500 focus:border-fuchsia-500'}`} required />
           {errors.url && <p className="text-red-400 text-xs mt-1">{errors.url}</p>}
         </div>
-        <div>
-          <label htmlFor="consumerKey" className="block text-sm font-medium text-gray-300 mb-2">WooCommerce Consumer Key</label>
-          <input id="consumerKey" name="consumerKey" value={formState.consumerKey} onChange={handleInputChange} placeholder="ck_xxxxxxxxxxxx" className={`w-full bg-[#303134] border text-gray-300 rounded-lg p-3 text-sm focus:ring-2 outline-none transition shadow-inner ${errors.consumerKey ? 'border-red-500 focus:ring-red-500' : 'border-gray-600/50 focus:ring-fuchsia-500 focus:border-fuchsia-500'}`} required />
-          {errors.consumerKey && <p className="text-red-400 text-xs mt-1">{errors.consumerKey}</p>}
+
+        <div className="space-y-6 p-4 bg-[#303134]/50 border border-gray-700/50 rounded-lg">
+            <h3 className="text-md font-semibold text-gray-300">Credenciais WooCommerce API</h3>
+            <div>
+              <label htmlFor="consumerKey" className="block text-sm font-medium text-gray-300 mb-2">WooCommerce Consumer Key</label>
+              <input id="consumerKey" name="consumerKey" value={formState.consumerKey || ''} onChange={handleInputChange} placeholder="ck_xxxxxxxxxxxx" className={`w-full bg-[#303134] border text-gray-300 rounded-lg p-3 text-sm focus:ring-2 outline-none transition shadow-inner ${errors.consumerKey ? 'border-red-500 focus:ring-red-500' : 'border-gray-600/50 focus:ring-fuchsia-500 focus:border-fuchsia-500'}`} required />
+              {errors.consumerKey && <p className="text-red-400 text-xs mt-1">{errors.consumerKey}</p>}
+            </div>
+            <div>
+              <label htmlFor="consumerSecret" className="block text-sm font-medium text-gray-300 mb-2">WooCommerce Consumer Secret</label>
+               <PasswordInput id="consumerSecret" name="consumerSecret" value={formState.consumerSecret || ''} placeholder="cs_xxxxxxxxxxxx" onChange={handleInputChange} hasError={!!errors.consumerSecret} />
+               {errors.consumerSecret && <p className="text-red-400 text-xs mt-1">{errors.consumerSecret}</p>}
+            </div>
         </div>
-        <div>
-          <label htmlFor="consumerSecret" className="block text-sm font-medium text-gray-300 mb-2">WooCommerce Consumer Secret</label>
-           <PasswordInput id="consumerSecret" name="consumerSecret" value={formState.consumerSecret} onChange={handleInputChange} hasError={!!errors.consumerSecret} />
-           {errors.consumerSecret && <p className="text-red-400 text-xs mt-1">{errors.consumerSecret}</p>}
+        
+        <div className="space-y-6 p-4 bg-[#303134]/50 border border-gray-700/50 rounded-lg">
+            <h3 className="text-md font-semibold text-gray-300">Credenciais SATIVAR API (Senha de Aplicativo)</h3>
+            <p className="text-xs text-gray-400 -mt-4">Usado para endpoints customizados, como a busca de usuários. Gere em "Usuários &gt; Perfil &gt; Senhas de Aplicativo" no seu painel WordPress.</p>
+            <div>
+              <label htmlFor="username" className="block text-sm font-medium text-gray-300 mb-2">Usuário WordPress (Admin)</label>
+              <input id="username" name="username" value={formState.username || ''} onChange={handleInputChange} placeholder="admin" className={`w-full bg-[#303134] border text-gray-300 rounded-lg p-3 text-sm focus:ring-2 outline-none transition shadow-inner ${errors.username ? 'border-red-500 focus:ring-red-500' : 'border-gray-600/50 focus:ring-fuchsia-500 focus:border-fuchsia-500'}`} />
+              {errors.username && <p className="text-red-400 text-xs mt-1">{errors.username}</p>}
+            </div>
+            <div>
+              <label htmlFor="applicationPassword" className="block text-sm font-medium text-gray-300 mb-2">Senha de Aplicativo</label>
+               <PasswordInput id="applicationPassword" name="applicationPassword" value={formState.applicationPassword || ''} placeholder="xxxx xxxx xxxx xxxx" onChange={handleInputChange} hasError={!!errors.applicationPassword} />
+               {errors.applicationPassword && <p className="text-red-400 text-xs mt-1">{errors.applicationPassword}</p>}
+            </div>
         </div>
 
         <div className="space-y-3 pt-4">

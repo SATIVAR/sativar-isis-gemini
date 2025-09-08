@@ -1,4 +1,5 @@
 
+
 // From services/geminiService.ts and components/Chat.tsx
 export interface QuotedProduct {
     name: string;
@@ -107,6 +108,8 @@ export interface WpConfig {
     url: string;
     consumerKey: string;
     consumerSecret: string;
+    username?: string;
+    applicationPassword?: string;
 }
 
 export interface WooProductImage {

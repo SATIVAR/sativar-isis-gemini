@@ -1,4 +1,5 @@
 
+
 import type { WpConfig, WooProduct, WooCategory, SativarUser } from '../types.ts';
 
 interface ApiRequestOptions extends RequestInit {
@@ -9,8 +10,8 @@ interface ApiRequestOptions extends RequestInit {
 async function apiRequest<T>(endpoint: string, options: ApiRequestOptions): Promise<T> {
   const { auth, params, ...fetchOptions } = options;
 
-  if (!auth.url || !auth.consumerKey || !auth.consumerSecret) {
-    throw new Error('Sativar_WP_API API configuration is missing.');
+  if (!auth.url) {
+    throw new Error('Sativar_WP_API URL de configuração está ausente.');
   }
 
   const url = new URL(endpoint, auth.url);
@@ -38,13 +39,16 @@ async function apiRequest<T>(endpoint: string, options: ApiRequestOptions): Prom
     }
   }
 
-  if (isUserEndpoint) {
-    // Custom WP REST endpoints often work better with Basic Auth, while standard WC endpoints work well with query params.
-    // This provides the keys via the Authorization header for the user endpoint.
-    const basicAuth = btoa(`${auth.consumerKey}:${auth.consumerSecret}`);
+  // Authentication Logic
+  if (isUserEndpoint && auth.username && auth.applicationPassword) {
+    // For SATIVAR user endpoint, use Basic Auth with Application Password
+    const basicAuth = btoa(`${auth.username}:${auth.applicationPassword}`);
     (finalFetchOptions.headers as Record<string, string>)['Authorization'] = `Basic ${basicAuth}`;
   } else {
-    // For all other endpoints (like WooCommerce products), we continue using query parameters.
+    // For all other endpoints (assume WooCommerce), use Consumer Key/Secret
+    if (!auth.consumerKey || !auth.consumerSecret) {
+        throw new Error('WooCommerce Consumer Key e Secret são obrigatórios.');
+    }
     finalParams.append('consumer_key', auth.consumerKey);
     finalParams.append('consumer_secret', auth.consumerSecret);
   }
@@ -73,25 +77,35 @@ export async function checkApiStatus(auth: WpConfig): Promise<ApiStatus> {
     sativarUsers: 'untested',
   };
 
-  if (!auth.url || !auth.consumerKey || !auth.consumerSecret) {
+  if (!auth.url) {
     return { wooCommerce: 'error', sativarUsers: 'error' };
   }
 
-  try {
-    await apiRequest('/wp-json/wc/v3/products', { auth, method: 'GET', params: { per_page: '1' } });
-    status.wooCommerce = 'success';
-  } catch (e) {
-    console.error("WooCommerce API check failed:", e);
-    status.wooCommerce = 'error';
+  // Test WooCommerce Endpoint
+  if (auth.consumerKey && auth.consumerSecret) {
+      try {
+        await apiRequest('/wp-json/wc/v3/products', { auth, method: 'GET', params: { per_page: '1' } });
+        status.wooCommerce = 'success';
+      } catch (e) {
+        console.error("WooCommerce API check failed:", e);
+        status.wooCommerce = 'error';
+      }
+  } else {
+      status.wooCommerce = 'error';
   }
 
-  try {
-    // Correct endpoint for Sativar WordPress users
-    await apiRequest('/wp-json/sativar/v1/clientes', { auth, method: 'GET', params: { per_page: '1' } });
-    status.sativarUsers = 'success';
-  } catch (e) {
-    console.error("Sativar Users API check failed:", e);
-    status.sativarUsers = 'error';
+  // Test Sativar Users Endpoint
+  if (auth.username && auth.applicationPassword) {
+      try {
+        await apiRequest('/wp-json/sativar/v1/clientes', { auth, method: 'GET', params: { per_page: '1' } });
+        status.sativarUsers = 'success';
+      } catch (e) {
+        console.error("Sativar Users API check failed:", e);
+        status.sativarUsers = 'error';
+      }
+  } else {
+      // If user auth creds are not provided, it's untested, not an error.
+      status.sativarUsers = 'untested';
   }
 
   return status;
