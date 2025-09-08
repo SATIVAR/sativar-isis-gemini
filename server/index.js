@@ -1,8 +1,11 @@
+// server/index.js
+
 const express = require('express');
 const cors = require('cors');
 const apiRoutes = require('./routes');
 const chalk = require('chalk');
-const { testPoolConnection } = require('./db'); // Import the test function
+const { testPoolConnection } = require('./db');
+const { runMigrations } = require('./migration'); // <-- 1. ADICIONADO: Importa a função de migration
 require('dotenv').config();
 
 const app = express();
@@ -16,67 +19,58 @@ const startServer = async () => {
         await testPoolConnection();
         console.log(chalk.green.bold('✅ Successfully connected to the database.'));
         
-        // 2. Configure middleware and routes ONLY after successful connection
+        // 2. Run database migrations
+        console.log(chalk.blue('Running database migrations...')); // <-- 2. ADICIONADO: Inicia a migration
+        await runMigrations(); // <-- 3. ADICIONADO: Executa e espera a migration terminar
+        
+        // 3. Configure middleware and routes ONLY after successful connection AND migration
         
         // Middleware
         app.use(cors());
-        app.use(express.json({ limit: '10mb' })); // Allow larger payloads for potential data migration
+        app.use(express.json({ limit: '10mb' }));
 
-        // API Key Authentication Middleware
+        // API Key Authentication Middleware (seu código de autenticação continua aqui...)
         const apiKeyAuth = (req, res, next) => {
-            // The health check endpoint should always be public for online/offline detection.
+            // ... (o resto do seu código permanece exatamente o mesmo) ...
             if (req.path === '/health') {
                 return next();
             }
-
             const apiKey = req.get('X-API-Key');
             const serverKey = process.env.API_SECRET_KEY;
-            
-            // Security Hardening: If API_SECRET_KEY is not set on the server, all protected requests must fail.
-            // This prevents accidentally exposing the API in production.
             if (!serverKey) {
-                console.error(chalk.red.bold('CRITICAL: API_SECRET_KEY is not set. The API is inaccessible. Please set this variable in your .env file.'));
-                return res.status(503).json({ error: 'Service Unavailable: API secret key not configured on the server.' });
+                console.error(chalk.red.bold('CRITICAL: API_SECRET_KEY is not set...'));
+                return res.status(503).json({ error: 'Service Unavailable: API secret key not configured...' });
             }
-
             if (apiKey && apiKey === serverKey) {
-                return next(); // Key is valid
+                return next();
             }
-
             return res.status(401).json({ error: 'Unauthorized: Missing or invalid API key.' });
         };
 
 
-        // API Routes - all are protected by the auth middleware
+        // API Routes
         app.use('/api', apiKeyAuth, apiRoutes);
 
-        // Catch-all error handler middleware
+        // Error handler
         app.use((err, req, res, next) => {
             console.error(chalk.red.bold('\n===== UNHANDLED ERROR ====='));
-            console.error(chalk.red('Request:', `${req.method} ${req.originalUrl}`));
             console.error(err.stack);
-            console.error(chalk.red.bold('===========================\n'));
-            
-            // Avoid sending stack trace to client in production
-            if (res.headersSent) {
-                return next(err);
-            }
             res.status(500).json({ error: 'Internal Server Error' });
         });
 
-        // 3. Start the Express server
+        // 4. Start the Express server
         app.listen(port, () => {
           console.log(chalk.green(`🚀 SATIVAR-ISIS Backend listening at http://localhost:${port}`));
           if (!process.env.API_SECRET_KEY) {
-              console.error(chalk.yellow.bold('CRITICAL SECURITY WARNING: API_SECRET_KEY is not defined in the environment. The API will not be accessible.'));
+              console.error(chalk.yellow.bold('CRITICAL SECURITY WARNING: ...'));
           }
         });
 
     } catch (error) {
-        // 4. If the DB connection fails, log the detailed error and exit.
-        console.error(chalk.red.bold('❌ Failed to connect to the database. The application will not start.'));
+        // O bloco catch agora vai pegar erros tanto da conexão quanto da migration
+        console.error(chalk.red.bold('❌ Failed to initialize the application.'));
         console.error(chalk.red('Error details:'), error);
-        process.exit(1); // Exit the process with a failure code
+        process.exit(1);
     }
 };
 

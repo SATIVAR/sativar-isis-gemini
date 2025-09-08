@@ -112,6 +112,7 @@ const testPoolConnection = async () => {
 };
 
 module.exports = {
+  pool,
   query,
   testMysqlConnection,
   testPoolConnection,
