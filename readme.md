@@ -1,4 +1,3 @@
-
 # SATIVAR - ISIS (Intelligent Prescription Processing System)
 
 ## Descrição
@@ -19,7 +18,7 @@ A aplicação utiliza a API do Google Gemini para extrair informações de presc
 
 ## Configuração para Desenvolvimento
 
-Para rodar o projeto, você precisará configurar e executar o frontend e o backend separadamente.
+Para rodar o projeto localmente, você precisará configurar e executar o frontend e o backend separadamente. Siga estas etapas cuidadosamente.
 
 ### Etapa 1: Configurar o Backend (`/server`)
 
@@ -34,43 +33,64 @@ O backend é responsável pela conexão segura com seu banco de dados MySQL.
     npm install
     ```
 3.  **Configure as Variáveis de Ambiente:**
-    Crie um arquivo `.env` dentro do diretório `/server` e preencha-o com as suas credenciais para a conexão **MySQL remota**:
+    -   Crie um arquivo `.env` dentro do diretório `/server`.
+    -   Copie o conteúdo do arquivo `server/.env.example` para o seu novo `server/.env`.
+    -   Preencha o arquivo `server/.env` com suas credenciais de banco de dados e uma chave secreta para a API.
 
+    **`server/.env` (Exemplo):**
     ```env
-    # CREDENCIAIS DO BANCO MYSQL
+    # Porta do servidor (opcional, padrão 3001)
+    PORT=3001
+
+    # Chave secreta para a API (deve ser a mesma no frontend)
+    # Gere uma chave longa e aleatória (ex: usando um gerador de senhas)
+    API_SECRET_KEY=sua-chave-secreta-muito-longa-e-segura
+
+    # Credenciais do seu banco de dados MySQL
     DB_HOST=seu-host-remoto.com
     DB_PORT=3306
     DB_USER=seu_usuario
     DB_PASSWORD=sua_senha
     DB_NAME=seu_banco_de_dados
 
-    # CONFIGURAÇÃO DE SSL (altamente recomendado para conexões remotas)
+    # Configuração de SSL (altamente recomendado para conexões remotas)
     DB_SSL=true
-    DB_SSL_REJECT_UNAUTHORIZED=true # Mantenha como true a menos que saiba o que está fazendo
-
-    # CHAVE SECRETA DA API (deve ser a mesma no frontend)
-    # Gere uma chave longa e aleatória (ex: usando um gerador de senhas)
-    API_SECRET_KEY=sua-chave-secreta-muito-longa-e-segura
+    DB_SSL_REJECT_UNAUTHORIZED=true
     ```
 
 4.  **Inicialize o Banco de Dados:**
-    Antes de iniciar o servidor, você precisa criar as tabelas `settings` e `reminders`. Fornecemos os comandos SQL necessários no arquivo `server/init-db.md`.
+    Antes de iniciar o servidor, você precisa criar as tabelas `settings` e `reminders`. Os comandos SQL necessários estão no arquivo `server/init-db.md`. O servidor tentará executar uma migração na inicialização para garantir que as tabelas existam.
 
 ### Etapa 2: Configurar o Frontend (Diretório Raiz)
 
 O frontend interage com o backend e com a API do Gemini.
 
-1.  **Configure as Variáveis de Ambiente (no seu Ambiente de Hospedagem):**
-    A aplicação frontend espera que as seguintes variáveis de ambiente sejam injetadas pelo seu serviço de hospedagem (Vercel, Netlify, etc.). **Não as coloque em um arquivo `.env` no código-fonte por segurança.**
-
-    -   `VITE_GEMINI_API_KEY`: Sua chave da API do Google Gemini. **Obrigatória para a IA funcionar.**
-    -   `VITE_API_URL`: A URL onde seu backend está rodando. Para desenvolvimento local, é `http://localhost:3001`. Para produção, será a URL do seu servidor.
-    -   `VITE_API_SECRET_KEY`: A **mesma** chave secreta que você definiu no `.env` do backend.
-
+1.  **Volte para o diretório raiz:**
+    ```bash
+    cd ..
+    ```
 2.  **Instale as dependências (se ainda não o fez):**
     ```bash
     npm install
     ```
+3.  **Configure as Variáveis de Ambiente:**
+    -   Crie um arquivo `.env` no diretório raiz do projeto (ao lado deste `readme.md`).
+    -   Copie o conteúdo do arquivo `.env.example` para o seu novo `.env`.
+    -   Preencha o arquivo com a URL do seu backend, a chave da API (a mesma do backend) e sua chave do Gemini.
+
+    **`.env` (Exemplo):**
+    ```env
+    # URL para o servidor backend rodando localmente
+    VITE_API_URL=http://localhost:3001
+
+    # Esta chave DEVE ser a mesma definida em /server/.env
+    VITE_API_SECRET_KEY=sua-chave-secreta-muito-longa-e-segura
+
+    # Sua chave da API do Google Gemini (obrigatória para a IA funcionar)
+    VITE_GEMINI_API_KEY=sua-chave-do-gemini-aqui
+    ```
+    
+    > **Importante:** Para **produção**, estas variáveis devem ser configuradas no painel de controle do seu serviço de hospedagem (Vercel, Netlify, etc.), **não** em um arquivo `.env` no código-fonte.
 
 ### Etapa 3: Executar a Aplicação
 
