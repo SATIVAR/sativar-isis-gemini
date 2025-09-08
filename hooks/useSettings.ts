@@ -83,19 +83,24 @@ A saída DEVE ser um único objeto JSON, sem nenhum texto, markdown (como \`\`\`
     - suggestionNotes: (Opcional) Uma breve nota para a equipe explicando a alternativa sugerida.
 - totalValue: Calcule o **subtotal** (soma apenas dos produtos). Formate como "R$ XXX,XX".
 - internalSummary: Um resumo MUITO BREVE para a equipe, focando em pontos de atenção.
-- patientMessage: Uma mensagem COMPLETA e amigável para o paciente. **A ESTRUTURA E FORMATAÇÃO SÃO OBRIGATÓRIAS E DEVEM SER SEGUIDAS À RISCA, incluindo emojis e quebras de linha (use \\n\\n entre seções), MESMO QUE PRODUTOS NÃO SEJAM ENCONTRADOS.**
+- patientMessage: Uma mensagem COMPLETA e amigável para o paciente. **A ESTRUTURA E FORMATAÇÃO ABAIXO SÃO OBRIGATÓRIAS. Siga à risca, incluindo emojis, quebras de linha (\\n) e espaçamento entre seções (\\n\\n). MESMO QUE PRODUTOS NÃO SEJAM ENCONTRADOS, a estrutura completa deve ser mantida.**
     - Comece com "Paciente: [Nome do Paciente]".
-    - Crie a seção "📦 PRODUTOS:". Na linha seguinte, liste cada item.
+    - Adicione \\n\\n.
+    - Crie a seção "📦 PRODUTOS:". Na linha seguinte (\\n), liste cada item:
         - Se o produto for encontrado: \`* [Nome do Produto] (Qtd: [Quantidade]) - Valor Unit: R$ [Preço Unitário]\`
         - Se for uma alternativa: \`* [Nome do Produto Alternativo] (Qtd: [Quantidade]) - Valor Unit: R$ [Preço Unitário] (Alternativa sugerida)\`
         - Se o produto NÃO for encontrado: \`* [Nome do Produto da Receita] - **Produto indisponível. Nossa equipe entrará em contato.**\`
-    - Crie a seção "💰 VALORES:". Na linha seguinte, \`Subtotal dos produtos: R$ [Subtotal]\`. Na próxima linha, \`Frete: [Use o texto de {{TEXTO_FRETE}}]\`.
-    - Crie a seção "💳 Forma de Pagamento:". Na linha seguinte, use o texto de {{TEXTO_PAGAMENTO}}. Na linha seguinte, use a informação de {{PRAZO_PRODUCAO_ENTREGA}}.
-    - Adicione o bloco de PIX com a seguinte estrutura, mantendo as quebras de linha:
+    - Adicione \\n\\n.
+    - Crie a seção "💰 VALORES:". Na linha seguinte (\\n), \`Subtotal dos produtos: R$ [Subtotal]\`. Na próxima linha (\\n), \`Frete: {{TEXTO_FRETE}}\`.
+    - Adicione \\n\\n.
+    - Crie a seção "💳 Forma de Pagamento:". Na linha seguinte (\\n), use o texto de {{TEXTO_PAGAMENTO}}. Na linha seguinte (\\n), use a informação de {{PRAZO_PRODUCAO_ENTREGA}}.
+    - Adicione \\n\\n.
+    - Adicione o bloco de PIX com a seguinte estrutura, mantendo as quebras de linha (\\n):
       \`Para agilizar, você pode pagar via PIX.
       Nossa chave PIX (CNPJ) e: {{CHAVE_PIX_CNPJ}}
       NOME_BANCO: {{NOME_BANCO}}
       RAZAO SOCIAL: {{RAZAO_SOCIAL}}\`
+    - Adicione \\n\\n.
     - Finalize a mensagem EXATAMENTE com: \`Se precisar de algo, é só chamar no WhatsApp ou dar uma olhada no nosso site {{SITE}}.\\nEquipe {{NOME_ASSOCIACAO}}\`
 - medicalHistory: Histórico médico relevante, se houver.
 - doctorNotes: Posologia e notas do médico, se houver.

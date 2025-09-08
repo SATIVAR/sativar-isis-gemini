@@ -313,21 +313,6 @@ export const QuoteGenerator: React.FC = () => {
         setChatFlow('idle');
     }, []);
 
-    const handleUpdateQuote = useCallback((messageId: string, updatedQuote: QuoteResult) => {
-        setMessages(prevMessages => 
-            prevMessages.map(msg => {
-                if (msg.id === messageId && msg.content.type === 'quote') {
-                    // Create a new message object to ensure React re-renders
-                    return { 
-                        ...msg, 
-                        content: { ...msg.content, result: updatedQuote } 
-                    };
-                }
-                return msg;
-            })
-        );
-    }, []);
-
     const isChatDisabled = showSettingsWarning || apiKeyMissing || wpConfigMissing;
     let disabledReason = "";
     if (apiKeyMissing) {
@@ -372,7 +357,6 @@ export const QuoteGenerator: React.FC = () => {
                 onAction={handleAction}
                 processingAction={processingAction}
                 onResetChat={handleResetChat}
-                onUpdateQuote={handleUpdateQuote}
             />
         </div>
     );
