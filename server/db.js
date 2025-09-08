@@ -98,7 +98,21 @@ const testMysqlConnection = async (config) => {
     }
 };
 
+const testPoolConnection = async () => {
+    let connection;
+    try {
+        // Get a connection from the pool
+        connection = await pool.getConnection();
+        // Simply ping the server to check if it's alive
+        await connection.ping();
+    } finally {
+        // Make sure to release the connection back to the pool
+        if (connection) connection.release();
+    }
+};
+
 module.exports = {
   query,
   testMysqlConnection,
+  testPoolConnection,
 };
