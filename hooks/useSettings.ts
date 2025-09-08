@@ -83,19 +83,20 @@ A saída DEVE ser um único objeto JSON, sem nenhum texto, markdown (como \`\`\`
     - suggestionNotes: (Opcional) Uma breve nota para a equipe explicando a alternativa sugerida.
 - totalValue: Calcule o **subtotal** (soma apenas dos produtos). Formate como "R$ XXX,XX".
 - internalSummary: Um resumo MUITO BREVE para a equipe, focando em pontos de atenção.
-- patientMessage: Uma mensagem COMPLETA e amigável para o paciente. **ESTRUTURA OBRIGATÓRIA:**
-    - Comece com o nome do paciente: "Paciente: [Nome do Paciente]".
-    - Crie uma seção "📦 PRODUTOS:" listando cada item, sua quantidade e valor unitário. Ex: "* NOME PRODUTO (Qtd: 1) - Valor Unit: R$ XXX,XX".
-    - Crie uma seção "💰 VALORES:" detalhando o "Subtotal" (soma dos produtos) e o "Frete" (usando o texto de {{TEXTO_FRETE}}). **NÃO inclua um 'Valor Total'**.
-    - Crie uma seção "💳 Forma de Pagamento:" (usando o texto de {{TEXTO_PAGAMENTO}}).
-    - Inclua o prazo de entrega, usando a informação de {{PRAZO_PRODUCAO_ENTREGA}}.
-    - Após o prazo de entrega, adicione uma quebra de linha dupla e, em seguida, a seção de PIX com a seguinte estrutura, usando quebras de linha simples entre cada item:
-      "Para agilizar, você pode pagar via PIX.
+- patientMessage: Uma mensagem COMPLETA e amigável para o paciente. **A ESTRUTURA E FORMATAÇÃO SÃO OBRIGATÓRIAS E DEVEM SER SEGUIDAS À RISCA, incluindo emojis e quebras de linha (use \\n\\n entre seções), MESMO QUE PRODUTOS NÃO SEJAM ENCONTRADOS.**
+    - Comece com "Paciente: [Nome do Paciente]".
+    - Crie a seção "📦 PRODUTOS:". Na linha seguinte, liste cada item.
+        - Se o produto for encontrado: \`* [Nome do Produto] (Qtd: [Quantidade]) - Valor Unit: R$ [Preço Unitário]\`
+        - Se for uma alternativa: \`* [Nome do Produto Alternativo] (Qtd: [Quantidade]) - Valor Unit: R$ [Preço Unitário] (Alternativa sugerida)\`
+        - Se o produto NÃO for encontrado: \`* [Nome do Produto da Receita] - **Produto indisponível. Nossa equipe entrará em contato.**\`
+    - Crie a seção "💰 VALORES:". Na linha seguinte, \`Subtotal dos produtos: R$ [Subtotal]\`. Na próxima linha, \`Frete: [Use o texto de {{TEXTO_FRETE}}]\`.
+    - Crie a seção "💳 Forma de Pagamento:". Na linha seguinte, use o texto de {{TEXTO_PAGAMENTO}}. Na linha seguinte, use a informação de {{PRAZO_PRODUCAO_ENTREGA}}.
+    - Adicione o bloco de PIX com a seguinte estrutura, mantendo as quebras de linha:
+      \`Para agilizar, você pode pagar via PIX.
       Nossa chave PIX (CNPJ) e: {{CHAVE_PIX_CNPJ}}
       NOME_BANCO: {{NOME_BANCO}}
-      RAZAO SOCIAL: {{RAZAO_SOCIAL}}"
-    - **NÃO use emojis na mensagem, exceto nos títulos das seções.** Use quebras de linha para formatar.
-    - Finalize a mensagem EXATAMENTE com: "\\n\\nSe precisar de algo, é só chamar no WhatsApp ou dar uma olhada no nosso site {{SITE}}. \\nEquipe {{NOME_ASSOCIACAO}}"
+      RAZAO SOCIAL: {{RAZAO_SOCIAL}}\`
+    - Finalize a mensagem EXATAMENTE com: \`Se precisar de algo, é só chamar no WhatsApp ou dar uma olhada no nosso site {{SITE}}.\\nEquipe {{NOME_ASSOCIACAO}}\`
 - medicalHistory: Histórico médico relevante, se houver.
 - doctorNotes: Posologia e notas do médico, se houver.
 - observations: Alertas importantes para a equipe (ex: data de emissão ausente, receita vencida, etc.).
