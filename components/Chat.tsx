@@ -3,8 +3,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { jsPDF } from 'jspdf';
 import { useSettings } from '../hooks/useSettings.ts';
-import type { ChatMessage, QuoteResult, MessageContent, SativarUser } from '../types.ts';
-import { AlertTriangleIcon, ClipboardCheckIcon, ClipboardIcon, DownloadIcon, PlusIcon, SendIcon, UserIcon, BellIcon, RefreshCwIcon, CheckIcon } from './icons.tsx';
+import type { ChatMessage, QuoteResult, MessageContent, SativarUser, QuotedProduct } from '../types.ts';
+import { AlertTriangleIcon, ClipboardCheckIcon, ClipboardIcon, DownloadIcon, PlusIcon, SendIcon, UserIcon, BellIcon, RefreshCwIcon, CheckIcon, Trash2Icon } from './icons.tsx';
 import { Loader } from './Loader.tsx';
 import { ReminderModal } from './Reminders.tsx';
 import { TypingIndicator } from './TypingIndicator.tsx';
@@ -74,15 +74,73 @@ const UserResultDisplay: React.FC<{ users: SativarUser[], searchTerm: string }> 
     );
 };
 
+interface QuoteResultDisplayProps {
+    result: QuoteResult;
+    onResetChat: () => void;
+    onUpdate: (updatedResult: QuoteResult) => void;
+}
 
-const QuoteResultDisplay: React.FC<{result: QuoteResult, onResetChat: () => void}> = ({ result, onResetChat }) => {
+const QuoteResultDisplay: React.FC<QuoteResultDisplayProps> = ({ result, onResetChat, onUpdate }) => {
     const [copied, setCopied] = useState(false);
     const [isReminderModalOpen, setIsReminderModalOpen] = useState(false);
     const { settings } = useSettings();
-    const isExpired = result.validity.toLowerCase().includes('vencida');
+
+    const [editedResult, setEditedResult] = useState<QuoteResult>(result);
+    const [isSaving, setIsSaving] = useState(false);
+    const [isSaved, setIsSaved] = useState(false);
+
+    useEffect(() => {
+        setEditedResult(result);
+    }, [result]);
+
+    const isExpired = editedResult.validity.toLowerCase().includes('vencida');
+
+    const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+        const { name, value } = e.target;
+        setEditedResult(prev => ({ ...prev, [name]: value }));
+    };
+
+    const handleProductChange = (index: number, field: keyof QuotedProduct, value: string) => {
+        const newProducts = [...editedResult.products];
+        (newProducts[index] as any)[field] = value;
+        setEditedResult(prev => ({ ...prev, products: newProducts }));
+    };
+    
+    const handleAddProduct = () => {
+        const newProduct: QuotedProduct = {
+            name: 'Novo Produto',
+            quantity: '1',
+            concentration: '',
+            status: 'OK',
+            suggestionNotes: ''
+        };
+        setEditedResult(prev => ({
+            ...prev,
+            products: [...prev.products, newProduct]
+        }));
+    };
+
+    const handleRemoveProduct = (index: number) => {
+        if (confirm('Tem certeza que deseja remover este produto?')) {
+            setEditedResult(prev => ({
+                ...prev,
+                products: prev.products.filter((_, i) => i !== index)
+            }));
+        }
+    };
+
+    const handleSave = () => {
+        setIsSaving(true);
+        onUpdate(editedResult);
+        setTimeout(() => {
+            setIsSaving(false);
+            setIsSaved(true);
+            setTimeout(() => setIsSaved(false), 2000);
+        }, 300);
+    };
 
     const handleCopy = () => {
-        navigator.clipboard.writeText(result.patientMessage);
+        navigator.clipboard.writeText(editedResult.patientMessage);
         setCopied(true);
         setTimeout(() => setCopied(false), 2000);
     };
@@ -94,35 +152,29 @@ const QuoteResultDisplay: React.FC<{result: QuoteResult, onResetChat: () => void
         const maxLineWidth = pageWidth - margin * 2;
         let y = 20;
 
-        // Extract patient name
-        const patientName = result.patientName || 'Paciente';
+        const patientName = editedResult.patientName || 'Paciente';
         const today = new Date().toLocaleDateString('pt-BR').replace(/\//g, '-');
         const fileName = `orcamento-${patientName.replace(/\s+/g, '_')}-${today}.pdf`;
 
-        // Title
         doc.setFont('helvetica', 'bold');
         doc.setFontSize(18);
         const title = `Orçamento - ${settings.associationName || 'Associação'}`;
         doc.text(title, pageWidth / 2, y, { align: 'center' });
         y += 15;
 
-        // Internal Summary
         doc.setFontSize(14);
         doc.text('Resumo Interno para a Equipe', margin, y);
         y += 7;
 
         doc.setFont('courier', 'normal');
         doc.setFontSize(10);
-        const internalLines = doc.splitTextToSize(result.internalSummary, maxLineWidth);
+        const internalLines = doc.splitTextToSize(editedResult.internalSummary, maxLineWidth);
         doc.text(internalLines, margin, y);
         y += internalLines.length * 4.5 + 5;
 
         const addPdfSection = (title: string, content: string | undefined) => {
             if (!content) return;
-            if (y > 260) {
-                doc.addPage();
-                y = 20;
-            }
+            if (y > 260) { doc.addPage(); y = 20; }
             y += 5;
             doc.setFont('helvetica', 'bold');
             doc.setFontSize(12);
@@ -135,18 +187,11 @@ const QuoteResultDisplay: React.FC<{result: QuoteResult, onResetChat: () => void
             y += contentLines.length * 4.5 + 5;
         };
 
-        addPdfSection('Histórico Médico Relevante', result.medicalHistory);
-        addPdfSection('Notas do Médico', result.doctorNotes);
+        addPdfSection('Histórico Médico Relevante', editedResult.medicalHistory);
+        addPdfSection('Notas do Médico', editedResult.doctorNotes);
+        y += 5;
+        if (y > 280) { doc.addPage(); y = 20; }
 
-        y += 5; // Extra space before patient message
-
-        // Check for page break
-        if (y > 280) { // a bit of margin from bottom
-            doc.addPage();
-            y = 20;
-        }
-
-        // Patient Message
         doc.setFont('helvetica', 'bold');
         doc.setFontSize(14);
         doc.text('Mensagem para o Paciente', margin, y);
@@ -154,93 +199,113 @@ const QuoteResultDisplay: React.FC<{result: QuoteResult, onResetChat: () => void
         
         doc.setFont('helvetica', 'normal');
         doc.setFontSize(11);
-        const patientLines = doc.splitTextToSize(result.patientMessage, maxLineWidth);
+        const patientLines = doc.splitTextToSize(editedResult.patientMessage, maxLineWidth);
         doc.text(patientLines, margin, y);
 
         doc.save(fileName);
     };
 
+    const inputClass = "bg-[#202124] w-full text-gray-200 focus:outline-none focus:ring-1 focus:ring-fuchsia-500 rounded px-2 py-1 border border-transparent focus:border-fuchsia-500 transition-colors";
+    const textareaClass = `${inputClass} resize-y min-h-[60px]`;
+    const labelClass = "text-gray-400 shrink-0 text-xs font-semibold";
+    const fieldWrapperClass = "flex flex-col gap-1";
+
     return (
         <>
             {isReminderModalOpen && (
                 <ReminderModal 
-                    quoteId={result.id}
-                    patientName={result.patientName}
+                    quoteId={editedResult.id}
+                    patientName={editedResult.patientName}
                     onClose={() => setIsReminderModalOpen(false)}
                 />
             )}
             <div className="mt-2 w-full space-y-4 text-sm">
                 <div>
-                    <h3 className="font-semibold text-fuchsia-300 mb-2">Resumo Interno para a Equipe</h3>
+                    <h3 className="font-semibold text-fuchsia-300 mb-2">Resumo Interno (Editável)</h3>
                     <div className="p-4 bg-[#202124] rounded-lg border border-gray-700 space-y-4">
-                        <div className="font-mono text-xs text-gray-300 space-y-2">
-                             <p><span className="text-gray-400">Paciente:</span> {result.patientName}</p>
-                             <div className="flex items-center gap-2">
-                                <span className="text-gray-400 shrink-0">Receita:</span>
-                                {isExpired ? (
-                                    <span className="flex items-center gap-1.5 font-bold text-red-300 bg-red-900/50 px-2 py-0.5 rounded text-xs">
-                                        <AlertTriangleIcon className="w-3 h-3" />
-                                        <span>{result.validity}</span>
-                                    </span>
-                                ) : (
-                                    <span className="font-semibold text-green-400">{result.validity}</span>
-                                )}
-                             </div>
-                             <p className="text-gray-400 pt-1">Produtos Solicitados:</p>
-                             <ul className="pl-4 space-y-1">
-                                {result.products.map((p, i) => (
-                                    <li key={i} className={p.status.toLowerCase().includes('alerta') ? 'text-yellow-300' : ''}>
-                                        <span className="font-semibold">{p.name}</span> ({p.concentration}) - {p.quantity}.
-                                        {p.status.toLowerCase() !== 'ok' && 
-                                            <span className="block text-xs pl-2 font-normal opacity-80">↳ Status: {p.status}</span>
-                                        }
-                                        {p.suggestionNotes && 
-                                            <span className="block text-xs pl-2 font-normal text-fuchsia-300/80">↳ Sugestão: {p.suggestionNotes}</span>
-                                        }
-                                    </li>
-                                ))}
-                             </ul>
-                             <p className="pt-1"><span className="text-gray-400">Subtotal:</span> {result.totalValue}</p>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                           <div className={fieldWrapperClass}>
+                               <label htmlFor="patientName" className={labelClass}>Paciente:</label>
+                               <input id="patientName" name="patientName" type="text" value={editedResult.patientName} onChange={handleInputChange} className={inputClass} />
+                           </div>
+                           <div className={fieldWrapperClass}>
+                               <label htmlFor="validity" className={labelClass}>Validade da Receita:</label>
+                               <input id="validity" name="validity" type="text" value={editedResult.validity} onChange={handleInputChange} className={`${inputClass} ${isExpired ? 'text-red-300' : 'text-green-400'}`} />
+                           </div>
                         </div>
-                        {result.observations && (
-                            <div className="p-3 bg-yellow-900/30 rounded-lg border border-yellow-700/50">
-                                <div className="flex items-start gap-2">
-                                    <AlertTriangleIcon className="w-4 h-4 text-yellow-400 mt-0.5 flex-shrink-0" />
-                                    <div>
-                                        <h4 className="font-semibold text-yellow-300 text-sm">Observações da IA</h4>
-                                        <div className="whitespace-pre-wrap font-sans text-sm text-yellow-300/90 mt-1">
-                                            {result.observations}
+
+                        <div className="pt-2">
+                             <h4 className="text-sm font-semibold text-gray-400 mb-2">Produtos Solicitados</h4>
+                             <div className="space-y-3">
+                                {editedResult.products.map((p, i) => (
+                                    <div key={i} className="p-3 bg-[#303134]/50 rounded-lg border border-gray-600/50 relative group">
+                                         <button onClick={() => handleRemoveProduct(i)} className="absolute top-2 right-2 p-1 rounded-full text-gray-500 hover:text-red-400 hover:bg-gray-600 opacity-0 group-hover:opacity-100 transition-all" aria-label="Remover produto"><Trash2Icon className="w-4 h-4" /></button>
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div className={`${fieldWrapperClass} col-span-2`}>
+                                                <label htmlFor={`p_name_${i}`} className={labelClass}>Nome</label>
+                                                <input id={`p_name_${i}`} value={p.name} onChange={(e) => handleProductChange(i, 'name', e.target.value)} className={inputClass} />
+                                            </div>
+                                            <div className={fieldWrapperClass}>
+                                                <label htmlFor={`p_qty_${i}`} className={labelClass}>Qtd.</label>
+                                                <input id={`p_qty_${i}`} value={p.quantity} onChange={(e) => handleProductChange(i, 'quantity', e.target.value)} className={inputClass} />
+                                            </div>
+                                            <div className={fieldWrapperClass}>
+                                                <label htmlFor={`p_conc_${i}`} className={labelClass}>Concentração</label>
+                                                <input id={`p_conc_${i}`} value={p.concentration} onChange={(e) => handleProductChange(i, 'concentration', e.target.value)} className={inputClass} />
+                                            </div>
+                                            <div className={`${fieldWrapperClass} col-span-2`}>
+                                                <label htmlFor={`p_status_${i}`} className={labelClass}>Status</label>
+                                                <select id={`p_status_${i}`} value={p.status} onChange={(e) => handleProductChange(i, 'status', e.target.value)} className={`${inputClass} ${p.status.toLowerCase().includes('alerta') ? 'text-yellow-300' : ''}`}>
+                                                    <option value="OK">OK</option>
+                                                    <option value="Alerta: Sugestão de alternativa">Alerta: Sugestão de alternativa</option>
+                                                    <option value="Alerta: Produto não encontrado no catálogo">Alerta: Produto não encontrado no catálogo</option>
+                                                </select>
+                                            </div>
+                                             <div className={`${fieldWrapperClass} col-span-2`}>
+                                                <label htmlFor={`p_notes_${i}`} className={labelClass}>Nota de Sugestão (Interna)</label>
+                                                <input id={`p_notes_${i}`} value={p.suggestionNotes || ''} onChange={(e) => handleProductChange(i, 'suggestionNotes', e.target.value)} className={inputClass} />
+                                            </div>
                                         </div>
                                     </div>
-                                </div>
-                            </div>
+                                ))}
+                             </div>
+                             <button onClick={handleAddProduct} className="mt-3 flex items-center gap-2 text-xs text-fuchsia-300 hover:text-fuchsia-200 font-semibold"><PlusIcon className="w-4 h-4"/> Adicionar Produto</button>
+                        </div>
+                        
+                         <div className={fieldWrapperClass}>
+                           <label htmlFor="totalValue" className={labelClass}>Subtotal (R$)</label>
+                           <input id="totalValue" name="totalValue" type="text" value={editedResult.totalValue} onChange={handleInputChange} className={`${inputClass} font-semibold`} />
+                       </div>
+
+                       <div className={fieldWrapperClass}>
+                           <label htmlFor="internalSummary" className={labelClass}>Resumo para Equipe</label>
+                           <textarea id="internalSummary" name="internalSummary" value={editedResult.internalSummary} onChange={handleInputChange} className={textareaClass} />
+                       </div>
+                       
+                        {editedResult.observations && (
+                            <div className={fieldWrapperClass}>
+                               <label htmlFor="observations" className={labelClass}>Observações da IA</label>
+                               <textarea id="observations" name="observations" value={editedResult.observations} onChange={handleInputChange} className={`${textareaClass} text-yellow-300 bg-yellow-900/20`} />
+                           </div>
                         )}
-                        {result.medicalHistory && (
-                            <div className="pt-4 border-t border-gray-700/50">
-                                <h4 className="font-semibold text-fuchsia-300/80 mb-1">Histórico Médico Relevante</h4>
-                                <div className="whitespace-pre-wrap font-sans text-sm text-gray-300">
-                                    {result.medicalHistory}
-                                </div>
-                            </div>
-                        )}
-                        {result.doctorNotes && (
-                            <div className="pt-4 border-t border-gray-700/50">
-                                <h4 className="font-semibold text-fuchsia-300/80 mb-1">Notas do Médico</h4>
-                                <div className="whitespace-pre-wrap font-sans text-sm text-gray-300">
-                                    {result.doctorNotes}
-                                </div>
-                            </div>
-                        )}
+                        <div className={fieldWrapperClass}>
+                           <label htmlFor="medicalHistory" className={labelClass}>Histórico Médico Relevante</label>
+                           <textarea id="medicalHistory" name="medicalHistory" value={editedResult.medicalHistory || ''} onChange={handleInputChange} className={textareaClass} />
+                       </div>
+                       <div className={fieldWrapperClass}>
+                           <label htmlFor="doctorNotes" className={labelClass}>Notas do Médico</label>
+                           <textarea id="doctorNotes" name="doctorNotes" value={editedResult.doctorNotes || ''} onChange={handleInputChange} className={textareaClass} />
+                       </div>
                     </div>
                 </div>
                 <div>
-                    <h3 className="font-semibold text-fuchsia-300 mb-1">Mensagem Pronta para o Paciente</h3>
-                    <div className="relative p-3 bg-[#202124] rounded-lg border border-gray-700">
-                        <button onClick={handleCopy} className="absolute top-2 right-2 p-1 bg-gray-700 rounded-md hover:bg-gray-600 transition-colors" aria-label="Copiar mensagem para o paciente">
+                    <div className="flex justify-between items-center mb-1">
+                        <h3 className="font-semibold text-fuchsia-300">Mensagem Pronta para o Paciente</h3>
+                        <button onClick={handleCopy} className="p-1.5 bg-gray-700 rounded-md hover:bg-gray-600 transition-colors" aria-label="Copiar mensagem para o paciente">
                             {copied ? <ClipboardCheckIcon className="w-4 h-4 text-green-400" /> : <ClipboardIcon className="w-4 h-4 text-gray-400" />}
                         </button>
-                        <pre className="whitespace-pre-wrap font-sans">{result.patientMessage}</pre>
                     </div>
+                    <textarea name="patientMessage" value={editedResult.patientMessage} onChange={handleInputChange} rows={12} className="w-full bg-[#202124] rounded-lg border border-gray-700 p-3 whitespace-pre-wrap font-sans focus:outline-none focus:ring-1 focus:ring-fuchsia-500 transition-colors" />
                 </div>
                  <div className="flex items-center justify-between pt-2">
                     <button
@@ -253,6 +318,14 @@ const QuoteResultDisplay: React.FC<{result: QuoteResult, onResetChat: () => void
                     </button>
                     <div className="flex items-center gap-2">
                         <button 
+                            onClick={handleSave}
+                            disabled={isSaving}
+                            className={`flex items-center justify-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg shadow-md transition-colors w-40
+                                ${isSaved ? 'bg-green-600 text-white' : 'bg-fuchsia-700 text-white hover:bg-fuchsia-600 disabled:opacity-70'}`}
+                        >
+                            {isSaving ? <Loader /> : isSaved ? <><CheckIcon className="w-4 h-4" /> Salvo!</> : 'Salvar Ajustes'}
+                        </button>
+                        <button 
                             onClick={handleDownloadPDF}
                             className="flex items-center gap-2 px-4 py-2 bg-gray-700 text-sm text-gray-200 font-medium rounded-lg hover:bg-gray-600 transition-colors"
                             aria-label="Baixar orçamento como PDF"
@@ -260,28 +333,34 @@ const QuoteResultDisplay: React.FC<{result: QuoteResult, onResetChat: () => void
                             <DownloadIcon className="w-4 h-4" />
                             Baixar PDF
                         </button>
-                        <button
-                            onClick={onResetChat}
-                            className="flex items-center gap-2 px-4 py-2 bg-fuchsia-700 text-sm text-white font-semibold rounded-lg shadow-md hover:bg-fuchsia-600 transition-colors"
-                            aria-label="Analisar nova receita"
-                        >
-                            <RefreshCwIcon className="w-4 h-4" />
-                            Analisar Nova Receita
-                        </button>
                     </div>
+                </div>
+                 <div className="flex justify-end pt-2">
+                     <button
+                        onClick={onResetChat}
+                        className="flex items-center gap-2 px-4 py-2 bg-gray-700 text-sm text-white font-semibold rounded-lg shadow-md hover:bg-gray-600 transition-colors"
+                        aria-label="Analisar nova receita"
+                    >
+                        <RefreshCwIcon className="w-4 h-4" />
+                        Analisar Nova Receita
+                    </button>
                 </div>
             </div>
         </>
     );
 };
 
-const MessageBubble: React.FC<{ 
-    message: ChatMessage; 
-    onAction: (messageId: string, payload: string) => void; 
+interface MessageBubbleProps {
+    message: ChatMessage;
+    onAction: (messageId: string, payload: string) => void;
     processingAction: { messageId: string; payload: string } | null;
     loadingAction: 'file' | 'text' | null;
     onResetChat: () => void;
-}> = ({ message, onAction, processingAction, loadingAction, onResetChat }) => {
+    onUpdateQuote: (messageId: string, updatedQuote: QuoteResult) => void;
+}
+
+
+const MessageBubble: React.FC<MessageBubbleProps> = ({ message, onAction, processingAction, loadingAction, onResetChat, onUpdateQuote }) => {
     const [copied, setCopied] = useState(false);
 
     const handleCopy = (textToCopy: string) => {
@@ -301,7 +380,11 @@ const MessageBubble: React.FC<{
                 return <TypingIndicator />;
             }
             case 'quote':
-                return <QuoteResultDisplay result={content.result} onResetChat={onResetChat} />;
+                return <QuoteResultDisplay 
+                    result={content.result} 
+                    onResetChat={onResetChat} 
+                    onUpdate={(updatedResult) => onUpdateQuote(message.id, updatedResult)} 
+                />;
             case 'user_result':
                 return <UserResultDisplay users={content.users} searchTerm={content.searchTerm} />;
             case 'error':
@@ -491,6 +574,7 @@ interface ChatProps {
     onAction: (messageId: string, payload: string) => void;
     processingAction: { messageId: string; payload: string } | null;
     onResetChat: () => void;
+    onUpdateQuote: (messageId: string, updatedQuote: QuoteResult) => void;
 }
 
 export const Chat: React.FC<ChatProps> = ({
@@ -503,6 +587,7 @@ export const Chat: React.FC<ChatProps> = ({
     onAction,
     processingAction,
     onResetChat,
+    onUpdateQuote,
 }) => {
     const chatEndRef = useRef<HTMLDivElement | null>(null);
 
@@ -521,6 +606,7 @@ export const Chat: React.FC<ChatProps> = ({
                         processingAction={processingAction} 
                         loadingAction={loadingAction}
                         onResetChat={onResetChat}
+                        onUpdateQuote={onUpdateQuote}
                     />
                 ))}
                 <div ref={chatEndRef} />
