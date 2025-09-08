@@ -7,6 +7,38 @@ interface ApiRequestOptions extends RequestInit {
   params?: Record<string, string | Record<string, string>>;
 }
 
+// --- Helper Functions for Intelligent Search ---
+
+/**
+ * Removes all non-digit characters from a string.
+ * @param term The string to normalize.
+ * @returns A string containing only digits.
+ */
+const normalizeDigits = (term: string): string => term.replace(/\D/g, '');
+
+/**
+ * Heuristically checks if a string is a CPF based on the number of digits.
+ * A Brazilian CPF has 11 digits.
+ * @param term The search term.
+ * @returns True if it's likely a CPF.
+ */
+const isCPF = (term: string): boolean => {
+    const digits = normalizeDigits(term);
+    return digits.length === 11;
+};
+
+/**
+ * Heuristically checks if a string is a Brazilian phone number (including area code).
+ * Phone numbers have 10 (landline) or 11 (mobile) digits.
+ * @param term The search term.
+ * @returns True if it's likely a phone number.
+ */
+const isPhone = (term: string): boolean => {
+    const digits = normalizeDigits(term);
+    return digits.length === 10 || digits.length === 11;
+};
+
+
 async function apiRequest<T>(endpoint: string, options: ApiRequestOptions): Promise<T> {
   const { auth, params, ...fetchOptions } = options;
 
@@ -31,7 +63,7 @@ async function apiRequest<T>(endpoint: string, options: ApiRequestOptions): Prom
         const value = params[key];
         if (typeof value === 'object' && value !== null) {
             for (const subKey in value) {
-                 finalParams.append(`${key}[${subKey}]`, value[subKey]);
+                 finalParams.append(`${key}[${subKey}]`, (value as Record<string,string>)[subKey]);
             }
         } else if (value !== undefined) {
             finalParams.append(key, String(value));
@@ -131,11 +163,23 @@ export async function getCategories(auth: WpConfig): Promise<WooCategory[]> {
 
 
 export async function getSativarUsers(auth: WpConfig, search: string = ''): Promise<SativarUser[]> {
-    const params: Record<string, string> = {
+    const params: Record<string, any> = {
         per_page: '50',
     };
+    
     if (search) {
-        params.search = search;
+        const trimmedSearch = search.trim();
+        
+        // Use intelligent filtering based on input format
+        if (isCPF(trimmedSearch)) {
+            params.acf_filters = { cpf: normalizeDigits(trimmedSearch) };
+        } else if (isPhone(trimmedSearch)) {
+            params.acf_filters = { telefone: normalizeDigits(trimmedSearch) };
+        } else {
+            // Fallback to general search for names, emails, etc.
+            params.search = trimmedSearch;
+        }
     }
+    
     return apiRequest('/wp-json/sativar/v1/clientes', { auth, method: 'GET', params });
 }
