@@ -1,9 +1,9 @@
 
-import type { WpConfig, WooProduct, WooCategory } from '../types.ts';
+import type { WpConfig, WooProduct, WooCategory, SativarClient } from '../types.ts';
 
 interface ApiRequestOptions extends RequestInit {
   auth: WpConfig;
-  params?: Record<string, string>;
+  params?: Record<string, string | Record<string, string>>;
 }
 
 async function apiRequest<T>(endpoint: string, options: ApiRequestOptions): Promise<T> {
@@ -18,8 +18,22 @@ async function apiRequest<T>(endpoint: string, options: ApiRequestOptions): Prom
   const allParams = new URLSearchParams({
     consumer_key: auth.consumerKey,
     consumer_secret: auth.consumerSecret,
-    ...params,
   });
+
+  // Handle nested params like acf_filters
+  if (params) {
+    for (const key in params) {
+        const value = params[key];
+        if (typeof value === 'object') {
+            for (const subKey in value) {
+                 allParams.append(`${key}[${subKey}]`, value[subKey]);
+            }
+        } else {
+            allParams.append(key, value);
+        }
+    }
+  }
+
   url.search = allParams.toString();
   
   const response = await fetch(url.toString(), {
@@ -63,7 +77,8 @@ export async function checkApiStatus(auth: WpConfig): Promise<ApiStatus> {
   }
 
   try {
-    await apiRequest('/wp-json/sativar/v1/clients', { auth, method: 'GET', params: { per_page: '1' } });
+    // Correct endpoint for Sativar WordPress users
+    await apiRequest('/wp-json/sativar/v1/clientes', { auth, method: 'GET', params: { per_page: '1' } });
     status.sativarClients = 'success';
   } catch (e) {
     console.error("Sativar Clients API check failed:", e);
@@ -92,12 +107,12 @@ export async function getCategories(auth: WpConfig): Promise<WooCategory[]> {
 }
 
 
-export async function getClients(auth: WpConfig, search: string = ''): Promise<any[]> {
+export async function getSativarClients(auth: WpConfig, search: string = ''): Promise<SativarClient[]> {
     const params: Record<string, string> = {
         per_page: '50',
     };
     if (search) {
         params.search = search;
     }
-    return apiRequest('/wp-json/sativar/v1/clients', { auth, method: 'GET', params });
+    return apiRequest('/wp-json/sativar/v1/clientes', { auth, method: 'GET', params });
 }

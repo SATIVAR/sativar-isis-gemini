@@ -157,6 +157,22 @@ export interface Reminder {
     recurrence: 'none' | 'daily' | 'weekly' | 'monthly';
     priority: 'low' | 'medium' | 'high';
 }
+
+// From services/wpApiService.ts (SATIVAR Clients)
+export interface SativarClient {
+    id: number;
+    display_name: string;
+    user_email: string;
+    acf: {
+        cpf?: string;
+        telefone?: string;
+        tipo_associacao?: string;
+        nome_completo_responc?: string;
+        cpf_responsavel?: string;
+    };
+}
+
+
 // FIX: Add Vite client types to fix import.meta.env errors across the application.
 // This avoids the need for triple-slash directives in multiple files and provides type safety.
 declare global {
