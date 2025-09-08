@@ -57,7 +57,8 @@ const quoteResultSchema = {
                     name: { type: Type.STRING, description: "Nome do produto." },
                     quantity: { type: Type.STRING, description: "Quantidade solicitada." },
                     concentration: { type: Type.STRING, description: "Concentração do produto." },
-                    status: { type: Type.STRING, description: "Status do produto (ex: 'OK', 'Alerta: Produto não encontrado no catálogo')." },
+                    status: { type: Type.STRING, description: "Status do produto (ex: 'OK', 'Alerta: Sugestão de alternativa', 'Alerta: Produto não encontrado no catálogo')." },
+                    suggestionNotes: { type: Type.STRING, description: "Nota opcional para a equipe interna explicando a alternativa sugerida para um produto." }
                 },
                 required: ['name', 'quantity', 'concentration', 'status']
             }

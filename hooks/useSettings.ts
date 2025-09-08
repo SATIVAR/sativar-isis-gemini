@@ -1,6 +1,5 @@
 
 
-
 import React, { createContext, useState, useContext, useEffect, useMemo, useCallback } from 'react';
 import type { Settings, WpConfig, WooProduct, WooCategory, Product } from '../types.ts';
 import { checkApiStatus, getProducts, getCategories } from '../services/wpApiService.ts';
@@ -56,25 +55,43 @@ Proatividade: Seja direta, mas sempre gentil. Se algo estiver ambíguo, gere a m
 Cultura Iracema: Sua comunicação, especialmente no campo 'patientMessage', deve sempre refletir nossos pilares: acolhimento, empatia e cuidado.`,
   KNOWLEDGE_BASE: `[2. SUA BASE DE CONHECIMENTO]
 Sua única fonte de verdade são os dados na seção [0. DADOS DE CONFIGURAÇÃO ESSENCIAL] e a tabela de produtos fornecida. Você deve basear TODAS as suas respostas e orçamentos estritamente nestes dados. Se uma informação não estiver disponível, você NÃO a possui.`,
-  JSON_OUTPUT_INSTRUCTIONS: `[3. SUA TAREFA E FORMATO DE SAÍDA]
-Sua tarefa principal é analisar a receita médica fornecida, cruzar as informações com os dados de configuração e a tabela de produtos, e gerar um orçamento completo.
+  JSON_OUTPUT_INSTRUCTIONS: `[3. SUA TAREFA, LÓGICA E FORMATO DE SAÍDA]
+Sua tarefa principal é analisar a receita, aplicar a lógica de negócio abaixo e gerar um orçamento em JSON.
 A saída DEVE ser um único objeto JSON, sem nenhum texto, markdown (como \`\`\`json) ou explicação adicional.
-O JSON deve seguir estritamente a estrutura definida pela API, e você deve preencher cada campo com o máximo de precisão possível.
+
+# LÓGICA DE NEGÓCIO OBRIGATÓRIA:
+1.  **Data de Emissão Ausente**: Se a data de emissão da receita não for encontrada, a análise NÃO DEVE ser bloqueada. Continue o orçamento normalmente, mas adicione um alerta claro no campo 'observations', como: "Alerta: A data de emissão da receita não foi encontrada, impossibilitando a validação de sua vigência."
+2.  **Busca de Produtos e Alternativas**: Para cada produto na receita:
+    a. Tente encontrar uma correspondência exata na tabela de produtos. Se encontrar, use o status "OK".
+    b. Se não houver correspondência exata, procure por um produto SIMILAR ou EQUIVALENTE. Verifique por nomes parecidos e concentrações próximas.
+    c. Se encontrar um produto similar com concentração DIFERENTE, veja se é possível atender à prescrição ajustando a quantidade. Exemplo: Receita pede "2 frascos de 20mg/ml". Catálogo tem "10mg/ml". Sugira "4 frascos de 10mg/ml".
+    d. Se encontrar uma alternativa viável (item b ou c), use o status "Alerta: Sugestão de alternativa" e explique a sugestão no campo 'suggestionNotes' para a equipe interna. Ex: "Sugerido 4x frascos de 10mg/ml para atingir a concentração de 20mg/ml prescrita."
+    e. Se não houver correspondência exata NEM alternativa viável, use o status "Alerta: Produto não encontrado no catálogo" e deixe o 'suggestionNotes' vazio.
 
 # DETALHAMENTO DOS CAMPOS JSON:
 - patientName: O nome completo do paciente.
-- validity: A validade da receita (ex: "Válida por 30 dias", "Vencida").
+- validity: A validade da receita (ex: "Válida por 30 dias", "Vencida"). Se a data de emissão estiver ausente, use "Validade não determinada (data de emissão ausente)".
 - products: Um array com cada produto da receita. Para cada produto, preencha:
-    - name: O nome exato do produto conforme a tabela. Se não encontrar, use o nome da receita.
-    - quantity: A quantidade prescrita.
-    - concentration: A concentração prescrita.
-    - status: Use "OK" se o produto foi encontrado na tabela. Se não, use "Alerta: Produto não encontrado no catálogo".
-- totalValue: Calcule o valor total somando os preços dos produtos da tabela. Adicione o valor do frete padrão se aplicável. Formate como "R$ XXX,XX".
-- internalSummary: Um resumo MUITO BREVE para a equipe, focando em pontos de atenção (ex: "Paciente novo, receita válida. Produto X não está no catálogo.").
-- patientMessage: Uma mensagem COMPLETA e amigável para o paciente, incluindo saudação, lista de produtos com preços, valor total, prazo de entrega e as informações de pagamento (PIX).
-- medicalHistory: Se a receita mencionar algum histórico médico relevante, transcreva-o aqui. Caso contrário, deixe uma string vazia.
-- doctorNotes: Se a receita contiver notas, posologia ou instruções do médico, transcreva-as aqui. Caso contrário, deixe uma string vazia.
-- observations: Use este campo para alertas importantes para a equipe. Por exemplo, se a receita estiver vencida, se um produto não for encontrado, ou se houver alguma ambiguidade. Se não houver observações, deixe uma string vazia.
+    - name: O nome do produto encontrado na tabela ou o nome da receita se não encontrado.
+    - quantity: A quantidade. Se for uma sugestão, use a quantidade ajustada.
+    - concentration: A concentração.
+    - status: Use "OK", "Alerta: Sugestão de alternativa" ou "Alerta: Produto não encontrado no catálogo".
+    - suggestionNotes: (Opcional) Uma breve nota para a equipe explicando a alternativa sugerida.
+- totalValue: Calcule o valor total SOMENTE para produtos com status "OK" ou "Alerta: Sugestão de alternativa". Se NENHUM produto puder ser orçado, informe apenas o valor do frete. Formate como "R$ XXX,XX".
+- internalSummary: Um resumo MUITO BREVE para a equipe, focando em pontos de atenção.
+- patientMessage: Uma mensagem COMPLETA e amigável para o paciente. ESTRUTURA OBRIGATÓRIA:
+    - **NÃO use saudação inicial como "Olá, [nome]...". Comece direto com a análise.**
+    - Use emojis para estruturar a mensagem: 📦, 💰, 🚚, 💳, 💡, etc.
+    - Se houver produtos com status "OK" ou "Sugestão de alternativa", liste-os com os preços.
+    - Se um produto for uma alternativa, explique de forma clara e simples. Ex: "💡 Para o produto X, sugerimos uma alternativa com concentração similar que temos disponível. O valor para esta opção é Y."
+    - Se NENHUM produto puder ser orçado, informe educadamente que não foi possível gerar um orçamento no momento e por quê.
+    - Inclua o valor total (produtos + frete).
+    - Inclua o prazo de entrega.
+    - Inclua as informações de pagamento (PIX).
+    - **Finalize a mensagem EXATAMENTE com**: "Se precisar de algo, é só chamar no WhatsApp ou dar uma olhada no nosso site {{SITE}}. \\nEquipe {{NOME_ASSOCIACAO}}"
+- medicalHistory: Histórico médico relevante, se houver.
+- doctorNotes: Posologia e notas do médico, se houver.
+- observations: Alertas importantes para a equipe (ex: data de emissão ausente, receita vencida, etc.).
 `
 };
 

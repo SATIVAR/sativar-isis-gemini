@@ -191,7 +191,12 @@ const QuoteResultDisplay: React.FC<{result: QuoteResult, onResetChat: () => void
                                 {result.products.map((p, i) => (
                                     <li key={i} className={p.status.toLowerCase().includes('alerta') ? 'text-yellow-300' : ''}>
                                         <span className="font-semibold">{p.name}</span> ({p.concentration}) - {p.quantity}.
-                                        {p.status.toLowerCase() !== 'ok' && <span className="block text-xs pl-2 font-normal opacity-80">↳ Status: {p.status}</span>}
+                                        {p.status.toLowerCase() !== 'ok' && 
+                                            <span className="block text-xs pl-2 font-normal opacity-80">↳ Status: {p.status}</span>
+                                        }
+                                        {p.suggestionNotes && 
+                                            <span className="block text-xs pl-2 font-normal text-fuchsia-300/80">↳ Sugestão: {p.suggestionNotes}</span>
+                                        }
                                     </li>
                                 ))}
                              </ul>

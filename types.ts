@@ -6,6 +6,7 @@ export interface QuotedProduct {
     quantity: string;
     concentration: string;
     status: string;
+    suggestionNotes?: string;
 }
 
 export interface QuoteResult {
