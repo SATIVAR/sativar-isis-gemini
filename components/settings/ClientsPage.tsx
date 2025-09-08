@@ -5,8 +5,8 @@ import { useReminders } from '../../hooks/useReminders.ts';
 import { DatabaseIcon, BarChart2Icon, ServerIcon, CheckCircleIcon, AlertTriangleIcon, AlertCircleIcon, UsersIcon, SearchIcon } from '../icons.tsx';
 import { Loader } from '../Loader.tsx';
 import { apiClient } from '../../services/database/apiClient.ts';
-import { getSativarClients } from '../../services/wpApiService.ts';
-import type { SativarClient } from '../../types.ts';
+import { getSativarUsers } from '../../services/wpApiService.ts';
+import type { SativarUser } from '../../types.ts';
 
 const ConnectionStatusIndicator: React.FC<{ isOnline: boolean }> = ({ isOnline }) => (
     <div className="flex items-center gap-2" title={isOnline ? 'Conectado ao servidor' : 'Operando offline'}>
@@ -17,9 +17,9 @@ const ConnectionStatusIndicator: React.FC<{ isOnline: boolean }> = ({ isOnline }
     </div>
 );
 
-const ClientSearch: React.FC = () => {
+const UserSearch: React.FC = () => {
     const { wpConfig } = useSettings();
-    const [clients, setClients] = useState<SativarClient[]>([]);
+    const [users, setUsers] = useState<SativarUser[]>([]);
     const [searchTerm, setSearchTerm] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -32,11 +32,11 @@ const ClientSearch: React.FC = () => {
         setIsLoading(true);
         setError(null);
         try {
-            const results = await getSativarClients(wpConfig, searchTerm);
-            setClients(results);
+            const results = await getSativarUsers(wpConfig, searchTerm);
+            setUsers(results);
         } catch (err) {
-            setError(err instanceof Error ? err.message : 'Falha ao buscar clientes.');
-            setClients([]);
+            setError(err instanceof Error ? err.message : 'Falha ao buscar usuários.');
+            setUsers([]);
         } finally {
             setIsLoading(false);
         }
@@ -46,7 +46,7 @@ const ClientSearch: React.FC = () => {
         <div className="space-y-6 p-6 bg-[#303134]/50 border border-gray-700/50 rounded-lg">
             <div className="flex items-center gap-3">
                 <UsersIcon className="w-6 h-6 text-fuchsia-300"/>
-                <h3 className="text-lg font-semibold text-fuchsia-300">Consulta de Clientes (Usuários WordPress)</h3>
+                <h3 className="text-lg font-semibold text-fuchsia-300">Consulta de Usuários (WordPress)</h3>
             </div>
              <div className="flex flex-col sm:flex-row gap-2">
                 <div className="relative flex-grow">
@@ -68,7 +68,7 @@ const ClientSearch: React.FC = () => {
                     className="flex items-center justify-center gap-2 px-4 py-2 bg-fuchsia-700 text-sm text-white font-semibold rounded-lg shadow-md hover:bg-fuchsia-600 transition-colors disabled:opacity-50 disabled:cursor-wait"
                 >
                     {isLoading && <Loader />}
-                    {isLoading ? 'Buscando...' : 'Buscar Clientes'}
+                    {isLoading ? 'Buscando...' : 'Buscar Usuários'}
                 </button>
             </div>
             
@@ -79,7 +79,7 @@ const ClientSearch: React.FC = () => {
                 </div>
             )}
 
-            {clients.length > 0 && !isLoading && (
+            {users.length > 0 && !isLoading && (
                  <div className="overflow-auto max-h-96 pr-2">
                     <table className="w-full text-sm text-left">
                          <thead className="text-xs text-gray-400 uppercase bg-[#202124] sticky top-0">
@@ -91,12 +91,12 @@ const ClientSearch: React.FC = () => {
                             </tr>
                         </thead>
                         <tbody>
-                            {clients.map(client => (
-                                <tr key={client.id} className="border-b border-gray-700 hover:bg-[#303134]/50">
-                                    <td className="px-4 py-3 font-medium text-white">{client.display_name}</td>
-                                    <td className="px-4 py-3 text-gray-300">{client.user_email}</td>
-                                    <td className="px-4 py-3 text-gray-300">{client.acf?.cpf || 'N/A'}</td>
-                                    <td className="px-4 py-3 text-gray-300">{client.acf?.telefone || 'N/A'}</td>
+                            {users.map(user => (
+                                <tr key={user.id} className="border-b border-gray-700 hover:bg-[#303134]/50">
+                                    <td className="px-4 py-3 font-medium text-white">{user.display_name}</td>
+                                    <td className="px-4 py-3 text-gray-300">{user.user_email}</td>
+                                    <td className="px-4 py-3 text-gray-300">{user.acf?.cpf || 'N/A'}</td>
+                                    <td className="px-4 py-3 text-gray-300">{user.acf?.telefone || 'N/A'}</td>
                                 </tr>
                             ))}
                         </tbody>
@@ -104,10 +104,10 @@ const ClientSearch: React.FC = () => {
                 </div>
             )}
             
-            {clients.length === 0 && !isLoading && !error && (
+            {users.length === 0 && !isLoading && !error && (
                 <div className="text-center py-6 text-gray-500 text-sm border-2 border-dashed border-gray-700 rounded-lg">
                     <UsersIcon className="w-8 h-8 mx-auto mb-2"/>
-                    Nenhum cliente encontrado ou busca não realizada.
+                    Nenhum usuário encontrado ou busca não realizada.
                 </div>
             )}
         </div>
@@ -194,7 +194,7 @@ export const AdvancedPage: React.FC = () => {
                 </p>
             </div>
             
-            <ClientSearch />
+            <UserSearch />
 
             <div className="space-y-6 p-6 bg-[#303134]/50 border border-gray-700/50 rounded-lg">
                 <div className="flex items-center gap-3">

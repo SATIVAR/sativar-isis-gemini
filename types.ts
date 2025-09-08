@@ -158,8 +158,8 @@ export interface Reminder {
     priority: 'low' | 'medium' | 'high';
 }
 
-// From services/wpApiService.ts (SATIVAR Clients)
-export interface SativarClient {
+// From services/wpApiService.ts (SATIVAR Users)
+export interface SativarUser {
     id: number;
     display_name: string;
     user_email: string;

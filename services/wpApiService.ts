@@ -1,5 +1,5 @@
 
-import type { WpConfig, WooProduct, WooCategory, SativarClient } from '../types.ts';
+import type { WpConfig, WooProduct, WooCategory, SativarUser } from '../types.ts';
 
 interface ApiRequestOptions extends RequestInit {
   auth: WpConfig;
@@ -14,35 +14,44 @@ async function apiRequest<T>(endpoint: string, options: ApiRequestOptions): Prom
   }
 
   const url = new URL(endpoint, auth.url);
-
-  const allParams = new URLSearchParams({
-    consumer_key: auth.consumerKey,
-    consumer_secret: auth.consumerSecret,
-  });
-
-  // Handle nested params like acf_filters
-  if (params) {
-    for (const key in params) {
-        const value = params[key];
-        if (typeof value === 'object') {
-            for (const subKey in value) {
-                 allParams.append(`${key}[${subKey}]`, value[subKey]);
-            }
-        } else {
-            allParams.append(key, value);
-        }
-    }
-  }
-
-  url.search = allParams.toString();
+  const isUserEndpoint = endpoint.includes('/sativar/v1/clientes');
   
-  const response = await fetch(url.toString(), {
+  const finalFetchOptions: RequestInit = {
     ...fetchOptions,
     headers: {
       'Content-Type': 'application/json',
       ...fetchOptions.headers,
     },
-  });
+  };
+
+  const finalParams = new URLSearchParams();
+  if (params) {
+    for (const key in params) {
+        const value = params[key];
+        if (typeof value === 'object' && value !== null) {
+            for (const subKey in value) {
+                 finalParams.append(`${key}[${subKey}]`, value[subKey]);
+            }
+        } else if (value !== undefined) {
+            finalParams.append(key, String(value));
+        }
+    }
+  }
+
+  if (isUserEndpoint) {
+    // Custom WP REST endpoints often work better with Basic Auth, while standard WC endpoints work well with query params.
+    // This provides the keys via the Authorization header for the user endpoint.
+    const basicAuth = btoa(`${auth.consumerKey}:${auth.consumerSecret}`);
+    (finalFetchOptions.headers as Record<string, string>)['Authorization'] = `Basic ${basicAuth}`;
+  } else {
+    // For all other endpoints (like WooCommerce products), we continue using query parameters.
+    finalParams.append('consumer_key', auth.consumerKey);
+    finalParams.append('consumer_secret', auth.consumerSecret);
+  }
+
+  url.search = finalParams.toString();
+  
+  const response = await fetch(url.toString(), finalFetchOptions);
 
   if (!response.ok) {
     const errorBody = await response.text();
@@ -55,17 +64,17 @@ async function apiRequest<T>(endpoint: string, options: ApiRequestOptions): Prom
 
 export interface ApiStatus {
   wooCommerce: 'success' | 'error' | 'untested';
-  sativarClients: 'success' | 'error' | 'untested';
+  sativarUsers: 'success' | 'error' | 'untested';
 }
 
 export async function checkApiStatus(auth: WpConfig): Promise<ApiStatus> {
   const status: ApiStatus = {
     wooCommerce: 'untested',
-    sativarClients: 'untested',
+    sativarUsers: 'untested',
   };
 
   if (!auth.url || !auth.consumerKey || !auth.consumerSecret) {
-    return { wooCommerce: 'error', sativarClients: 'error' };
+    return { wooCommerce: 'error', sativarUsers: 'error' };
   }
 
   try {
@@ -79,10 +88,10 @@ export async function checkApiStatus(auth: WpConfig): Promise<ApiStatus> {
   try {
     // Correct endpoint for Sativar WordPress users
     await apiRequest('/wp-json/sativar/v1/clientes', { auth, method: 'GET', params: { per_page: '1' } });
-    status.sativarClients = 'success';
+    status.sativarUsers = 'success';
   } catch (e) {
-    console.error("Sativar Clients API check failed:", e);
-    status.sativarClients = 'error';
+    console.error("Sativar Users API check failed:", e);
+    status.sativarUsers = 'error';
   }
 
   return status;
@@ -107,7 +116,7 @@ export async function getCategories(auth: WpConfig): Promise<WooCategory[]> {
 }
 
 
-export async function getSativarClients(auth: WpConfig, search: string = ''): Promise<SativarClient[]> {
+export async function getSativarUsers(auth: WpConfig, search: string = ''): Promise<SativarUser[]> {
     const params: Record<string, string> = {
         per_page: '50',
     };

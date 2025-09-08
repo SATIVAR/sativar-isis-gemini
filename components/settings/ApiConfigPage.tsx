@@ -54,7 +54,7 @@ export const ApiConfigPage: React.FC = () => {
   const [formState, setFormState] = useState<WpConfig>(wpConfig);
   const [isTesting, setIsTesting] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [apiStatus, setApiStatus] = useState<ApiStatus>({ wooCommerce: 'untested', sativarClients: 'untested' });
+  const [apiStatus, setApiStatus] = useState<ApiStatus>({ wooCommerce: 'untested', sativarUsers: 'untested' });
   const [errors, setErrors] = useState({
     url: '',
     consumerKey: '',
@@ -130,10 +130,10 @@ export const ApiConfigPage: React.FC = () => {
     
     if (status.wooCommerce === 'success') {
         await saveWpConfig(formState);
-        if (status.sativarClients === 'success') {
+        if (status.sativarUsers === 'success') {
             alert("Configurações salvas e conexão estabelecida com sucesso!");
         } else {
-            alert("Atenção: Configurações salvas. A conexão com o WooCommerce foi bem-sucedida, mas o endpoint de Clientes (SATIVAR) falhou. A funcionalidade de produtos está ativa.");
+            alert("Atenção: Configurações salvas. A conexão com o WooCommerce foi bem-sucedida, mas o endpoint de Usuários (SATIVAR) falhou. A funcionalidade de produtos está ativa, mas a de busca de usuários não.");
         }
     } else {
         alert("Erro ao salvar: Falha na conexão com o endpoint de Produtos (WooCommerce). Verifique os dados da API. As configurações não foram salvas.");
@@ -174,7 +174,7 @@ export const ApiConfigPage: React.FC = () => {
         <div className="space-y-3 pt-4">
             <h3 className="text-lg font-semibold text-fuchsia-300">Status dos Serviços</h3>
             <StatusIndicator status={isTesting || isSaving ? 'testing' : apiStatus.wooCommerce} label="Endpoint de Produtos (WooCommerce)" icon={<StoreIcon className="w-5 h-5"/>} />
-            <StatusIndicator status={isTesting || isSaving ? 'testing' : apiStatus.sativarClients} label="Endpoint de Clientes (SATIVAR)" icon={<UsersIcon className="w-5 h-5" />} />
+            <StatusIndicator status={isTesting || isSaving ? 'testing' : apiStatus.sativarUsers} label="Endpoint de Usuários (SATIVAR)" icon={<UsersIcon className="w-5 h-5" />} />
         </div>
 
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-4">

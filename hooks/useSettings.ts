@@ -297,7 +297,8 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     setWpConnectionStatus('testing');
     try {
       const status = await checkApiStatus(configToTest);
-      const isSuccess = status.wooCommerce === 'success' && status.sativarClients === 'success';
+      // FIX: Corrected typo from `sativarClients` to `sativarUsers` to match the `ApiStatus` type definition.
+      const isSuccess = status.wooCommerce === 'success' && status.sativarUsers === 'success';
       if (isSuccess) {
           setWpConnectionStatus('success');
       } else {
