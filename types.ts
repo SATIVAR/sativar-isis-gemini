@@ -22,7 +22,7 @@ export interface QuoteResult {
 }
 
 // From components/QuoteGenerator.tsx and components/Chat.tsx
-export type MessageContentType = 'text' | 'file_request' | 'loading' | 'quote' | 'error' | 'actions';
+export type MessageContentType = 'text' | 'file_request' | 'loading' | 'quote' | 'error' | 'actions' | 'user_result';
 
 export interface TextContent {
     type: 'text';
@@ -59,7 +59,13 @@ export interface ActionsContent {
     actions: Action[];
 }
 
-export type MessageContent = TextContent | FileRequestContent | LoadingContent | QuoteContent | ErrorContent | ActionsContent;
+export interface UserResultContent {
+    type: 'user_result';
+    users: SativarUser[];
+    searchTerm: string;
+}
+
+export type MessageContent = TextContent | FileRequestContent | LoadingContent | QuoteContent | ErrorContent | ActionsContent | UserResultContent;
 
 export interface ChatMessage {
     id: string;
@@ -165,13 +171,14 @@ export interface Reminder {
 export interface SativarUser {
     id: number;
     display_name: string;
-    user_email: string;
-    acf: {
+    email: string;
+    acf_fields: {
         cpf?: string;
         telefone?: string;
         tipo_associacao?: string;
         nome_completo_responc?: string;
         cpf_responsavel?: string;
+        nome_completo?: string;
     };
 }
 

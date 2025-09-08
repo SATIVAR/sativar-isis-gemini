@@ -1,8 +1,9 @@
 
+
 import React, { useState, useRef, useEffect } from 'react';
 import { jsPDF } from 'jspdf';
 import { useSettings } from '../hooks/useSettings.ts';
-import type { ChatMessage, QuoteResult, MessageContent } from '../types.ts';
+import type { ChatMessage, QuoteResult, MessageContent, SativarUser } from '../types.ts';
 import { AlertTriangleIcon, ClipboardCheckIcon, ClipboardIcon, DownloadIcon, PlusIcon, SendIcon, UserIcon, BellIcon, RefreshCwIcon, CheckIcon } from './icons.tsx';
 import { Loader } from './Loader.tsx';
 import { ReminderModal } from './Reminders.tsx';
@@ -38,6 +39,41 @@ const UserAvatar: React.FC = () => (
         <UserIcon className="h-5 w-5 text-gray-300" />
     </div>
 );
+
+const UserResultDisplay: React.FC<{ users: SativarUser[], searchTerm: string }> = ({ users, searchTerm }) => {
+    if (users.length === 0) {
+        return (
+            <div className="mt-2 w-full text-sm text-gray-300">
+                <p>Nenhum associado encontrado para "<strong>{searchTerm}</strong>".</p>
+            </div>
+        );
+    }
+
+    return (
+        <div className="mt-2 w-full space-y-3 text-sm">
+            <p className="text-gray-300">
+                {users.length === 1 
+                    ? <>Encontrei 1 resultado para "<strong>{searchTerm}</strong>":</>
+                    : <>Encontrei {users.length} resultados para "<strong>{searchTerm}</strong>":</>
+                }
+            </p>
+            {users.map(user => (
+                <div key={user.id} className="p-4 bg-[#202124] rounded-lg border border-gray-700 space-y-2">
+                    <p className="font-semibold text-white">{user.display_name}</p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1 text-xs font-mono text-gray-300">
+                        <p className="truncate"><span className="text-gray-400">EMAIL:</span> {user.email || 'N/A'}</p>
+                        <p><span className="text-gray-400">CPF:</span> {user.acf_fields?.cpf || 'N/A'}</p>
+                        <p><span className="text-gray-400">TEL:</span> {user.acf_fields?.telefone || 'N/A'}</p>
+                         {user.acf_fields?.nome_completo_responc && (
+                            <p className="truncate"><span className="text-gray-400">RESP:</span> {user.acf_fields.nome_completo_responc} ({user.acf_fields.cpf_responsavel || 'CPF N/A'})</p>
+                        )}
+                    </div>
+                </div>
+            ))}
+        </div>
+    );
+};
+
 
 const QuoteResultDisplay: React.FC<{result: QuoteResult, onResetChat: () => void}> = ({ result, onResetChat }) => {
     const [copied, setCopied] = useState(false);
@@ -261,6 +297,8 @@ const MessageBubble: React.FC<{
             }
             case 'quote':
                 return <QuoteResultDisplay result={content.result} onResetChat={onResetChat} />;
+            case 'user_result':
+                return <UserResultDisplay users={content.users} searchTerm={content.searchTerm} />;
             case 'error':
                  return (
                     <div className="flex items-start gap-3 p-3 bg-red-900/20 rounded-lg border border-red-700/50">

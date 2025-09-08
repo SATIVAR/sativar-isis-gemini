@@ -66,9 +66,9 @@ const UserResultsTable: React.FC<{ users: SativarUser[] }> = ({ users }) => (
             {users.map(user => (
                 <tr key={user.id} className="border-b border-gray-700 hover:bg-[#303134]/50">
                     <td className="px-4 py-3 font-medium text-white">{user.display_name}</td>
-                    <td className="px-4 py-3 text-gray-300">{user.user_email}</td>
-                    <td className="px-4 py-3 text-gray-300">{user.acf?.cpf || 'N/A'}</td>
-                    <td className="px-4 py-3 text-gray-300">{user.acf?.telefone || 'N/A'}</td>
+                    <td className="px-4 py-3 text-gray-300">{user.email}</td>
+                    <td className="px-4 py-3 text-gray-300">{user.acf_fields?.cpf || 'N/A'}</td>
+                    <td className="px-4 py-3 text-gray-300">{user.acf_fields?.telefone || 'N/A'}</td>
                 </tr>
             ))}
         </tbody>
