@@ -17,14 +17,24 @@ interface ApiRequestOptions extends RequestInit {
 const normalizeDigits = (term: string): string => term.replace(/\D/g, '');
 
 /**
- * Heuristically checks if a string is a CPF based on the number of digits.
- * A Brazilian CPF has 11 digits.
+ * Heuristically checks if a string is a CPF.
+ * A Brazilian CPF has 11 digits. This check is made more specific to avoid
+ * incorrectly identifying 11-digit mobile numbers (which also have 11 digits)
+ * as CPFs. It does this by rejecting terms that contain phone-specific
+ * formatting like parentheses.
  * @param term The search term.
  * @returns True if it's likely a CPF.
  */
 const isCPF = (term: string): boolean => {
     const digits = normalizeDigits(term);
-    return digits.length === 11;
+    if (digits.length !== 11) {
+        return false;
+    }
+    // If the original term contains parentheses, it's treated as a phone number, not a CPF.
+    if (term.includes('(') || term.includes(')')) {
+        return false;
+    }
+    return true;
 };
 
 /**
