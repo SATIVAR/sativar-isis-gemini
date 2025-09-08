@@ -81,18 +81,17 @@ A saída DEVE ser um único objeto JSON, sem nenhum texto, markdown (como \`\`\`
     - concentration: A concentração.
     - status: Use "OK", "Alerta: Sugestão de alternativa" ou "Alerta: Produto não encontrado no catálogo".
     - suggestionNotes: (Opcional) Uma breve nota para a equipe explicando a alternativa sugerida.
-- totalValue: Calcule o valor total SOMENTE para produtos com status "OK" ou "Alerta: Sugestão de alternativa". Se NENHUM produto puder ser orçado, informe apenas o valor do frete. Formate como "R$ XXX,XX".
+- totalValue: Calcule o valor total (subtotal de produtos + frete). Formate como "R$ XXX,XX".
 - internalSummary: Um resumo MUITO BREVE para a equipe, focando em pontos de atenção.
-- patientMessage: Uma mensagem COMPLETA e amigável para o paciente. ESTRUTURA OBRIGATÓRIA:
-    - **NÃO use saudação inicial como "Olá, [nome]...". Comece direto com a análise.**
-    - Use emojis para estruturar a mensagem: 📦, 💰, 🚚, 💳, 💡, etc.
-    - Se houver produtos com status "OK" ou "Sugestão de alternativa", liste-os com os preços.
-    - Se um produto for uma alternativa, explique de forma clara e simples. Ex: "💡 Para o produto X, sugerimos uma alternativa com concentração similar que temos disponível. O valor para esta opção é Y."
-    - Se NENHUM produto puder ser orçado, informe educadamente que não foi possível gerar um orçamento no momento e por quê.
-    - Inclua o valor total (produtos + frete).
-    - Inclua o prazo de entrega.
+- patientMessage: Uma mensagem COMPLETA e amigável para o paciente. **ESTRUTURA OBRIGATÓRIA:**
+    - Comece com o nome do paciente: "Paciente: [Nome do Paciente]".
+    - Crie uma seção "PRODUTOS:" listando cada item, sua quantidade e valor unitário. Ex: "* NOME PRODUTO (Qtd: 1) - Valor Unit: R$ XXX,XX".
+    - Crie uma seção "VALORES:" detalhando o "Subtotal" (soma dos produtos), "Frete" (usando o texto de {{TEXTO_FRETE}}) e o "Valor Total".
+    - Crie uma seção "Forma de Pagamento:" (usando o texto de {{TEXTO_PAGAMENTO}}).
+    - Inclua o prazo de entrega, usando a informação de {{PRAZO_PRODUCAO_ENTREGA}}.
     - Inclua as informações de pagamento (PIX).
-    - **Finalize a mensagem EXATAMENTE com**: "Se precisar de algo, é só chamar no WhatsApp ou dar uma olhada no nosso site {{SITE}}. \\nEquipe {{NOME_ASSOCIACAO}}"
+    - **NÃO use emojis.** Use quebras de linha para formatar.
+    - Finalize a mensagem EXATAMENTE com: "Se precisar de algo, é só chamar no WhatsApp ou dar uma olhada no nosso site {{SITE}}. \\nEquipe {{NOME_ASSOCIACAO}}"
 - medicalHistory: Histórico médico relevante, se houver.
 - doctorNotes: Posologia e notas do médico, se houver.
 - observations: Alertas importantes para a equipe (ex: data de emissão ausente, receita vencida, etc.).
@@ -113,6 +112,9 @@ const generateConfigurationBlock = (settings: Settings): string => {
 {{NOME_BANCO}}: "${settings.bankName}"
 {{TAXA_CARTAO_CREDITO_PERCENTUAL}}: 3.98
 {{PRESCRIPTION_VALIDITY_MONTHS}}: "${settings.prescriptionValidityMonths || '1'}"
+{{TEXTO_FRETE}}: "${settings.shippingContext}"
+{{TEXTO_PAGAMENTO}}: "${settings.paymentContext}"
+{{PRAZO_PRODUCAO_ENTREGA}}: "${settings.productionTime}"
 
 # DADOS DE CONTATO E INSTITUCIONAIS
 {{NOME_ASSOCIACAO}}: "${settings.associationName}"
@@ -124,7 +126,6 @@ const generateConfigurationBlock = (settings: Settings): string => {
 # CONTEXTO ADICIONAL
 Sobre a Associação: ${settings.about}
 Horário de Funcionamento: ${settings.operatingHours}
-Prazo de Produção e Entrega: ${settings.productionTime}
   `.trim();
 };
 
@@ -175,6 +176,8 @@ const defaultSettings: Settings = {
   products: [], // Products are now fetched from API, this is just for type compatibility.
   databaseConfig: { type: 'none', host: '', port: '', user: '', password: '', database: '' },
   prescriptionValidityMonths: '1',
+  shippingContext: "O frete padrão é de R$ 50,00.",
+  paymentContext: "Aceitamos pagamento via PIX ou Cartão de Crédito (com uma taxa de processamento de 3,98%). É só escolher a opção que preferir.",
 };
 
 const defaultWpConfig: WpConfig = {
@@ -281,6 +284,8 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       'companyName',
       'bankName',
       'prescriptionValidityMonths',
+      'shippingContext',
+      'paymentContext',
     ];
 
     requiredFields.forEach(field => {

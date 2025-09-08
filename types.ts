@@ -109,6 +109,8 @@ export interface Settings {
     products: Product[];
     databaseConfig: DatabaseConfig;
     prescriptionValidityMonths: string;
+    shippingContext: string;
+    paymentContext: string;
 }
 
 // From hooks/useSettings.ts and components/settings/ApiConfigPage.tsx and services/wpApiService.ts

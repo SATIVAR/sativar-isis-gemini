@@ -70,6 +70,21 @@ export const AssociationPage: React.FC = () => {
                     <label htmlFor="productionTime" className="block text-sm font-medium text-gray-300 mb-2">Prazo de Produção/Entrega</label>
                     <input id="productionTime" name="productionTime" value={formState.productionTime} onChange={handleInputChange} className="w-full bg-[#303134] border border-gray-600/50 text-gray-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-fuchsia-500 focus:border-fuchsia-500 outline-none transition shadow-inner" />
                 </div>
+            </div>
+            <div className="pt-4 border-t border-gray-700/50 space-y-4">
+                <div>
+                    <label htmlFor="shippingContext" className="block text-sm font-medium text-gray-300 mb-2">Texto para Frete</label>
+                    <textarea id="shippingContext" name="shippingContext" value={formState.shippingContext} onChange={handleInputChange} rows={2} className={`w-full bg-[#303134] border text-gray-300 rounded-lg p-3 text-sm focus:ring-2 outline-none transition shadow-inner ${errors.shippingContext ? 'border-red-500 focus:ring-red-500' : 'border-gray-600/50 focus:ring-fuchsia-500 focus:border-fuchsia-500'}`} />
+                    {errors.shippingContext && <p className="text-red-400 text-xs mt-1">{errors.shippingContext}</p>}
+                </div>
+
+                <div>
+                    <label htmlFor="paymentContext" className="block text-sm font-medium text-gray-300 mb-2">Texto para Formas de Pagamento</label>
+                    <textarea id="paymentContext" name="paymentContext" value={formState.paymentContext} onChange={handleInputChange} rows={3} className={`w-full bg-[#303134] border text-gray-300 rounded-lg p-3 text-sm focus:ring-2 outline-none transition shadow-inner ${errors.paymentContext ? 'border-red-500 focus:ring-red-500' : 'border-gray-600/50 focus:ring-fuchsia-500 focus:border-fuchsia-500'}`} />
+                    {errors.paymentContext && <p className="text-red-400 text-xs mt-1">{errors.paymentContext}</p>}
+                </div>
+            </div>
+             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="md:col-span-1">
                     <label htmlFor="prescriptionValidityMonths" className="block text-sm font-medium text-gray-300 mb-2">Validade da Receita (meses)</label>
                     <input
