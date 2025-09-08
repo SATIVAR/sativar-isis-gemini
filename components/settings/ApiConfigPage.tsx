@@ -90,13 +90,13 @@ const ProductResultsTable: React.FC<{ products: WooProduct[] }> = ({ products })
                 <tr key={p.id} className="border-b border-gray-700 hover:bg-[#303134]/50">
                     <td className="px-4 py-3 font-medium text-white">
                         <div className="flex items-center gap-3">
-                            <img src={p.images[0]?.src || 'https://via.placeholder.com/40'} alt={p.name} className="w-10 h-10 rounded-md object-cover bg-gray-700"/>
+                            <img src={p.images?.[0]?.src || 'https://via.placeholder.com/40'} alt={p.name} className="w-10 h-10 rounded-md object-cover bg-gray-700"/>
                             <span>{p.name}</span>
                         </div>
                     </td>
                     <td className="px-4 py-3 text-gray-300">{p.price}</td>
                     <td className="px-4 py-3 text-gray-300">{p.stock_quantity ?? 'N/A'}</td>
-                    <td className="px-4 py-3 text-gray-300 max-w-xs">{p.categories.map(c => c.name).join(', ')}</td>
+                    <td className="px-4 py-3 text-gray-300 max-w-xs">{p.categories?.map(c => c.name).join(', ') || ''}</td>
                 </tr>
             ))}
         </tbody>
@@ -112,6 +112,7 @@ const ApiSearchComponent: React.FC = () => {
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [searchPerformed, setSearchPerformed] = useState(false);
+    const [showRawJson, setShowRawJson] = useState(false);
 
     const handleSearch = async () => {
         if (!wpConfig.url) {
@@ -121,6 +122,7 @@ const ApiSearchComponent: React.FC = () => {
         setIsLoading(true);
         setError(null);
         setSearchPerformed(true);
+        setShowRawJson(false);
         try {
             const searchResults = searchType === 'users'
                 ? await getSativarUsers(wpConfig, searchTerm)
@@ -169,13 +171,28 @@ const ApiSearchComponent: React.FC = () => {
         }
         
         return (
-            <div className="overflow-auto max-h-96 pr-2">
-                {searchType === 'users' ? (
-                    <UserResultsTable users={results as SativarUser[]} />
-                ) : (
-                    <ProductResultsTable products={results as WooProduct[]} />
+            <>
+                <div className="flex justify-end mb-2">
+                    <button 
+                        onClick={() => setShowRawJson(prev => !prev)}
+                        className="text-xs text-gray-400 hover:text-white bg-gray-700 px-2 py-1 rounded"
+                    >
+                        {showRawJson ? 'Ocultar' : 'Exibir'} JSON
+                    </button>
+                </div>
+                {showRawJson && (
+                    <pre className="text-xs bg-[#131314] p-4 rounded-lg max-h-64 overflow-auto mb-4 border border-gray-600">
+                        {JSON.stringify(results, null, 2)}
+                    </pre>
                 )}
-            </div>
+                <div className="overflow-auto max-h-96 pr-2">
+                    {searchType === 'users' ? (
+                        <UserResultsTable users={results as SativarUser[]} />
+                    ) : (
+                        <ProductResultsTable products={results as WooProduct[]} />
+                    )}
+                </div>
+            </>
         );
     }
 
