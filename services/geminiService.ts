@@ -63,7 +63,7 @@ const quoteResultSchema = {
                 required: ['name', 'quantity', 'concentration', 'status']
             }
         },
-        totalValue: { type: Type.STRING, description: "Valor total do orçamento (ex: 'R$ 500,00')." },
+        totalValue: { type: Type.STRING, description: "Valor subtotal do orçamento (soma apenas dos produtos, ex: 'R$ 500,00')." },
         medicalHistory: { type: Type.STRING, description: "Histórico médico relevante mencionado, se houver." },
         doctorNotes: { type: Type.STRING, description: "Notas do médico na receita, se houver." },
         observations: { type: Type.STRING, description: "Observações importantes ou alertas gerados pela IA para a equipe interna." },

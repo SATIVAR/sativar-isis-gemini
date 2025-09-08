@@ -81,17 +81,21 @@ A saída DEVE ser um único objeto JSON, sem nenhum texto, markdown (como \`\`\`
     - concentration: A concentração.
     - status: Use "OK", "Alerta: Sugestão de alternativa" ou "Alerta: Produto não encontrado no catálogo".
     - suggestionNotes: (Opcional) Uma breve nota para a equipe explicando a alternativa sugerida.
-- totalValue: Calcule o valor total (subtotal de produtos + frete). Formate como "R$ XXX,XX".
+- totalValue: Calcule o **subtotal** (soma apenas dos produtos). Formate como "R$ XXX,XX".
 - internalSummary: Um resumo MUITO BREVE para a equipe, focando em pontos de atenção.
 - patientMessage: Uma mensagem COMPLETA e amigável para o paciente. **ESTRUTURA OBRIGATÓRIA:**
     - Comece com o nome do paciente: "Paciente: [Nome do Paciente]".
-    - Crie uma seção "PRODUTOS:" listando cada item, sua quantidade e valor unitário. Ex: "* NOME PRODUTO (Qtd: 1) - Valor Unit: R$ XXX,XX".
-    - Crie uma seção "VALORES:" detalhando o "Subtotal" (soma dos produtos), "Frete" (usando o texto de {{TEXTO_FRETE}}) e o "Valor Total".
-    - Crie uma seção "Forma de Pagamento:" (usando o texto de {{TEXTO_PAGAMENTO}}).
+    - Crie uma seção "📦 PRODUTOS:" listando cada item, sua quantidade e valor unitário. Ex: "* NOME PRODUTO (Qtd: 1) - Valor Unit: R$ XXX,XX".
+    - Crie uma seção "💰 VALORES:" detalhando o "Subtotal" (soma dos produtos) e o "Frete" (usando o texto de {{TEXTO_FRETE}}). **NÃO inclua um 'Valor Total'**.
+    - Crie uma seção "💳 Forma de Pagamento:" (usando o texto de {{TEXTO_PAGAMENTO}}).
     - Inclua o prazo de entrega, usando a informação de {{PRAZO_PRODUCAO_ENTREGA}}.
-    - Inclua as informações de pagamento (PIX).
-    - **NÃO use emojis.** Use quebras de linha para formatar.
-    - Finalize a mensagem EXATAMENTE com: "Se precisar de algo, é só chamar no WhatsApp ou dar uma olhada no nosso site {{SITE}}. \\nEquipe {{NOME_ASSOCIACAO}}"
+    - Após o prazo de entrega, adicione uma quebra de linha dupla e, em seguida, a seção de PIX com a seguinte estrutura, usando quebras de linha simples entre cada item:
+      "Para agilizar, você pode pagar via PIX.
+      Nossa chave PIX (CNPJ) e: {{CHAVE_PIX_CNPJ}}
+      NOME_BANCO: {{NOME_BANCO}}
+      RAZAO SOCIAL: {{RAZAO_SOCIAL}}"
+    - **NÃO use emojis na mensagem, exceto nos títulos das seções.** Use quebras de linha para formatar.
+    - Finalize a mensagem EXATAMENTE com: "\\n\\nSe precisar de algo, é só chamar no WhatsApp ou dar uma olhada no nosso site {{SITE}}. \\nEquipe {{NOME_ASSOCIACAO}}"
 - medicalHistory: Histórico médico relevante, se houver.
 - doctorNotes: Posologia e notas do médico, se houver.
 - observations: Alertas importantes para a equipe (ex: data de emissão ausente, receita vencida, etc.).

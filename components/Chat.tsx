@@ -200,7 +200,7 @@ const QuoteResultDisplay: React.FC<{result: QuoteResult, onResetChat: () => void
                                     </li>
                                 ))}
                              </ul>
-                             <p className="pt-1"><span className="text-gray-400">Valor Total:</span> {result.totalValue}</p>
+                             <p className="pt-1"><span className="text-gray-400">Subtotal:</span> {result.totalValue}</p>
                         </div>
                         {result.observations && (
                             <div className="p-3 bg-yellow-900/30 rounded-lg border border-yellow-700/50">
