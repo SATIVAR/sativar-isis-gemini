@@ -128,11 +128,15 @@ export const ApiConfigPage: React.FC = () => {
     const status = await checkApiStatus(formState);
     setApiStatus(status);
     
-    if (status.wooCommerce === 'success' && status.sativarClients === 'success') {
+    if (status.wooCommerce === 'success') {
         await saveWpConfig(formState);
-        alert("Configurações salvas e conexão estabelecida com sucesso!");
+        if (status.sativarClients === 'success') {
+            alert("Configurações salvas e conexão estabelecida com sucesso!");
+        } else {
+            alert("Atenção: Configurações salvas. A conexão com o WooCommerce foi bem-sucedida, mas o endpoint de Clientes (SATIVAR) falhou. A funcionalidade de produtos está ativa.");
+        }
     } else {
-        alert("Falha em um ou mais serviços. Verifique os dados e o status dos endpoints. As configurações não foram salvas.");
+        alert("Erro ao salvar: Falha na conexão com o endpoint de Produtos (WooCommerce). Verifique os dados da API. As configurações não foram salvas.");
     }
     setIsSaving(false);
   };

@@ -93,6 +93,3 @@ export const AssociationPage: React.FC = () => {
     </div>
   );
 };
-
-// Also renaming the file in the request
-export { AssociationPage as SystemStatusPage };

@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { SettingsSidebar, type SettingsPageName } from './SettingsSidebar.tsx';
-import { AssociationPage } from './SystemStatusPage.tsx';
+import { AssociationPage } from './AssociationPage.tsx';
 import { ApiConfigPage } from './ApiConfigPage.tsx';
 import { ProductsPage } from './ProductsPage.tsx';
 import { AdvancedPage } from './ClientsPage.tsx';
