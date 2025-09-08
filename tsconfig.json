@@ -17,5 +17,6 @@
     "jsx": "react-jsx"
   },
   "include": ["."],
+  "exclude": ["utils/logger.ts"],
   "references": [{ "path": "./tsconfig.node.json" }]
 }

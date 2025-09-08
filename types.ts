@@ -194,6 +194,7 @@ declare global {
     readonly VITE_GEMINI_API_KEY?: string;
     readonly VITE_API_URL?: string;
     readonly VITE_API_SECRET_KEY?: string;
+    readonly DEV?: boolean;
   }
 
   interface ImportMeta {
