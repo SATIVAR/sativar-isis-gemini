@@ -108,6 +108,7 @@ export interface Settings {
     bankName: string;
     products: Product[];
     databaseConfig: DatabaseConfig;
+    prescriptionValidityMonths: string;
 }
 
 // From hooks/useSettings.ts and components/settings/ApiConfigPage.tsx and services/wpApiService.ts

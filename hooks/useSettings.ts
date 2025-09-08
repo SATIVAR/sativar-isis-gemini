@@ -60,7 +60,11 @@ Sua tarefa principal é analisar a receita, aplicar a lógica de negócio abaixo
 A saída DEVE ser um único objeto JSON, sem nenhum texto, markdown (como \`\`\`json) ou explicação adicional.
 
 # LÓGICA DE NEGÓCIO OBRIGATÓRIA:
-1.  **Data de Emissão Ausente**: Se a data de emissão da receita não for encontrada, a análise NÃO DEVE ser bloqueada. Continue o orçamento normalmente, mas adicione um alerta claro no campo 'observations', como: "Alerta: A data de emissão da receita não foi encontrada, impossibilitando a validação de sua vigência."
+1.  **Validação da Receita**: Sua tarefa mais crítica é determinar a validade da receita.
+    a. Encontre a **data de emissão** na receita.
+    b. Calcule a **data de vencimento**: Some o número de meses do campo {{PRESCRIPTION_VALIDITY_MONTHS}} à data de emissão. A receita é válida durante todo o mês de vencimento. Ex: emitida em 05/Jan, válida por 1 mês, vence em 29/Fev (se bissexto) ou 28/Fev.
+    c. Compare a data de vencimento com a data atual. A receita é válida se a data atual for ANTES ou IGUAL à data de vencimento.
+    d. **Data de Emissão Ausente**: Se a data de emissão não for encontrada, a análise NÃO DEVE ser bloqueada. Continue o orçamento, mas adicione um alerta claro no campo 'observations', como: "Alerta: A data de emissão da receita não foi encontrada, impossibilitando a validação de sua vigência."
 2.  **Busca de Produtos e Alternativas**: Para cada produto na receita:
     a. Tente encontrar uma correspondência exata na tabela de produtos. Se encontrar, use o status "OK".
     b. Se não houver correspondência exata, procure por um produto SIMILAR ou EQUIVALENTE. Verifique por nomes parecidos e concentrações próximas.
@@ -70,7 +74,7 @@ A saída DEVE ser um único objeto JSON, sem nenhum texto, markdown (como \`\`\`
 
 # DETALHAMENTO DOS CAMPOS JSON:
 - patientName: O nome completo do paciente.
-- validity: A validade da receita (ex: "Válida por 30 dias", "Vencida"). Se a data de emissão estiver ausente, use "Validade não determinada (data de emissão ausente)".
+- validity: O status de validade da receita. Use um dos seguintes formatos: "Válida até DD/MM/AAAA", "Vencida em DD/MM/AAAA", ou "Validade não determinada (data de emissão ausente)".
 - products: Um array com cada produto da receita. Para cada produto, preencha:
     - name: O nome do produto encontrado na tabela ou o nome da receita se não encontrado.
     - quantity: A quantidade. Se for uma sugestão, use a quantidade ajustada.
@@ -108,6 +112,7 @@ const generateConfigurationBlock = (settings: Settings): string => {
 {{RAZAO_SOCIAL}}: "${settings.companyName}"
 {{NOME_BANCO}}: "${settings.bankName}"
 {{TAXA_CARTAO_CREDITO_PERCENTUAL}}: 3.98
+{{PRESCRIPTION_VALIDITY_MONTHS}}: "${settings.prescriptionValidityMonths || '1'}"
 
 # DADOS DE CONTATO E INSTITUCIONAIS
 {{NOME_ASSOCIACAO}}: "${settings.associationName}"
@@ -169,6 +174,7 @@ const defaultSettings: Settings = {
   bankName: "[Insira o Nome do Banco aqui]",
   products: [], // Products are now fetched from API, this is just for type compatibility.
   databaseConfig: { type: 'none', host: '', port: '', user: '', password: '', database: '' },
+  prescriptionValidityMonths: '1',
 };
 
 const defaultWpConfig: WpConfig = {
@@ -274,6 +280,7 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       'pixKey',
       'companyName',
       'bankName',
+      'prescriptionValidityMonths',
     ];
 
     requiredFields.forEach(field => {
@@ -288,6 +295,14 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     if (data.whatsapp && data.whatsapp.trim() && !newErrors.whatsapp && !whatsappRegex.test(data.whatsapp)) {
         newErrors.whatsapp = 'Formato inválido. Ex: (11) 91234-5678.';
     }
+
+    if (data.prescriptionValidityMonths && !newErrors.prescriptionValidityMonths) {
+        const months = Number(data.prescriptionValidityMonths);
+        if (isNaN(months) || !Number.isInteger(months) || months <= 0) {
+            newErrors.prescriptionValidityMonths = 'Deve ser um número inteiro positivo.';
+        }
+    }
+
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;

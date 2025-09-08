@@ -1,4 +1,5 @@
 
+
 import React from 'react';
 import { useSettings } from '../../hooks/useSettings.ts';
 import { UsersIcon } from '../icons.tsx';
@@ -68,6 +69,19 @@ export const AssociationPage: React.FC = () => {
                 <div>
                     <label htmlFor="productionTime" className="block text-sm font-medium text-gray-300 mb-2">Prazo de Produção/Entrega</label>
                     <input id="productionTime" name="productionTime" value={formState.productionTime} onChange={handleInputChange} className="w-full bg-[#303134] border border-gray-600/50 text-gray-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-fuchsia-500 focus:border-fuchsia-500 outline-none transition shadow-inner" />
+                </div>
+                <div className="md:col-span-1">
+                    <label htmlFor="prescriptionValidityMonths" className="block text-sm font-medium text-gray-300 mb-2">Validade da Receita (meses)</label>
+                    <input
+                        type="number"
+                        id="prescriptionValidityMonths"
+                        name="prescriptionValidityMonths"
+                        value={formState.prescriptionValidityMonths}
+                        onChange={handleInputChange}
+                        className={`w-full bg-[#303134] border text-gray-300 rounded-lg p-3 text-sm focus:ring-2 outline-none transition shadow-inner ${errors.prescriptionValidityMonths ? 'border-red-500 focus:ring-red-500' : 'border-gray-600/50 focus:ring-fuchsia-500 focus:border-fuchsia-500'}`}
+                        min="1"
+                    />
+                    {errors.prescriptionValidityMonths && <p className="text-red-400 text-xs mt-1">{errors.prescriptionValidityMonths}</p>}
                 </div>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
