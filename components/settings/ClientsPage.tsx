@@ -1,5 +1,4 @@
 
-
 import React, { useState, useEffect } from 'react';
 import { useSettings } from '../../hooks/useSettings.ts';
 import { useReminders } from '../../hooks/useReminders.ts';
@@ -89,9 +88,11 @@ export const AdvancedPage: React.FC = () => {
                         <div>
                             <h4 className="text-md font-semibold text-gray-300 mb-2">Fila de Sincronização</h4>
                             <div className="flex flex-wrap items-center justify-between gap-4 p-4 bg-[#202124] rounded-lg border border-gray-600/50">
-                                <p className="text-sm text-yellow-300">
-                                    <span className="font-bold text-lg">{totalSyncQueueCount}</span> alteraç{totalSyncQueueCount === 1 ? 'ão' : 'ões'} aguardando para sincronizar.
-                                </p>
+                                <div>
+                                    <p className="text-sm text-yellow-300">
+                                        <span className="font-bold text-lg">{totalSyncQueueCount}</span> alteraç{totalSyncQueueCount === 1 ? 'ão' : 'ões'} aguardando para sincronizar.
+                                    </p>
+                                </div>
                                 <button 
                                     type="button" 
                                     onClick={handleForceSync}
