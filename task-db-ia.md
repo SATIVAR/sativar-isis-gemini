@@ -1,13 +1,13 @@
-# Plano de Ação: Refatoração para Persistência em Banco de Dados MySQL
+# Plano de Ação: Refatoração para Persistência em Banco de Dados SQLite
 
 ## 1. Visão Geral e Objetivos
 
-Este documento detalha o plano de refatoração do sistema SATIVAR-ISIS para evoluir de uma arquitetura baseada exclusivamente em `localStorage` para um modelo robusto com um backend que suporta um banco de dados **MySQL**, garantindo uma transição suave e a preservação total dos dados existentes.
+Este documento detalha o plano de refatoração do sistema SATIVAR-ISIS para evoluir de uma arquitetura baseada exclusivamente em `localStorage` para um modelo robusto com um backend que suporta um banco de dados **SQLite**, garantindo uma transição suave e a preservação total dos dados existentes.
 
 **Objetivos Principais:**
 
 1.  **Abstrair a Camada de Persistência:** Desacoplar a lógica da aplicação do método de armazenamento de dados.
-2.  **Implementar um Backend Robusto:** Criar um servidor Node.js/Express para gerenciar a lógica de negócios e o acesso ao banco de dados MySQL.
+2.  **Implementar um Backend Robusto:** Criar um servidor Node.js/Express para gerenciar a lógica de negócios e o acesso ao banco de dados SQLite.
 3.  **Garantir a Migração de Dados:** Manter a lógica de fallback para `localStorage` e planejar um mecanismo para migrar dados locais para o banco de dados remoto.
 
 ## 2. Análise da Arquitetura Anterior
@@ -17,7 +17,7 @@ Este documento detalha o plano de refatoração do sistema SATIVAR-ISIS para evo
 
 ## 3. Plano de Implementação Proposto
 
-A refatoração introduzirá uma arquitetura full-stack, com uma clara separação entre o frontend e o backend, e uma camada de acesso a dados focada em MySQL.
+A refatoração introduzirá uma arquitetura full-stack, com uma clara separação entre o frontend e o backend, e uma camada de acesso a dados focada em SQLite.
 
 ### 3.1. Fase 1: Abstração da Camada de Dados (Frontend) - `CONCLUÍDO`
 
@@ -29,18 +29,18 @@ A refatoração introduzirá uma arquitetura full-stack, com uma clara separaç�
 Esta fase foca na construção do servidor e na infraestrutura de banco de dados.
 
 -   **Backend (Node.js/Express):** Um servidor Express fornece uma API RESTful para o frontend. Ele lida com as requisições para `settings` e `reminders`.
--   **Banco de Dados:** O backend agora se conecta exclusivamente a um banco de dados MySQL, ideal para ambientes de produção/hospedados.
--   **Ambiente de Desenvolvimento Simplificado:** O frontend pode ser executado localmente e apontado para um backend em desenvolvimento ou produção, que por sua vez se conecta ao banco de dados MySQL remoto.
+-   **Banco de Dados:** O backend agora se conecta exclusivamente a um banco de dados **SQLite**, ideal para implantações autônomas e simplificadas.
+-   **Ambiente de Desenvolvimento Simplificado:** O frontend pode ser executado localmente e apontado para um backend em desenvolvimento ou produção, que por sua vez se conecta ao seu banco de dados SQLite local.
 
-### 3.3. Fase 3: Backend Focado em MySQL - `CONCLUÍDO`
+### 3.3. Fase 3: Backend Focado em SQLite - `CONCLUÍDO`
 
-O backend foi simplificado para suportar exclusivamente o MySQL.
+O backend foi simplificado para suportar exclusivamente o SQLite.
 
 -   **Módulo de Conexão (`server/db.js`):** Este módulo foi refatorado para:
-    -   Utilizar apenas o driver `mysql2`.
+    -   Utilizar apenas o driver `better-sqlite3`.
     -   Remover a lógica condicional para múltiplos tipos de banco de dados.
-    -   Fornecer uma função `query` que traduz os placeholders de consulta (`$1`, `$2` para `?`), permitindo que as rotas permaneçam limpas.
--   **Consultas SQL (`server/routes.js`):** As consultas de escrita foram otimizadas para MySQL, utilizando um fluxo seguro:
+    -   Fornecer uma função `query` que abstrai a execução de consultas no SQLite.
+-   **Consultas SQL (`server/routes.js`):** As consultas de escrita foram otimizadas, utilizando um fluxo seguro:
     1.  `SELECT` para verificar se o registro existe.
     2.  `UPDATE` se existir, ou `INSERT` se não existir.
 
@@ -54,7 +54,6 @@ Com a base estabelecida, o próximo passo é criar um serviço de migração de 
 
 1.  **Gatilho:** O serviço será acionado na inicialização da aplicação, quando o modo de banco de dados estiver ativo e online.
 2.  **Verificação:**
-    -   Verifica se `settings.databaseConfig.type` é `mysql`.
     -   Verifica se a API do backend está acessível.
     -   Verifica se um *flag* `migration_completed` **NÃO** existe no `localStorage`.
     -   Verifica se existem dados no `localStorage` para serem migrados.
@@ -69,4 +68,4 @@ Com a base estabelecida, o próximo passo é criar um serviço de migração de 
 
 ## 4. Conclusão
 
-Este plano de ação transforma o SATIVAR-ISIS em uma aplicação full-stack moderna, robusta e focada. A arquitetura agora suporta ambientes de produção com um banco de dados MySQL remoto, garante a integridade dos dados com um sistema de fallback e está preparada para uma migração de dados segura e controlada.
+Este plano de ação transforma o SATIVAR-ISIS em uma aplicação full-stack moderna, robusta e focada. A arquitetura agora suporta ambientes de produção com um banco de dados SQLite autônomo, garante a integridade dos dados com um sistema de fallback e está preparada para uma migração de dados segura e controlada.

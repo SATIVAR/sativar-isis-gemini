@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect } from 'react';
 import { useSettings } from '../../hooks/useSettings.ts';
 import { useReminders } from '../../hooks/useReminders.ts';
@@ -71,11 +72,11 @@ export const AdvancedPage: React.FC = () => {
                         }
                         <div>
                             <p className="font-bold text-white">
-                                {isOnline ? 'Modo Online: Conectado ao Banco de Dados' : 'Modo Offline: Armazenamento Local'}
+                                {isOnline ? 'Modo Online: Servidor Conectado (SQLite)' : 'Modo Offline: Armazenamento Local'}
                             </p>
                             <p className="text-sm text-gray-400 mt-1">
                                 {isOnline ? 
-                                    'Os dados estão sendo lidos e salvos diretamente no banco de dados do servidor, garantindo segurança e consistência.' :
+                                    'Os dados estão sendo lidos e salvos diretamente no banco de dados SQLite do servidor, garantindo segurança, consistência e persistência das informações.' :
                                     'A conexão com o servidor foi perdida. Suas alterações estão sendo salvas com segurança no seu navegador e serão sincronizadas assim que a conexão for restaurada.'
                                 }
                             </p>

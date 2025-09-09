@@ -2,13 +2,13 @@
 
 ## 1. Visão Geral
 
-Este documento detalha as mudanças arquiteturais implementadas para evoluir o sistema SATIVAR-ISIS de um modelo puramente `localStorage` para uma arquitetura full-stack robusta, segura e escalável, com um backend Node.js e um banco de dados relacional **MySQL**.
+Este documento detalha as mudanças arquiteturais implementadas para evoluir o sistema SATIVAR-ISIS de um modelo puramente `localStorage` para uma arquitetura full-stack robusta, segura e escalável, com um backend Node.js e um banco de dados **SQLite**.
 
 **Objetivos Alcançados:**
 1.  **Segurança Reforçada:** Eliminação de vulnerabilidades críticas na API.
-2.  **Escalabilidade e Integridade de Dados:** Migração de um modelo de "blob JSON" para um esquema relacional normalizado em MySQL.
+2.  **Escalabilidade e Integridade de Dados:** Migração de um modelo de "blob JSON" para um esquema relacional normalizado em SQLite.
 3.  **Sincronização Offline Robusta:** Substituição da lógica de "último a salvar vence" por uma fila de operações individuais.
-4.  **Simplificação da Arquitetura:** Foco exclusivo no MySQL, removendo a complexidade de suportar múltiplos SGBDs.
+4.  **Simplificação da Arquitetura:** Foco exclusivo no SQLite, removendo a complexidade de suportar múltiplos SGBDs e facilitando a implantação.
 
 ---
 
@@ -22,9 +22,9 @@ Este documento detalha as mudanças arquiteturais implementadas para evoluir o s
 
 ### Fase 2: Redesenho do Esquema do Banco de Dados
 
--   **Arquivo Modificado:** `server/init-db.md`
+-   **Arquivo de Referência:** `server/init-db.md`
 -   **Problema:** Os lembretes eram armazenados como um único array JSON em uma única linha da tabela. Este modelo não é escalável, impede consultas eficientes e é altamente suscetível a condições de corrida (*race conditions*), onde atualizações simultâneas poderiam causar perda de dados.
--   **Solução:** A tabela `reminders` foi reestruturada para um esquema relacional em MySQL. Cada linha agora representa um único lembrete, com colunas para cada campo (`id`, `patientName`, `dueDate`, etc.). Isso permite:
+-   **Solução:** A tabela `reminders` foi reestruturada para um esquema relacional em SQLite. Cada linha agora representa um único lembrete, com colunas para cada campo (`id`, `patientName`, `dueDate`, etc.). Isso permite:
     -   **Escalabilidade:** Manipular um grande volume de lembretes de forma eficiente.
     -   **Performance:** Realizar consultas SQL otimizadas no banco de dados.
     -   **Integridade:** Eliminar o risco de perda de dados por sobrescrita.
@@ -43,7 +43,7 @@ Este documento detalha as mudanças arquiteturais implementadas para evoluir o s
 #### Frontend: Sincronização Inteligente Offline
 
 -   **Arquivos Modificados:** `hooks/useReminders.ts`, `services/database/*`
--   **Problema:** A lógica de sincronização anterior enviava todo o array de lembretes do `localStorage` para o servidor, o que é incompatível com a nova API CRUD e perpetuaria o problema de perda de dados.
+-   **Problema:** A lógica de sincronização anterior enviava todo o array de lembretes do `localStorage` para o servidor, o que é incompatível com a nova API CRUD и perpetuaria o problema de perda de dados.
 -   **Solução:** Foi implementada uma **fila de sincronização offline**:
     1.  **Armazenamento de Ações:** Quando o aplicativo está offline, cada ação do usuário (criar, atualizar ou deletar um lembrete) é salva localmente de forma otimista para uma resposta de UI imediata, e a ação específica (ex: `{ type: 'add', payload: newReminder }`) é adicionada a uma fila no `localStorage` (`sativar_isis_reminders_sync_queue`).
     2.  **Processamento da Fila:** Quando a conexão com o servidor é restaurada, a função `processSync` é acionada. Ela itera sobre cada ação na fila e executa a chamada de API CRUD correspondente (`POST`, `PUT`, `DELETE`).
