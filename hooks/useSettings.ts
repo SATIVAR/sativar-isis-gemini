@@ -184,7 +184,6 @@ const defaultSettings: Settings = {
   companyName: "[Insira a Razão Social aqui]",
   bankName: "[Insira o Nome do Banco aqui]",
   products: [], // Products are now fetched from API, this is just for type compatibility.
-  databaseConfig: { type: 'none', host: '', port: '', user: '', password: '', database: '' },
   prescriptionValidityMonths: '1',
   shippingContext: "O frete padrão é de R$ 50,00.",
   paymentContext: "Aceitamos pagamento via PIX ou Cartão de Crédito (com uma taxa de processamento de 3,98%). É só escolher a opção que preferir.",

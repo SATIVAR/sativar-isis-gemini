@@ -1,42 +1,60 @@
-# Database Initialization Scripts
+# Database Initialization Scripts for SQLite
 
-Before running the backend server for the first time, you need to create the `settings` and `reminders` tables in your MySQL database.
+This document contains the reference schema for the application's **SQLite** database.
 
-Choose the script that matches your `DB_TYPE` configuration (`mysql` or `postgres`) and execute it using a database management tool like Adminer, DBeaver, or the command-line interface.
+**Note:** You do not need to run this script manually. The backend server is designed to automatically create the database file (`/server/data/sativar_isis.db`) and run these migrations on its first startup. This file is provided for documentation and debugging purposes.
 
 ---
 
-## 1. MySQL
-
-Execute the following SQL commands in your target MySQL database. This schema uses the `JSON` data type for flexibility where needed.
+## SQLite Schema
 
 ```sql
+-- Enable foreign key support
+PRAGMA foreign_keys = ON;
+
 -- Table for a single settings object
-CREATE TABLE IF NOT EXISTS `settings` (
-  `id` INT PRIMARY KEY,
-  `data` JSON NOT NULL,
-  `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE IF NOT EXISTS settings (
+  id INTEGER PRIMARY KEY,
+  data TEXT NOT NULL,
+  created_at TEXT DEFAULT (datetime('now', 'localtime')),
+  updated_at TEXT DEFAULT (datetime('now', 'localtime'))
+);
 
--- Normalized table for individual reminders
-CREATE TABLE IF NOT EXISTS `reminders` (
-  `id` VARCHAR(36) PRIMARY KEY,
-  `quoteId` VARCHAR(255),
-  `patientName` VARCHAR(255) NOT NULL,
-  `dueDate` DATETIME NOT NULL,
-  `notes` TEXT,
-  `tasks` JSON,
-  `isCompleted` BOOLEAN NOT NULL DEFAULT FALSE,
-  `recurrence` ENUM('none', 'daily', 'weekly', 'monthly') NOT NULL,
-  `priority` ENUM('low', 'medium', 'high') NOT NULL DEFAULT 'medium',
-  `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+-- Table for individual reminders
+CREATE TABLE IF NOT EXISTS reminders (
+  id TEXT PRIMARY KEY,
+  quoteId TEXT,
+  patientName TEXT NOT NULL,
+  dueDate TEXT NOT NULL, -- Stored as ISO string
+  notes TEXT,
+  tasks TEXT, -- Stored as a JSON string
+  isCompleted INTEGER NOT NULL DEFAULT 0, -- 0 for false, 1 for true
+  recurrence TEXT NOT NULL CHECK(recurrence IN ('none', 'daily', 'weekly', 'monthly')),
+  priority TEXT NOT NULL DEFAULT 'medium' CHECK(priority IN ('low', 'medium', 'high')),
+  created_at TEXT DEFAULT (datetime('now', 'localtime')),
+  updated_at TEXT DEFAULT (datetime('now', 'localtime'))
+);
 
--- Add indexes for performance on common query columns
-CREATE INDEX idx_reminders_dueDate ON `reminders`(`dueDate`);
-CREATE INDEX idx_reminders_patientName ON `reminders`(`patientName`);
+-- Trigger to update 'updated_at' timestamp on settings update
+CREATE TRIGGER IF NOT EXISTS settings_update_trigger
+AFTER UPDATE ON settings
+FOR EACH ROW
+BEGIN
+  UPDATE settings SET updated_at = datetime('now', 'localtime') WHERE id = OLD.id;
+END;
+
+-- Trigger to update 'updated_at' timestamp on reminders update
+CREATE TRIGGER IF NOT EXISTS reminders_update_trigger
+AFTER UPDATE ON reminders
+FOR EACH ROW
+BEGIN
+  UPDATE reminders SET updated_at = datetime('now', 'localtime') WHERE id = OLD.id;
+END;
+
+-- Add indexes for performance
+CREATE INDEX IF NOT EXISTS idx_reminders_dueDate ON reminders(dueDate);
+CREATE INDEX IF NOT EXISTS idx_reminders_patientName ON reminders(patientName);
+
+-- Insert the default settings row if it doesn't exist
+INSERT OR IGNORE INTO settings (id, data) VALUES (1, '{}');
 ```
-
-**Note on `settings` table:** The `id` for this table is hardcoded to `1` in the application logic, as it's designed to store a single JSON object for all settings.

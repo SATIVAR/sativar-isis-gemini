@@ -85,15 +85,6 @@ export interface Product {
     icon?: string;
 }
 
-export interface DatabaseConfig {
-    type: 'none' | 'mysql';
-    host: string;
-    port: string;
-    user: string;
-    password: string;
-    database: string;
-}
-
 export interface Settings {
     associationName: string;
     about: string;
@@ -107,7 +98,6 @@ export interface Settings {
     companyName: string;
     bankName: string;
     products: Product[];
-    databaseConfig: DatabaseConfig;
     prescriptionValidityMonths: string;
     shippingContext: string;
     paymentContext: string;

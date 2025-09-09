@@ -1,120 +1,75 @@
-
-const mysql = require('mysql2/promise');
+// server/db.js
+const Database = require('better-sqlite3');
+const path = require('path');
+const fs = require('fs');
 const chalk = require('chalk');
 require('dotenv').config();
 
-let pool;
+const dbDir = path.join(__dirname, 'data');
+if (!fs.existsSync(dbDir)) {
+    fs.mkdirSync(dbDir, { recursive: true });
+}
+const dbPath = path.join(dbDir, 'sativar_isis.db');
 
-const getMySqlPool = () => {
-    const dbConfig = {
-        host: process.env.DB_HOST,
-        port: process.env.DB_PORT || 3306,
-        user: process.env.DB_USER,
-        password: process.env.DB_PASSWORD,
-        database: process.env.DB_NAME,
-        waitForConnections: true,
-        connectionLimit: 10,
-        queueLimit: 0,
-        ssl: process.env.DB_SSL === 'true' 
-            ? { rejectUnauthorized: process.env.DB_SSL_REJECT_UNAUTHORIZED !== 'false' } 
-            : null,
-    };
+let db;
 
-    console.log(chalk.yellow('Attempting to create MySQL connection pool with config:'));
-    console.log(chalk.yellow(`  Host: ${dbConfig.host}`));
-    console.log(chalk.yellow(`  Port: ${dbConfig.port}`));
-    console.log(chalk.yellow(`  User: ${dbConfig.user}`));
-    console.log(chalk.yellow(`  Database: ${dbConfig.database}`));
-    console.log(chalk.yellow(`  SSL Enabled: ${!!dbConfig.ssl}`));
-    
-    const newPool = mysql.createPool(dbConfig);
-    
-    // Add event listeners for real-time logs
-    newPool.on('acquire', (connection) => {
-        console.log(chalk.cyan(`[DB Pool] Connection ${connection.threadId} acquired`));
-    });
-    newPool.on('connection', (connection) => {
-        console.log(chalk.blue(`[DB Pool] New connection ${connection.threadId} established`));
-    });
-    newPool.on('release', (connection) => {
-        console.log(chalk.cyan(`[DB Pool] Connection ${connection.threadId} released`));
-    });
-    newPool.on('error', (err) => {
-        console.error(chalk.red.bold('[DB Pool] Fatal pool error:'), err);
-    });
-
-    return newPool;
+const initializeDatabase = () => {
+    try {
+        // The 'verbose' option logs every query to the console, which is great for development.
+        db = new Database(dbPath, { verbose: null }); // Set to console.log for intense debugging
+        db.pragma('journal_mode = WAL');
+        console.log(chalk.green.bold(`✅ Successfully connected to SQLite database at ${dbPath}`));
+        return db;
+    } catch (error) {
+        console.error(chalk.red.bold('❌ Failed to connect to SQLite database.'));
+        console.error(chalk.red('Error details:'), error);
+        process.exit(1);
+    }
 };
 
-const initializePool = () => {
-    pool = getMySqlPool();
+const getDb = () => {
+    if (!db) {
+        db = initializeDatabase();
+    }
+    return db;
 };
 
-initializePool();
-
+// This function mimics the async nature of the previous `query` function for compatibility.
 const query = async (sql, params = []) => {
     try {
-        const [results] = await pool.query(sql, params);
-        // Return the direct results from mysql2: an array for SELECT, an OkPacket for INSERT/UPDATE
-        return results;
+        const dbInstance = getDb();
+        const stmt = dbInstance.prepare(sql);
+        
+        // better-sqlite3 differentiates between queries that return data and those that don't.
+        if (stmt.reader) {
+            // .all() is for SELECT queries that can return multiple rows.
+            return stmt.all(params);
+        } else {
+            // .run() is for INSERT, UPDATE, DELETE, etc., and returns info about the operation.
+            return stmt.run(params);
+        }
     } catch (err) {
         console.error(chalk.red.bold('\n===== DATABASE QUERY FAILED ====='));
-        console.error(chalk.red('Error Code:'), chalk.yellow(err.code));
         console.error(chalk.red('Error Message:'), chalk.yellow(err.message));
         console.error(chalk.red('SQL Query:'), chalk.magenta(sql));
         console.error(chalk.red('Parameters:'), chalk.magenta(JSON.stringify(params)));
         console.error(chalk.red.bold('===============================\n'));
-        
-        // Attempt to reconnect on connection errors
-        if (err.code === 'PROTOCOL_CONNECTION_LOST' || err.code === 'ECONNRESET' || err.code === 'POOL_CLOSED') {
-            console.log(chalk.yellow('Reconnecting to the database due to connection error...'));
-            initializePool();
-        }
         throw err;
     }
 };
 
-const testMysqlConnection = async (config) => {
-    let connection;
-    try {
-        const sslConfig = config.ssl === true
-            ? { rejectUnauthorized: config.ssl_reject_unauthorized !== false }
-            : null;
-
-        connection = await mysql.createConnection({
-            host: config.host,
-            port: config.port || 3306,
-            user: config.user,
-            password: config.password,
-            database: config.database,
-            connectTimeout: 10000, // 10 seconds timeout
-            ssl: sslConfig,
-        });
-        await connection.query('SELECT 1'); // Simple query to confirm connection
-        return { success: true };
-    } catch (error) {
-        return { success: false, error: error.message };
-    } finally {
-        if (connection) await connection.end();
-    }
-};
-
 const testPoolConnection = async () => {
-    let connection;
     try {
-        // Get a connection from the pool
-        connection = await pool.getConnection();
-        // Simply ping the server to check if it's alive
-        await connection.ping();
-    } finally {
-        // Make sure to release the connection back to the pool
-        if (connection) connection.release();
+        const dbInstance = getDb();
+        dbInstance.prepare('SELECT 1').get();
+    } catch (error) {
+        // Re-throw to be caught by the server startup logic
+        throw error;
     }
 };
 
 module.exports = {
-  pool,
+  getDb,
   query,
-  testMysqlConnection,
   testPoolConnection,
 };

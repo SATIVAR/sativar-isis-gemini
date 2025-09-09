@@ -5,7 +5,7 @@
 Esta é a aplicação SATIVAR-ISIS, um sistema inteligente para processamento de receitas médicas. A arquitetura é composta por:
 
 1.  **Frontend**: Uma aplicação React (neste diretório) que fornece a interface do usuário.
-2.  **Backend**: Um servidor Node.js/Express (no diretório `/server`) que atua como uma API segura, conectando-se a um banco de dados **MySQL** para persistir os dados.
+2.  **Backend**: Um servidor Node.js/Express (no diretório `/server`) que atua como uma API segura, utilizando um banco de dados **SQLite** para persistir os dados de forma robusta e autônoma.
 
 A aplicação utiliza a API do Google Gemini para extrair informações de prescrições e interage com o backend para salvar e carregar configurações e lembretes.
 
@@ -13,16 +13,16 @@ A aplicação utiliza a API do Google Gemini para extrair informações de presc
 
 -   **Frontend**: React 19 + TypeScript, Tailwind CSS
 -   **Backend**: Node.js + Express
--   **Banco de Dados**: Suporte para **MySQL** (hospedado remotamente)
+-   **Banco de Dados**: **SQLite** (gerenciado automaticamente pelo backend)
 -   **IA**: API do Google Gemini
 
 ## Configuração para Desenvolvimento
 
-Para rodar o projeto localmente, você precisará configurar e executar o frontend e o backend separadamente. Siga estas etapas cuidadosamente.
+Para rodar o projeto localmente, você precisará configurar e executar o frontend e o backend separadamente. A configuração do banco de dados agora é automática.
 
 ### Etapa 1: Configurar o Backend (`/server`)
 
-O backend é responsável pela conexão segura com seu banco de dados MySQL.
+O backend agora é autônomo e criará seu próprio arquivo de banco de dados SQLite.
 
 1.  **Navegue até o diretório do servidor:**
     ```bash
@@ -35,7 +35,7 @@ O backend é responsável pela conexão segura com seu banco de dados MySQL.
 3.  **Configure as Variáveis de Ambiente:**
     -   Crie um arquivo `.env` dentro do diretório `/server`.
     -   Copie o conteúdo do arquivo `server/.env.example` para o seu novo `server/.env`.
-    -   Preencha o arquivo `server/.env` com suas credenciais de banco de dados e uma chave secreta para a API.
+    -   Preencha o arquivo `server/.env` com uma chave secreta para a API.
 
     **`server/.env` (Exemplo):**
     ```env
@@ -45,21 +45,10 @@ O backend é responsável pela conexão segura com seu banco de dados MySQL.
     # Chave secreta para a API (deve ser a mesma no frontend)
     # Gere uma chave longa e aleatória (ex: usando um gerador de senhas)
     API_SECRET_KEY=sua-chave-secreta-muito-longa-e-segura
-
-    # Credenciais do seu banco de dados MySQL
-    DB_HOST=seu-host-remoto.com
-    DB_PORT=3306
-    DB_USER=seu_usuario
-    DB_PASSWORD=sua_senha
-    DB_NAME=seu_banco_de_dados
-
-    # Configuração de SSL (altamente recomendado para conexões remotas)
-    DB_SSL=true
-    DB_SSL_REJECT_UNAUTHORIZED=true
     ```
 
 4.  **Inicialize o Banco de Dados:**
-    Antes de iniciar o servidor, você precisa criar as tabelas `settings` e `reminders`. Os comandos SQL necessários estão no arquivo `server/init-db.md`. O servidor tentará executar uma migração na inicialização para garantir que as tabelas existam.
+    Não há mais etapa manual! Ao iniciar, o servidor criará automaticamente o arquivo `server/data/sativar_isis.db` e as tabelas necessárias.
 
 ### Etapa 2: Configurar o Frontend (Diretório Raiz)
 
@@ -110,4 +99,4 @@ Para desenvolver localmente, você precisa de dois terminais abertos.
     ```
     A aplicação React será iniciada, geralmente na porta `5173`. Acesse `http://localhost:5173` no seu navegador.
 
-Agora, o frontend irá se comunicar com o seu backend local, que por sua vez se conectará ao seu banco de dados remoto, proporcionando um ambiente de desenvolvimento completo e realista.
+Agora, o frontend irá se comunicar com o seu backend local, que por sua vez usará seu próprio banco de dados SQLite, proporcionando um ambiente de desenvolvimento completo e simples.

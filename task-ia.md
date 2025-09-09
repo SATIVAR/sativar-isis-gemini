@@ -1,117 +1,35 @@
-# SATIVAR-ISIS - Sistema Inteligente de Processamento de Receitas Médicas
+# Arquitetura de Persistência Híbrida (LocalStorage -> SQLite)
 
-## Visão Geral
+## Status: Implementado
 
-O SATIVAR-ISIS é um sistema avançado que utiliza inteligência artificial para processar receitas médicas e gerar orçamentos automatizados. O sistema combina um frontend moderno (React, TypeScript) com um backend flexível em Node.js que oferece persistência de dados em PostgreSQL ou MySQL, além de um modo de fallback para `localStorage`, garantindo uma solução completa e robusta para associações de cannabis medicinal.
+Este documento descreve a arquitetura de persistência de dados do SATIVAR-ISIS, que foi refatorada para um modelo híbrido e robusto. O objetivo original—permitir que a aplicação funcione "out-of-the-box" e depois seja "promovida" a uma configuração mais robusta—foi alcançado através da seguinte abordagem:
 
-## Funcionalidades Principais
+### 1. Visão Geral da Arquitetura
 
-### 1. Processamento de Receitas com IA
+O sistema opera em dois modos principais, com transição transparente para o usuário:
 
-#### Descrição
-O núcleo do sistema é a capacidade de analisar receitas médicas em formatos de imagem ou PDF e extrair informações relevantes utilizando a API do Google Gemini.
+-   **Modo Offline/Local (Padrão):** Se o backend não estiver acessível ou configurado, a aplicação funciona de forma autônoma, utilizando o `localStorage` do navegador para persistir todas as configurações e lembretes. Isso garante que a aplicação seja funcional imediatamente, sem necessidade de configuração inicial do servidor.
 
-#### Componentes Envolvidos
-- `QuoteGenerator.tsx` - Interface principal para upload e processamento.
-- `geminiService.ts` - Serviço de integração com a API do Google Gemini.
-- `Chat.tsx` - Interface de chat para interação com a IA.
+-   **Modo Online/API (Recomendado para Produção):** Quando o backend está em execução e o frontend está configurado para se conectar a ele (via variável de ambiente `VITE_API_URL`), a aplicação muda para o modo online. Neste modo, o backend se torna a fonte da verdade, e todos os dados são lidos e escritos em um banco de dados **SQLite** no servidor.
 
-### 2. Gerenciamento de Configurações
+### 2. Componentes da Implementação
 
-#### Descrição
-Permite que os administradores configurem todos os dados da associação que serão utilizados pela IA para gerar orçamentos padronizados.
+#### Backend (Node.js + Express + SQLite)
 
-#### Componentes Envolvidos
-- `SettingsPage.tsx` - Interface de configuração.
-- `useSettings.ts` - Hook para gerenciamento de estado das configurações.
-- `server/routes.js` - Endpoints da API para salvar e carregar configurações.
+-   **Banco de Dados Autônomo:** O backend foi migrado de MySQL para **`better-sqlite3`**. Ele agora cria e gerencia automaticamente um arquivo de banco de dados (`server/data/sativar_isis.db`), eliminando a necessidade de qualquer configuração de banco de dados externo.
+-   **Migrações Automáticas:** Na inicialização, o servidor verifica e cria as tabelas e índices necessários, garantindo que o esquema do banco de dados esteja sempre correto.
+-   **API RESTful:** O servidor expõe endpoints CRUD (`Create`, `Read`, `Update`, `Delete`) para gerenciar `settings` e `reminders` de forma granular.
 
-#### Funcionalidades
-- Cadastro de dados institucionais e financeiros.
-- Gestão do catálogo de produtos.
-- Configuração do prompt do sistema que orienta a IA.
-- Configuração de conexão com banco de dados (PostgreSQL/MySQL).
-- Monitoramento do status de preservação de dados.
+#### Frontend (React)
 
-### 3. Sistema de Lembretes e Tarefas
+-   **Detecção de Conexão:** O `useConnection` hook verifica continuamente a disponibilidade do backend. Se a conexão for perdida, a aplicação entra em modo offline. Se for restaurada, ela volta ao modo online.
+-   **Repositórios Abstratos:** A lógica de acesso a dados (`useSettings`, `useReminders`) utiliza o Padrão Repository para interagir com uma `ApiRepository` (quando online) ou uma `LocalStorageRepository` (quando offline).
+-   **Fila de Sincronização:** Quando offline, todas as alterações (criação, atualização, exclusão de lembretes) são salvas localmente e adicionadas a uma fila de sincronização no `localStorage`. Ao ficar online, a aplicação processa essa fila, enviando cada operação para a API, garantindo que nenhum dado seja perdido.
+-   **UI Simplificada:** A página de "Configurações Avançadas" foi simplificada, removendo a complexa configuração de banco de dados. Agora, ela foca em exibir o status da conexão (Online/Offline) e gerenciar a sincronização, o que é mais intuitivo para o administrador.
 
-#### Descrição
-Um sistema completo de gerenciamento de lembretes e tarefas com notificações, permitindo que a equipe acompanhe pendências e atividades.
+### 3. Fluxo de Trabalho do Ponto de Vista do Administrador
 
-#### Componentes Envolvidos
-- `useReminders.ts` - Hook para gerenciamento de estado dos lembretes.
-- `Reminders.tsx` - Componentes de UI para listar e criar lembretes.
-- `server/routes.js` - Endpoints da API para persistência de lembretes.
-
-### 4. Autenticação Administrativa
-
-#### Descrição
-Sistema de login e registro para administradores, garantindo que apenas usuários autorizados possam acessar as configurações sensíveis. As credenciais são salvas localmente no navegador.
-
-#### Componentes Envolvidos
-- `AdminLogin.tsx` - Interface de login.
-- `AdminRegistration.tsx` - Interface de registro de superadministrador.
-
-### 5. Persistência de Dados Flexível com Fallback
-
-#### Descrição
-Arquitetura híbrida que utiliza um backend Node.js para se conectar a um banco de dados (PostgreSQL ou MySQL) como fonte principal, com fallback automático para `localStorage` em caso de falha de conexão com o servidor.
-
-#### Componentes Envolvidos
-- `server/index.js` - Servidor backend Express.
-- `server/db.js` - Módulo de conexão de banco de dados dinâmico (PG/MySQL).
-- `docker-compose.yml` - Orquestração do ambiente de desenvolvimento.
-- `useSettings.ts` e `useReminders.ts` - Hooks que gerenciam o estado online/offline e a fila de sincronização.
-
-#### Funcionalidades
-- Detecção automática de disponibilidade do backend.
-- Alternância transparente entre modo online (banco de dados) e offline (`localStorage`).
-- Sincronização automática de dados pendentes quando o backend fica disponível.
-- Configuração flexível para diferentes ambientes (desenvolvimento e produção).
-
-## Arquitetura Técnica
-
-### Frontend
-- **React 19** com hooks e context API para gerenciamento de estado.
-- **TypeScript** para tipagem estática e segurança.
-- **Tailwind CSS** para estilização.
-- Comunicação com o backend através de uma API RESTful.
-
-### Backend
-- **Node.js** com **Express** para a criação da API.
-- **Drivers `pg` e `mysql2`** para conectividade com bancos de dados.
-- Lógica de negócios centralizada para manipulação de dados.
-- Servido via **Docker** para consistência de ambiente.
-
-### Integração com IA
-- **Google Gemini API** para processamento de documentos.
-- **Prompt engineering** avançado para guiar a IA a fornecer resultados estruturados e consistentes.
-- Tratamento de erros robusto para falhas da API.
-
-### Persistência de Dados
-- **Fonte Primária:** PostgreSQL ou MySQL, configurado via variáveis de ambiente.
-- **Fonte de Fallback:** `localStorage` do navegador.
-- Camada de abstração no frontend (hooks) que gerencia onde os dados são lidos e escritos.
-
-## Fluxos de Trabalho Principais
-
-### 1. Processo de Orçamento
-1. Administrador configura os dados da associação e produtos via backend.
-2. Usuário faz upload de uma receita no frontend.
-3. Frontend envia a receita para a API do Google Gemini.
-4. IA analisa a receita e retorna informações estruturadas.
-5. Frontend processa a resposta, gera o orçamento e o exibe para o usuário.
-6. Opcionalmente, um lembrete pode ser criado e salvo no banco de dados através do backend.
-
-### 2. Gestão de Configurações
-1. Administrador acessa a página de configurações.
-2. Altera os dados e salva.
-3. Frontend envia as novas configurações para o endpoint `POST /api/settings`.
-4. Backend recebe os dados e os salva no banco de dados configurado (PostgreSQL ou MySQL).
-
-### 3. Operação Offline (Fallback)
-1. O frontend falha em se conectar com o backend (endpoint `/health`).
-2. A aplicação entra em modo offline.
-3. Todas as leituras e escritas de dados são redirecionadas para o `localStorage`.
-4. As operações de escrita são adicionadas a uma fila de sincronização.
-5. Quando a conexão com o backend é restaurada, a fila é processada e os dados são enviados para o banco de dados.
+1.  **Primeiro Uso (Sem Backend):** O admin abre a aplicação. Como o backend não está em execução, a aplicação funciona em modo `local`. Todas as configurações e lembretes são salvos no `localStorage`. A aplicação é 100% funcional.
+2.  **Implantação do Backend:** O admin implanta o servidor backend. Nenhuma configuração de banco de dados é necessária. O servidor cuida de tudo.
+3.  **Conectando o Frontend:** O admin configura a variável de ambiente `VITE_API_URL` no ambiente de hospedagem do frontend para apontar para o backend.
+4.  **Uso Conectado:** Ao recarregar, a aplicação detecta o backend, entra em modo `api`, e passa a usar o banco de dados SQLite como fonte principal. Se a conexão cair, a aplicação continua funcionando em modo offline e sincronizará as alterações quando a conexão for restabelecida.
