@@ -1,4 +1,3 @@
-
 // server/index.js
 
 const express = require('express');
@@ -6,7 +5,7 @@ const cors = require('cors');
 const apiRoutes = require('./routes');
 const chalk = require('chalk');
 const { testPoolConnection } = require('./db');
-const { runMigrations } = require('./migration'); // <-- 1. ADICIONADO: Importa a função de migration
+const { runMigrations } = require('./migration');
 require('dotenv').config();
 
 const app = express();
@@ -21,8 +20,8 @@ const startServer = async () => {
         console.log(chalk.green.bold('✅ Successfully connected to the database.'));
         
         // 2. Run database migrations
-        console.log(chalk.blue('Running database migrations...')); // <-- 2. ADICIONADO: Inicia a migration
-        await runMigrations(); // <-- 3. ADICIONADO: Executa e espera a migration terminar
+        console.log(chalk.blue('Running database migrations...'));
+        await runMigrations();
         
         // 3. Configure middleware and routes ONLY after successful connection AND migration
         
@@ -30,12 +29,13 @@ const startServer = async () => {
         app.use(cors());
         app.use(express.json({ limit: '10mb' }));
 
-        // API Key Authentication Middleware (seu código de autenticação continua aqui...)
+        // Public health check endpoint (does not require API key)
+        app.get('/health', (req, res) => {
+            res.status(200).json({ status: 'ok' });
+        });
+
+        // API Key Authentication Middleware
         const apiKeyAuth = (req, res, next) => {
-            // ... (o resto do seu código permanece exatamente o mesmo) ...
-            if (req.path === '/health') {
-                return next();
-            }
             const apiKey = req.get('X-API-Key');
             const serverKey = process.env.API_SECRET_KEY;
             if (!serverKey) {
@@ -48,8 +48,7 @@ const startServer = async () => {
             return res.status(401).json({ error: 'Unauthorized: Missing or invalid API key.' });
         };
 
-
-        // API Routes
+        // API Routes (all routes here are protected by apiKeyAuth)
         app.use('/api', apiKeyAuth, apiRoutes);
 
         // Error handler
@@ -68,7 +67,7 @@ const startServer = async () => {
         });
 
     } catch (error) {
-        // O bloco catch agora vai pegar erros tanto da conexão quanto da migration
+        // The block catch now will catch errors from both connection and migration
         console.error(chalk.red.bold('❌ Failed to initialize the application.'));
         console.error(chalk.red('Error details:'), error);
         process.exit(1);

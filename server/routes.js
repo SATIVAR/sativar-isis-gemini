@@ -25,11 +25,6 @@ const parseReminderTasks = (reminder) => {
 };
 
 
-// --- Health Check ---
-router.get('/health', (req, res) => {
-  res.status(200).json({ status: 'ok' });
-});
-
 // --- Settings Routes ---
 
 // GET /api/settings
