@@ -251,36 +251,63 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       processSync();
     }
   }, [isOnline, processSync]);
-
-  // Load initial local settings, WP config, and check queue
+  
+  // Load initial data on mount. Prioritize API when online.
   useEffect(() => {
-    try {
-      const storedSettings = localStorage.getItem(LOCAL_SETTINGS_KEY);
-      if (storedSettings) {
-        const parsedSettings = JSON.parse(storedSettings);
-        setSettings(parsedSettings);
-        setFormState(parsedSettings);
-      }
-      const storedWpConfig = localStorage.getItem(WP_CONFIG_STORAGE_KEY);
-      if (storedWpConfig) {
-        // Merge with defaults to ensure new fields from updates are present
-        setWpConfig({ ...defaultWpConfig, ...JSON.parse(storedWpConfig) });
-      }
-      const syncPending = localStorage.getItem(SETTINGS_SYNC_PENDING_KEY) === 'true';
-      setSettingsSyncQueueCount(syncPending ? 1 : 0);
-    } catch (error) {
-      console.error("Failed to load settings from localStorage:", error);
-    } finally {
+    const loadInitialData = async () => {
+      setIsLoaded(false);
+      try {
+        let loadedSettings: Settings | null = null;
+
+        // 1. Prioritize fetching from API if online
+        if (isOnline) {
+          try {
+            console.log("Online mode detected. Fetching settings from API...");
+            loadedSettings = await apiClient.get<Settings>('/settings');
+            if (loadedSettings) {
+              // Update local cache with fresh data from the server
+              localStorage.setItem(LOCAL_SETTINGS_KEY, JSON.stringify(loadedSettings));
+            }
+          } catch (apiError) {
+             console.warn("API fetch failed, will fall back to local storage.", apiError);
+          }
+        }
+        
+        // 2. Fallback to local storage if offline, or if API fetch failed/returned null
+        if (!loadedSettings) {
+           console.log(isOnline ? "API returned no settings, falling back to local." : "Offline mode. Loading settings from local storage.");
+           const localData = localStorage.getItem(LOCAL_SETTINGS_KEY);
+           if (localData) {
+               loadedSettings = JSON.parse(localData);
+           }
+        }
+        
+        const finalSettings = loadedSettings || defaultSettings;
+        setSettings(finalSettings);
+        setFormState(finalSettings);
+
+        // 3. Load other non-critical settings from localStorage
+        const storedWpConfig = localStorage.getItem(WP_CONFIG_STORAGE_KEY);
+        if (storedWpConfig) {
+          setWpConfig({ ...defaultWpConfig, ...JSON.parse(storedWpConfig) });
+        }
+        const syncPending = localStorage.getItem(SETTINGS_SYNC_PENDING_KEY) === 'true';
+        setSettingsSyncQueueCount(syncPending ? 1 : 0);
+      } catch (error) {
+        console.error("Failed to load initial settings:", error);
+        // On any critical error, ensure the app loads with defaults or whatever is in local storage.
+        const localData = localStorage.getItem(LOCAL_SETTINGS_KEY);
+        const finalSettings = localData ? JSON.parse(localData) : defaultSettings;
+        setSettings(finalSettings);
+        setFormState(finalSettings);
+      } finally {
         setIsLoaded(true);
-    }
-  }, []);
+      }
+    };
 
-  // Sync formState with settings when settings are loaded or updated
-  useEffect(() => {
-    if (isLoaded) {
-      setFormState(settings);
-    }
-  }, [settings, isLoaded]);
+    loadInitialData();
+  }, [isOnline]); // Re-run this logic when connection status changes
+
 
   const validateSettings = useCallback((data: Settings): boolean => {
     const newErrors: Partial<Record<keyof Settings, string>> = {};

@@ -70,7 +70,7 @@ O frontend interage com o backend e com a API do Gemini.
     **`.env` (Exemplo):**
     ```env
     # URL para o servidor backend rodando localmente
-    VITE_API_URL=http://localhost:3001
+    VITE_API_BASE_URL=http://localhost:3001
 
     # Esta chave DEVE ser a mesma definida em /server/.env
     VITE_API_SECRET_KEY=sua-chave-secreta-muito-longa-e-segura

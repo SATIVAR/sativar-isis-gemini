@@ -1,6 +1,6 @@
 // In a Vite project, environment variables are exposed on `import.meta.env`.
 // They must be prefixed with `VITE_` to be accessible in the client-side code.
-const API_BASE_URL = import.meta.env.VITE_API_URL;
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
 class ApiClient {
   private async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {

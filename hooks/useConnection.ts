@@ -1,4 +1,3 @@
-
 import React, { createContext, useState, useContext, useEffect, useMemo, useCallback } from 'react';
 import { apiClient } from '../services/database/apiClient.ts';
 
@@ -10,8 +9,8 @@ interface ConnectionContextType {
 const ConnectionContext = createContext<ConnectionContextType | undefined>(undefined);
 
 export const ConnectionProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  // If the VITE_API_URL environment variable is not set, we start in offline mode by default.
-  const [isOnline, setIsOnline] = useState(!!import.meta.env.VITE_API_URL);
+  // If the VITE_API_BASE_URL environment variable is not set, we start in offline mode by default.
+  const [isOnline, setIsOnline] = useState(!!import.meta.env.VITE_API_BASE_URL);
 
   const reportOffline = useCallback(() => {
     if (isOnline) {
@@ -22,7 +21,7 @@ export const ConnectionProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
   useEffect(() => {
     // If no API URL is provided, we stay in offline mode and don't perform health checks.
-    if (!import.meta.env.VITE_API_URL) {
+    if (!import.meta.env.VITE_API_BASE_URL) {
       return;
     }
 

@@ -1,5 +1,3 @@
-
-
 // From services/geminiService.ts and components/Chat.tsx
 export interface QuotedProduct {
     name: string;
@@ -182,7 +180,7 @@ export interface SativarUser {
 declare global {
   interface ImportMetaEnv {
     readonly VITE_GEMINI_API_KEY?: string;
-    readonly VITE_API_URL?: string;
+    readonly VITE_API_BASE_URL?: string; // The correct URL for the backend
     readonly VITE_API_SECRET_KEY?: string;
     readonly DEV?: boolean;
   }
