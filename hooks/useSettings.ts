@@ -151,7 +151,7 @@ const generateProductTable = (products: (WooProduct | Product)[], isFromWooComme
   const tableHeader = `| Nome do Produto | Preço (R$) | Descrição Breve |
 |---|---|---|`;
 
-  const tableRows = products.length > 0
+  const tableRows = products && products.length > 0
     ? products.map(p => {
         const desc = 'short_description' in p ? stripHtml(p.short_description) : p.description;
         return `| ${p.name} | ${p.price} | ${desc || ''} |`;
@@ -282,7 +282,10 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
            }
         }
         
-        const finalSettings = loadedSettings || defaultSettings;
+        // FIX: Merge loaded settings with defaults to prevent crashes from missing properties.
+        // This ensures that even if loaded data is incomplete (e.g., from an older version
+        // or corruption), the app has fallback values for all required settings.
+        const finalSettings = { ...defaultSettings, ...(loadedSettings || {}) };
         setSettings(finalSettings);
         setFormState(finalSettings);
 
@@ -295,11 +298,20 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         setSettingsSyncQueueCount(syncPending ? 1 : 0);
       } catch (error) {
         console.error("Failed to load initial settings:", error);
-        // On any critical error, ensure the app loads with defaults or whatever is in local storage.
-        const localData = localStorage.getItem(LOCAL_SETTINGS_KEY);
-        const finalSettings = localData ? JSON.parse(localData) : defaultSettings;
-        setSettings(finalSettings);
-        setFormState(finalSettings);
+        // On any critical error, ensure the app loads with defaults or whatever is in local storage, safely.
+        let safeSettings = defaultSettings;
+        try {
+            const localData = localStorage.getItem(LOCAL_SETTINGS_KEY);
+            if (localData) {
+                // Also merge here for safety against corrupted local storage
+                safeSettings = { ...defaultSettings, ...JSON.parse(localData) };
+            }
+        } catch (e) {
+            console.error("Failed to parse local settings during error fallback", e);
+            // Use defaults if even local storage is corrupted
+        }
+        setSettings(safeSettings);
+        setFormState(safeSettings);
       } finally {
         setIsLoaded(true);
       }
