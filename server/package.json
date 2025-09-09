@@ -5,8 +5,7 @@
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
-    "dev": "nodemon index.js",
-    "test": "node db.test.js"
+    "dev": "nodemon index.js"
   },
   "dependencies": {
     "better-sqlite3": "^11.1.2",
