@@ -1,5 +1,6 @@
 
 
+
 import React, { createContext, useState, useContext, useEffect, useMemo, useCallback } from 'react';
 import type { Settings, WpConfig, WooProduct, WooCategory, Product } from '../types.ts';
 import { checkApiStatus, getProducts, getCategories } from '../services/wpApiService.ts';
@@ -118,7 +119,7 @@ A saída DEVE ser um único objeto JSON, sem nenhum texto, markdown (como \`\`\`
 - totalValue: Calcule o **subtotal** (soma apenas dos produtos). Formate como "R$ XXX,XX".
 - internalSummary: Um resumo MUITO BREVE para a equipe, focando em pontos de atenção.
 - patientMessage: Uma mensagem COMPLETA, clara e amigável para o paciente. **A ESTRUTURA E FORMATAÇÃO ABAIXO SÃO OBRIGATÓRIAS. Siga à risca, incluindo emojis, quebras de linha (\\n) e espaçamento entre seções (\\n\\n). MESMO QUE PRODUTOS NÃO SEJAM ENCONTRADOS, a estrutura completa deve ser mantida.**
-    - Comece com: \`Olá, [Nome do Paciente]! Tudo bem? 😊\\n\\nSou a Ísis, da equipe {{NOME_ASSOCIACAO}}. Analisei sua receita e preparei seu orçamento. Confira os detalhes abaixo:\`
+    - Comece com: \`😊 Paciente: [Nome do Paciente]\\n\\nOlá! Sou a Ísis da equipe {{NOME_ASSOCIACAO}}. Analisei sua receita e preparei o orçamento. Confira os detalhes abaixo:\`
     - Adicione \\n\\n.
     - Crie a seção de produtos com o cabeçalho: \`📦 *RESUMO DO ORÇAMENTO*\`
     - Na linha seguinte (\\n), liste cada item:
