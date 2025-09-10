@@ -1,6 +1,4 @@
 
-
-
 import React, { createContext, useState, useContext, useEffect, useMemo, useCallback } from 'react';
 import type { Settings, WpConfig, WooProduct, WooCategory, Product } from '../types.ts';
 import { checkApiStatus, getProducts, getCategories } from '../services/wpApiService.ts';
@@ -34,6 +32,8 @@ interface SettingsContextType {
   syncWithWooCommerce: () => Promise<void>;
   validateSettings: (data: Settings) => boolean;
   errors: Partial<Record<keyof Settings, string>>;
+  isInitialSyncing: boolean;
+  initialSyncMessage: string;
 }
 
 // --- Constants & Defaults ---
@@ -307,6 +307,10 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [isSyncing, setIsSyncing] = useState(false);
   const [settingsSyncQueueCount, setSettingsSyncQueueCount] = useState(0);
 
+  // Initial App Load State
+  const [isInitialSyncing, setIsInitialSyncing] = useState(true);
+  const [initialSyncMessage, setInitialSyncMessage] = useState('Inicializando sistema...');
+
   // Sync process
   const processSync = useCallback(async () => {
     const isPending = localStorage.getItem(SETTINGS_SYNC_PENDING_KEY) === 'true';
@@ -331,80 +335,92 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
   }, [isOnline, isSyncing]);
 
-  // Effect to trigger sync when coming online
+  // Effect to trigger settings sync when coming online
   useEffect(() => {
     if (isOnline) {
       processSync();
     }
   }, [isOnline, processSync]);
   
-  // Load initial data on mount. Prioritize API when online.
+  // Initial startup sequence
   useEffect(() => {
-    const loadInitialData = async () => {
-      setIsLoaded(false);
-      try {
-        let loadedSettings: Settings | null = null;
+    const startupSequence = async () => {
+        setIsInitialSyncing(true);
+        setIsLoaded(false);
 
-        // 1. Prioritize fetching from API if online
-        if (isOnline) {
-          try {
-            console.log("Online mode detected. Fetching settings from API...");
-            loadedSettings = await apiClient.get<Settings>('/settings');
-            if (loadedSettings) {
-              // Update local cache with fresh data from the server
-              localStorage.setItem(LOCAL_SETTINGS_KEY, JSON.stringify(loadedSettings));
-            }
-          } catch (apiError) {
-             console.warn("API fetch failed, will fall back to local storage.", apiError);
-          }
-        }
-        
-        // 2. Fallback to local storage if offline, or if API fetch failed/returned null
-        if (!loadedSettings) {
-           console.log(isOnline ? "API returned no settings, falling back to local." : "Offline mode. Loading settings from local storage.");
-           const localData = localStorage.getItem(LOCAL_SETTINGS_KEY);
-           if (localData) {
-               loadedSettings = JSON.parse(localData);
-           }
-        }
-        
-        // FIX: Merge loaded settings with defaults to prevent crashes from missing properties.
-        // This ensures that even if loaded data is incomplete (e.g., from an older version
-        // or corruption), the app has fallback values for all required settings.
-        const finalSettings = { ...defaultSettings, ...(loadedSettings || {}) };
-        setSettings(finalSettings);
-        setFormState(finalSettings);
-
-        // 3. Load other non-critical settings from localStorage
-        const storedWpConfig = localStorage.getItem(WP_CONFIG_STORAGE_KEY);
-        if (storedWpConfig) {
-          setWpConfig({ ...defaultWpConfig, ...JSON.parse(storedWpConfig) });
-        }
-        const syncPending = localStorage.getItem(SETTINGS_SYNC_PENDING_KEY) === 'true';
-        setSettingsSyncQueueCount(syncPending ? 1 : 0);
-      } catch (error) {
-        console.error("Failed to load initial settings:", error);
-        // On any critical error, ensure the app loads with defaults or whatever is in local storage, safely.
-        let safeSettings = defaultSettings;
         try {
-            const localData = localStorage.getItem(LOCAL_SETTINGS_KEY);
-            if (localData) {
-                // Also merge here for safety against corrupted local storage
-                safeSettings = { ...defaultSettings, ...JSON.parse(localData) };
+            // 1. Load basic settings and WP config
+            setInitialSyncMessage('Carregando configurações...');
+            let loadedSettings: Settings | null = null;
+            if (isOnline) {
+                try {
+                    console.log("Online mode detected. Fetching settings from API...");
+                    loadedSettings = await apiClient.get<Settings>('/settings');
+                    if (loadedSettings) {
+                        localStorage.setItem(LOCAL_SETTINGS_KEY, JSON.stringify(loadedSettings));
+                    }
+                } catch (apiError) {
+                    console.warn("API fetch for settings failed, falling back to local.", apiError);
+                }
             }
-        } catch (e) {
-            console.error("Failed to parse local settings during error fallback", e);
-            // Use defaults if even local storage is corrupted
+            if (!loadedSettings) {
+                console.log(isOnline ? "API returned no settings, falling back to local." : "Offline mode. Loading settings from local storage.");
+                const localData = localStorage.getItem(LOCAL_SETTINGS_KEY);
+                if (localData) loadedSettings = JSON.parse(localData);
+            }
+            const finalSettings = { ...defaultSettings, ...(loadedSettings || {}) };
+            setSettings(finalSettings);
+            setFormState(finalSettings);
+            
+            const storedWpConfig = localStorage.getItem(WP_CONFIG_STORAGE_KEY);
+            const finalWpConfig = storedWpConfig ? { ...defaultWpConfig, ...JSON.parse(storedWpConfig) } : defaultWpConfig;
+            setWpConfig(finalWpConfig);
+
+            const syncPending = localStorage.getItem(SETTINGS_SYNC_PENDING_KEY) === 'true';
+            setSettingsSyncQueueCount(syncPending ? 1 : 0);
+
+            // 2. Sync with WooCommerce if configured
+            if (finalWpConfig.url && finalWpConfig.consumerKey) {
+                setInitialSyncMessage('Sincronizando produtos e categorias...');
+                setIsWooLoading(true);
+                try {
+                    const [products, categories] = await Promise.all([
+                        getProducts(finalWpConfig),
+                        getCategories(finalWpConfig),
+                    ]);
+                    setWooProducts(products);
+                    setWooCategories(categories);
+                    setLastWooSync(new Date());
+                    setWooError(null);
+                    setInitialSyncMessage('Sincronização concluída com sucesso!');
+                } catch (err) {
+                    const errorMessage = err instanceof Error ? err.message : "Erro desconhecido.";
+                    setWooError(errorMessage);
+                    setInitialSyncMessage('Falha na sincronização. Usando produtos de fallback.');
+                    console.error("Initial WooCommerce sync failed:", err);
+                } finally {
+                    setIsWooLoading(false);
+                }
+            } else {
+                setInitialSyncMessage('API do WooCommerce não configurada. Usando produtos de fallback.');
+            }
+
+            // 3. Finalize
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            setInitialSyncMessage('Pronto!');
+
+        } catch (error) {
+            console.error("Failed during startup sequence:", error);
+            setInitialSyncMessage('Ocorreu um erro ao iniciar a aplicação.');
+        } finally {
+            await new Promise(resolve => setTimeout(resolve, 500));
+            setIsLoaded(true);
+            setIsInitialSyncing(false);
         }
-        setSettings(safeSettings);
-        setFormState(safeSettings);
-      } finally {
-        setIsLoaded(true);
-      }
     };
 
-    loadInitialData();
-  }, [isOnline]); // Re-run this logic when connection status changes
+    startupSequence();
+  }, [isOnline]);
 
 
   const validateSettings = useCallback((data: Settings): boolean => {
@@ -572,7 +588,9 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       syncWithWooCommerce,
       validateSettings,
       errors,
-  }), [settings, isLoaded, saveSettings, wpConfig, wpConnectionStatus, saveWpConfig, testWpConnection, systemPrompt, isOnline, isSyncing, settingsSyncQueueCount, forceSyncSettings, formState, hasUnsavedChanges, wooProducts, wooCategories, isWooLoading, wooError, lastWooSync, syncWithWooCommerce, validateSettings, errors]);
+      isInitialSyncing,
+      initialSyncMessage,
+  }), [settings, isLoaded, saveSettings, wpConfig, wpConnectionStatus, saveWpConfig, testWpConnection, systemPrompt, isOnline, isSyncing, settingsSyncQueueCount, forceSyncSettings, formState, hasUnsavedChanges, wooProducts, wooCategories, isWooLoading, wooError, lastWooSync, syncWithWooCommerce, validateSettings, errors, isInitialSyncing, initialSyncMessage]);
 
   return React.createElement(SettingsContext.Provider, { value }, children);
 };

@@ -114,13 +114,6 @@ const WooCommerceProducts: React.FC = () => {
     const { wooProducts, wooCategories, isWooLoading, wooError, lastWooSync, syncWithWooCommerce } = useSettings();
     const [wooSearch, setWooSearch] = useState('');
 
-    useEffect(() => {
-        // Initial sync on component mount if no data is present
-        if (!wooProducts.length && !isWooLoading && !wooError) {
-            syncWithWooCommerce();
-        }
-    }, []);
-
     const filteredWooProducts = wooProducts.filter(p => {
         const searchTerm = wooSearch.toLowerCase();
         const descriptionText = (p.short_description || '').replace(/<[^>]*>?/gm, '').toLowerCase();
@@ -132,7 +125,7 @@ const WooCommerceProducts: React.FC = () => {
     });
 
     const renderContent = () => {
-        if (isWooLoading) {
+        if (isWooLoading && !lastWooSync) { // Show big loader only on initial sync
             return (
                 <div className="flex flex-col items-center justify-center gap-4 text-gray-400 py-20 rounded-lg border-2 border-dashed border-gray-700">
                     <Loader />

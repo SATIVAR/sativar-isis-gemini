@@ -1,13 +1,15 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Header } from './components/Header.tsx';
 import { SettingsLayout } from './components/settings/SettingsLayout.tsx';
-import { SettingsProvider } from './hooks/useSettings.ts';
+import { SettingsProvider, useSettings } from './hooks/useSettings.ts';
 import { RemindersProvider, useReminders } from './hooks/useReminders.ts';
 import { ConnectionProvider } from './hooks/useConnection.ts';
 import { ApiHistoryProvider } from './hooks/useApiHistory.ts';
 import { NotificationProvider, useNotifications } from './hooks/useNotifications.ts';
 import { QuoteGenerator } from './components/QuoteGenerator.tsx';
+import { Logo } from './components/Logo.tsx';
+import { Loader } from './components/Loader.tsx';
 
 export type Page = 'chat' | 'settings';
 
@@ -18,7 +20,7 @@ const NotificationTrigger: React.FC = () => {
     const { showNotification, permission, isEnabled } = useNotifications();
     const NOTIFIED_REMINDERS_KEY = 'sativar_isis_notified_reminders';
 
-    useEffect(() => {
+    React.useEffect(() => {
         if (permission !== 'granted' || !isEnabled) return;
 
         const now = new Date();
@@ -54,14 +56,49 @@ const NotificationTrigger: React.FC = () => {
     return null; // This component doesn't render anything visible
 };
 
+const LoadingScreen: React.FC<{ message: string }> = ({ message }) => {
+    return (
+        <div className="flex flex-col items-center justify-center h-screen bg-[#131314] text-gray-300 font-sans">
+            <Logo className="h-24 w-24 mb-6" />
+            <h1 className="text-3xl font-bold text-white mb-2">SATIVAR - Isis</h1>
+            <div className="flex items-center gap-4 mt-4">
+                <Loader />
+                <p className="text-lg text-gray-400">{message}</p>
+            </div>
+        </div>
+    );
+};
+
+const AppContent: React.FC = () => {
+    const { isInitialSyncing, initialSyncMessage } = useSettings();
+    const [currentPage, setCurrentPage] = useState<Page>('chat');
+
+    const handleLogout = () => {
+        setCurrentPage('chat'); // Redirect to chat page on logout
+    };
+    
+    if (isInitialSyncing) {
+        return <LoadingScreen message={initialSyncMessage} />;
+    }
+
+    return (
+        <div className="flex h-screen flex-col bg-[#131314] font-sans text-gray-200">
+            <Header setCurrentPage={setCurrentPage} currentPage={currentPage} />
+            <main className="flex-grow overflow-y-auto">
+                {currentPage === 'chat' && (
+                <QuoteGenerator />
+                )}
+                {currentPage === 'settings' && 
+                <div className="p-4 md:p-8 h-full">
+                    <SettingsLayout onLogout={handleLogout} />
+                </div>
+                }
+            </main>
+        </div>
+    );
+};
 
 function App() {
-  const [currentPage, setCurrentPage] = useState<Page>('chat');
-
-  const handleLogout = () => {
-    setCurrentPage('chat'); // Redirect to chat page on logout
-  };
-
   return (
     <ConnectionProvider>
       <SettingsProvider>
@@ -69,19 +106,7 @@ function App() {
           <ApiHistoryProvider>
             <NotificationProvider>
               <NotificationTrigger />
-              <div className="flex h-screen flex-col bg-[#131314] font-sans text-gray-200">
-                <Header setCurrentPage={setCurrentPage} currentPage={currentPage} />
-                <main className="flex-grow overflow-y-auto">
-                  {currentPage === 'chat' && (
-                    <QuoteGenerator />
-                  )}
-                  {currentPage === 'settings' && 
-                    <div className="p-4 md:p-8 h-full">
-                      <SettingsLayout onLogout={handleLogout} />
-                    </div>
-                  }
-                </main>
-              </div>
+              <AppContent />
             </NotificationProvider>
           </ApiHistoryProvider>
         </RemindersProvider>
