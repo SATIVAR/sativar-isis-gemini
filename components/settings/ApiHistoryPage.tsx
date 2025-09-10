@@ -1,9 +1,8 @@
 
-
 import React from 'react';
 import { useApiHistory } from '../../hooks/useApiHistory.ts';
 import type { ApiCall } from '../../services/apiHistoryService.ts';
-import { ClockIcon, CheckCircleIcon, AlertCircleIcon, FileTextIcon, SendIcon, Trash2Icon } from '../icons.tsx';
+import { ClockIcon, CheckCircleIcon, AlertCircleIcon, FileTextIcon, SendIcon, Trash2Icon, DownloadIcon } from '../icons.tsx';
 
 const HistoryItem: React.FC<{ item: ApiCall }> = ({ item }) => {
     const isSuccess = item.status === 'success';
@@ -56,6 +55,51 @@ export const ApiHistoryPage: React.FC = () => {
             clearHistory();
         }
     };
+    
+    const handleExportCsv = () => {
+        if (history.length === 0) return;
+
+        const escapeCsvField = (field: string | undefined | null): string => {
+            if (field === null || field === undefined) {
+                return '';
+            }
+            const stringField = String(field);
+            // If the field contains a comma, double quote, or newline, wrap it in double quotes
+            // and escape any existing double quotes by doubling them up.
+            if (/[",\n\r]/.test(stringField)) {
+                return `"${stringField.replace(/"/g, '""')}"`;
+            }
+            return stringField;
+        };
+
+        const headers = ['ID', 'Timestamp', 'Tipo', 'Status', 'Detalhes', 'Erro'];
+        const csvRows = history.map(item =>
+            [
+                escapeCsvField(item.id),
+                escapeCsvField(item.timestamp),
+                escapeCsvField(item.type),
+                escapeCsvField(item.status),
+                escapeCsvField(item.details),
+                escapeCsvField(item.error),
+            ].join(',')
+        );
+
+        const csvContent = [headers.join(','), ...csvRows].join('\n');
+        
+        // Add BOM for better Excel compatibility with UTF-8 characters
+        const blob = new Blob([`\uFEFF${csvContent}`], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        const today = new Date().toISOString().slice(0, 10);
+        
+        link.href = url;
+        link.setAttribute('download', `historico-api-sativar-${today}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+    };
 
     return (
         <div className="max-w-4xl mx-auto bg-[#202124] rounded-xl border border-gray-700 shadow-2xl p-6 sm:p-8">
@@ -70,13 +114,22 @@ export const ApiHistoryPage: React.FC = () => {
                     </p>
                 </div>
                 {history.length > 0 && (
-                     <button 
-                        onClick={handleClearHistory}
-                        className="flex items-center justify-center gap-2 px-4 py-2 bg-red-800 text-sm text-white font-semibold rounded-lg shadow-md hover:bg-red-700 transition-colors"
-                    >
-                        <Trash2Icon className="w-4 h-4" />
-                        Limpar Log
-                    </button>
+                     <div className="flex items-center gap-2 flex-shrink-0">
+                         <button 
+                            onClick={handleExportCsv}
+                            className="flex items-center justify-center gap-2 px-4 py-2 bg-gray-700 text-sm text-white font-semibold rounded-lg shadow-md hover:bg-gray-600 transition-colors"
+                        >
+                            <DownloadIcon className="w-4 h-4" />
+                            Exportar CSV
+                        </button>
+                         <button 
+                            onClick={handleClearHistory}
+                            className="flex items-center justify-center gap-2 px-4 py-2 bg-red-800 text-sm text-white font-semibold rounded-lg shadow-md hover:bg-red-700 transition-colors"
+                        >
+                            <Trash2Icon className="w-4 h-4" />
+                            Limpar Log
+                        </button>
+                    </div>
                 )}
             </div>
             

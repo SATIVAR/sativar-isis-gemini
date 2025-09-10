@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect, useRef } from 'react';
+import React, { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import { useSettings } from '../hooks/useSettings.ts';
 import { processPrescription, pingAI, isApiKeyConfigured, generateHighlight } from '../services/geminiService.ts';
 import { getSativarUsers } from '../services/wpApiService.ts';
@@ -66,12 +66,12 @@ export const QuoteGenerator: React.FC = () => {
     const [loadingAction, setLoadingAction] = useState<'file' | 'text' | null>(null);
     const [showSettingsWarning, setShowSettingsWarning] = useState(false);
     const [wpConfigMissing, setWpConfigMissing] = useState(false);
-    const [apiKeyMissing, setApiKeyMissing] = useState(true); // Default to true until checked
     const [processingAction, setProcessingAction] = useState<{ messageId: string; payload: string } | null>(null);
-    const [chatFlow, setChatFlow] = useState<'idle' | 'quote' | 'user_lookup'>('idle');
     const initialMessageSent = useRef(false);
     const [previewFile, setPreviewFile] = useState<{ url: string; type: string; name: string } | null>(null);
     const objectUrls = useRef<string[]>([]);
+
+    const apiKeyMissing = useMemo(() => !isApiKeyConfigured(), []);
 
     // On unmount, clean up all URLs created during the component's lifetime
     useEffect(() => {
@@ -83,9 +83,6 @@ export const QuoteGenerator: React.FC = () => {
     // This effect runs once settings are loaded to initialize component state
     useEffect(() => {
         if (!isLoaded) return;
-
-        // Add a check for the API_KEY to ensure it's configured
-        setApiKeyMissing(!isApiKeyConfigured());
         
         // Check for WP config
         if (!wpConfig || !wpConfig.url) {
@@ -128,7 +125,6 @@ export const QuoteGenerator: React.FC = () => {
         
         // Handle async actions separately
         if (payload === 'generate_highlight') {
-            setChatFlow('idle');
             const loadingMessage: ChatMessage = {
                 id: `ai-loading-${Date.now()}`,
                 sender: 'ai',
@@ -175,21 +171,18 @@ export const QuoteGenerator: React.FC = () => {
             let followUpMessages: ChatMessage[] = [];
             switch (payload) {
                 case 'start_quote':
-                    setChatFlow('quote');
                     followUpMessages.push({
                         id: `ai-resp-${Date.now()}`, sender: 'ai',
                         content: { type: 'text', text: 'Ótimo! Por favor, anexe o arquivo da receita (imagem ou PDF) no campo abaixo para eu analisar.' },
                     });
                     break;
                 case 'start_user_lookup':
-                    setChatFlow('user_lookup');
                     followUpMessages.push({
                         id: `ai-resp-${Date.now()}`, sender: 'ai',
-                        content: { type: 'text', text: 'Certo! Por favor, digite o nome, CPF ou e-mail do associado que você deseja buscar.' },
+                        content: { type: 'user_search' },
                     });
                     break;
                 case 'general_info':
-                    setChatFlow('idle');
                     followUpMessages.push({
                         id: `ai-resp-${Date.now()}`, sender: 'ai',
                         content: {
@@ -236,19 +229,6 @@ export const QuoteGenerator: React.FC = () => {
 
     }, [messages, settings, wooProducts]);
 
-    const handleSend = useCallback(async ({ text, file }: { text: string; file: File | null }) => {
-        if (file) {
-            setChatFlow('quote');
-            await handleSendFile(file);
-        } else if (text.trim()) {
-            if (chatFlow === 'user_lookup') {
-                await handleUserLookup(text);
-            } else {
-                await handleSendText(text);
-            }
-        }
-    }, [systemPrompt, showSettingsWarning, apiKeyMissing, wpConfigMissing, chatFlow, wpConfig]);
-    
     const handleSendFile = useCallback(async (file: File) => {
         if (showSettingsWarning || apiKeyMissing || wpConfigMissing) return;
 
@@ -293,65 +273,12 @@ export const QuoteGenerator: React.FC = () => {
         } finally {
             setIsLoading(false);
             setLoadingAction(null);
-            setChatFlow('idle');
         }
     }, [systemPrompt, showSettingsWarning, apiKeyMissing, wpConfigMissing]);
-    
-    const handleUserLookup = useCallback(async (searchText: string) => {
-        if (wpConfigMissing || !wpConfig) return;
-
-        const userMessage: ChatMessage = {
-            id: `user-lookup-${Date.now()}`,
-            sender: 'user',
-            content: { type: 'text', text: searchText },
-        };
-        const loadingMessage: ChatMessage = {
-            id: `ai-loading-${Date.now()}`,
-            sender: 'ai',
-            content: { type: 'loading' },
-        };
-
-        setMessages(prev => [...prev, userMessage, loadingMessage]);
-        setIsLoading(true);
-        setLoadingAction('text');
-
-        try {
-            const users = await getSativarUsers(wpConfig, searchText);
-            const resultMessage: ChatMessage = {
-                id: `ai-user-result-${Date.now()}`,
-                sender: 'ai',
-                content: { type: 'user_result', users, searchTerm: searchText },
-            };
-            const followUpMessage: ChatMessage = {
-                id: `ai-follow-up-${Date.now()}`,
-                sender: 'ai',
-                content: {
-                    type: 'actions',
-                    text: 'Posso ajudar com mais alguma coisa?',
-                    actions: [
-                        { label: 'Analisar Receita', payload: 'start_quote' },
-                        { label: 'Nova Consulta de Associado', payload: 'start_user_lookup' },
-                        { label: 'Informações Gerais', payload: 'general_info' },
-                    ]
-                }
-            };
-            setMessages(prev => [...prev.slice(0, -1), resultMessage, followUpMessage]);
-        } catch (err) {
-            const errorMessage: ChatMessage = {
-                id: `ai-error-${Date.now()}`,
-                sender: 'ai',
-                content: { type: 'error', message: err instanceof Error ? err.message : 'Ocorreu um erro ao buscar o associado.' },
-            };
-            setMessages(prev => [...prev.slice(0, -1), errorMessage]);
-        } finally {
-            setIsLoading(false);
-            setLoadingAction(null);
-            setChatFlow('idle');
-        }
-    }, [wpConfig, wpConfigMissing]);
-
 
     const handleSendText = useCallback(async (text: string) => {
+        if (apiKeyMissing) return;
+
         const userMessage: ChatMessage = {
             id: `user-${Date.now()}`,
             sender: 'user',
@@ -386,14 +313,21 @@ export const QuoteGenerator: React.FC = () => {
             setIsLoading(false);
             setLoadingAction(null);
         }
-    }, [showSettingsWarning]);
+    }, [showSettingsWarning, apiKeyMissing]);
+    
+    const handleSend = useCallback(async ({ text, file }: { text: string; file: File | null }) => {
+        if (file) {
+            await handleSendFile(file);
+        } else if (text.trim()) {
+            await handleSendText(text);
+        }
+    }, [handleSendFile, handleSendText]);
 
     const handleResetChat = useCallback(() => {
         // Revoke all previously created object URLs to prevent memory leaks
         objectUrls.current.forEach(url => URL.revokeObjectURL(url));
         objectUrls.current = [];
         setMessages(getInitialMessages());
-        setChatFlow('idle');
     }, []);
 
     const handleOpenFilePreview = (file: { url: string; type: string; name: string }) => {

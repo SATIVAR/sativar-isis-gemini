@@ -21,7 +21,7 @@ export interface QuoteResult {
 }
 
 // From components/QuoteGenerator.tsx and components/Chat.tsx
-export type MessageContentType = 'text' | 'file_request' | 'loading' | 'quote' | 'error' | 'actions' | 'user_result' | 'product_search';
+export type MessageContentType = 'text' | 'file_request' | 'loading' | 'quote' | 'error' | 'actions' | 'user_search' | 'product_search';
 
 export interface TextContent {
     type: 'text';
@@ -60,17 +60,15 @@ export interface ActionsContent {
     actions: Action[];
 }
 
-export interface UserResultContent {
-    type: 'user_result';
-    users: SativarUser[];
-    searchTerm: string;
-}
-
 export interface ProductSearchContent {
     type: 'product_search';
 }
 
-export type MessageContent = TextContent | FileRequestContent | LoadingContent | QuoteContent | ErrorContent | ActionsContent | UserResultContent | ProductSearchContent;
+export interface UserSearchContent {
+    type: 'user_search';
+}
+
+export type MessageContent = TextContent | FileRequestContent | LoadingContent | QuoteContent | ErrorContent | ActionsContent | ProductSearchContent | UserSearchContent;
 
 export interface ChatMessage {
     id: string;

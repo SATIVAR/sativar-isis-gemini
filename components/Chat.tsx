@@ -1,13 +1,14 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { jsPDF } from 'jspdf';
 import { useSettings } from '../hooks/useSettings.ts';
+import { useReminders } from '../hooks/useReminders.ts';
 import type { ChatMessage, QuoteResult, MessageContent, SativarUser } from '../types.ts';
-import { AlertTriangleIcon, ClipboardCheckIcon, ClipboardIcon, DownloadIcon, PlusIcon, SendIcon, UserIcon, BellIcon, RefreshCwIcon, CheckIcon } from './icons.tsx';
+import { AlertTriangleIcon, ClipboardCheckIcon, ClipboardIcon, DownloadIcon, PlusIcon, SendIcon, UserIcon, BellIcon, RefreshCwIcon, CheckIcon, CalendarIcon } from './icons.tsx';
 import { Loader } from './Loader.tsx';
 import { ReminderModal } from './Reminders.tsx';
 import { TypingIndicator } from './TypingIndicator.tsx';
 import { ProductSearch } from './ProductSearch.tsx';
+import { UserSearch } from './UserSearch.tsx';
 
 const AIAvatar: React.FC = () => (
     <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-fuchsia-900">
@@ -40,39 +41,92 @@ const UserAvatar: React.FC = () => (
     </div>
 );
 
-const UserResultDisplay: React.FC<{ users: SativarUser[], searchTerm: string }> = ({ users, searchTerm }) => {
-    if (users.length === 0) {
-        return (
-            <div className="mt-2 w-full text-sm text-gray-300">
-                <p>Nenhum associado encontrado para "<strong>{searchTerm}</strong>".</p>
-            </div>
-        );
-    }
+const ScheduleModal: React.FC<{
+    quoteId: string;
+    patientName: string;
+    onClose: () => void;
+}> = ({ quoteId, patientName, onClose }) => {
+    const { addReminder } = useReminders();
+    const [scheduleDate, setScheduleDate] = useState('');
+    const [isSaving, setIsSaving] = useState(false);
+    const [error, setError] = useState('');
+
+    useEffect(() => {
+        const tomorrow = new Date();
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        tomorrow.setHours(10, 0, 0, 0);
+        const offset = tomorrow.getTimezoneOffset();
+        const localDate = new Date(tomorrow.getTime() - (offset * 60 * 1000));
+        setScheduleDate(localDate.toISOString().slice(0, 16));
+    }, []);
+
+    const handleSchedule = async () => {
+        if (!scheduleDate) {
+            setError('Por favor, selecione uma data e hora.');
+            return;
+        }
+        setError('');
+        setIsSaving(true);
+
+        try {
+            await addReminder({
+                quoteId,
+                patientName: `Consulta Agendada: ${patientName}`,
+                dueDate: new Date(scheduleDate).toISOString(),
+                notes: `Agendamento de consulta de acompanhamento para ${patientName} com base na receita analisada.`,
+                tasks: [{ id: crypto.randomUUID(), text: 'Realizar consulta de acompanhamento.', isCompleted: false, icon: 'patient' }],
+                recurrence: 'none',
+                priority: 'high',
+            });
+            onClose();
+        } catch (err) {
+            console.error("Failed to schedule appointment:", err);
+            setError('Falha ao salvar o agendamento. Tente novamente.');
+        } finally {
+            setIsSaving(false);
+        }
+    };
+    
+    const now = new Date();
+    now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+    const minDateTime = now.toISOString().slice(0, 16);
 
     return (
-        <div className="mt-2 w-full space-y-3 text-sm">
-            <p className="text-gray-300">
-                {users.length === 1 
-                    ? <>Encontrei 1 resultado para "<strong>{searchTerm}</strong>":</>
-                    : <>Encontrei {users.length} resultados para "<strong>{searchTerm}</strong>":</>
-                }
-            </p>
-            {users.map(user => (
-                <div key={user.id} className="p-4 bg-[#202124] rounded-lg border border-gray-700 space-y-2">
-                    <p className="font-semibold text-white">{user.display_name}</p>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1 text-xs font-mono text-gray-300">
-                        <p className="truncate"><span className="text-gray-400">EMAIL:</span> {user.email || 'N/A'}</p>
-                        <p><span className="text-gray-400">CPF:</span> {user.acf_fields?.cpf || 'N/A'}</p>
-                        <p><span className="text-gray-400">TEL:</span> {user.acf_fields?.telefone || 'N/A'}</p>
-                         {user.acf_fields?.nome_completo_responc && (
-                            <p className="truncate"><span className="text-gray-400">RESP:</span> {user.acf_fields.nome_completo_responc} ({user.acf_fields.cpf_responsavel || 'CPF N/A'})</p>
-                        )}
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4" onClick={onClose}>
+            <div className="bg-[#303134] rounded-xl border border-gray-700 p-6 w-full max-w-md shadow-2xl" onClick={e => e.stopPropagation()}>
+                <h3 className="text-xl font-bold mb-2 text-white">Agendar Consulta</h3>
+                <p className="text-sm text-gray-400 mb-6">Para: {patientName}</p>
+                <div className="space-y-4">
+                    <div>
+                        <label htmlFor="scheduleDate" className="block text-sm font-medium text-gray-300 mb-2">Data e Hora da Consulta</label>
+                        <input
+                            type="datetime-local"
+                            id="scheduleDate"
+                            value={scheduleDate}
+                            min={minDateTime}
+                            onChange={e => setScheduleDate(e.target.value)}
+                            className="w-full bg-[#202124] border border-gray-600/50 text-white rounded-lg px-3 py-2 focus:ring-2 focus:ring-fuchsia-500 outline-none transition"
+                            required
+                        />
                     </div>
+                    {error && <p className="text-sm text-red-400">{error}</p>}
                 </div>
-            ))}
+                 <div className="flex justify-end gap-3 mt-8">
+                    <button type="button" onClick={onClose} className="px-5 py-2 bg-gray-700 text-sm text-gray-300 font-medium rounded-lg hover:bg-gray-600 transition-colors">Cancelar</button>
+                    <button
+                        type="button"
+                        onClick={handleSchedule}
+                        disabled={isSaving}
+                        className="flex items-center justify-center min-w-[160px] px-5 py-2 bg-green-600 text-white font-semibold rounded-lg shadow-md hover:bg-green-700 transition-colors disabled:opacity-70 disabled:cursor-wait"
+                    >
+                        {isSaving ? <Loader /> : 'Salvar Agendamento'}
+                    </button>
+                </div>
+            </div>
         </div>
     );
 };
+
 
 interface QuoteResultDisplayProps {
     result: QuoteResult;
@@ -82,6 +136,7 @@ interface QuoteResultDisplayProps {
 const QuoteResultDisplay: React.FC<QuoteResultDisplayProps> = ({ result, onResetChat }) => {
     const [copied, setCopied] = useState(false);
     const [isReminderModalOpen, setIsReminderModalOpen] = useState(false);
+    const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
     const { settings } = useSettings();
 
     const lowerValidity = result.validity.toLowerCase();
@@ -183,6 +238,13 @@ const QuoteResultDisplay: React.FC<QuoteResultDisplayProps> = ({ result, onReset
                     onClose={() => setIsReminderModalOpen(false)}
                 />
             )}
+            {isScheduleModalOpen && (
+                <ScheduleModal
+                    quoteId={result.id}
+                    patientName={result.patientName}
+                    onClose={() => setIsScheduleModalOpen(false)}
+                />
+            )}
             <div className="mt-2 w-full space-y-4 text-sm">
                  {warningMessage && (
                     <div className="p-3 mb-2 bg-yellow-900/40 rounded-lg border border-yellow-700/50 flex items-start gap-3">
@@ -224,23 +286,35 @@ const QuoteResultDisplay: React.FC<QuoteResultDisplayProps> = ({ result, onReset
                 </div>
                  <div className="flex flex-col items-end gap-3 pt-2">
                      <div className="flex items-center gap-2">
+                        <button
+                            onClick={() => setIsScheduleModalOpen(true)}
+                            disabled={isExpired}
+                            className="flex items-center gap-2 px-4 py-2 text-sm text-gray-300 font-medium rounded-lg hover:bg-gray-700/60 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                            aria-label="Agendar uma consulta com base na receita"
+                            title="Agendar Consulta"
+                        >
+                            <CalendarIcon className="w-4 h-4" />
+                            Agendar
+                        </button>
                          <button
                             onClick={() => setIsReminderModalOpen(true)}
                             disabled={isExpired}
                             className="flex items-center gap-2 px-4 py-2 text-sm text-gray-300 font-medium rounded-lg hover:bg-gray-700/60 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                             aria-label="Criar um lembrete para este orçamento"
+                            title="Criar Lembrete"
                         >
                             <BellIcon className="w-4 h-4" />
-                            Criar Lembrete
+                            Lembrete
                         </button>
                         <button 
                             onClick={handleDownloadPDF}
                             disabled={isExpired}
                             className="flex items-center gap-2 px-4 py-2 bg-gray-700 text-sm text-gray-200 font-medium rounded-lg hover:bg-gray-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                             aria-label="Baixar orçamento como PDF"
+                            title="Baixar PDF"
                         >
                             <DownloadIcon className="w-4 h-4" />
-                            Baixar PDF
+                            PDF
                         </button>
                     </div>
                      <button
@@ -302,8 +376,8 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({ message, onAction, proces
                     result={content.result} 
                     onResetChat={onResetChat} 
                 />;
-            case 'user_result':
-                return <UserResultDisplay users={content.users} searchTerm={content.searchTerm} />;
+            case 'user_search':
+                return <UserSearch />;
             case 'product_search':
                 return <ProductSearch />;
             case 'error':

@@ -38,16 +38,18 @@ export const Header: React.FC<HeaderProps> = ({ setCurrentPage, currentPage }) =
     return (
         <>
             <style>{`
-                @keyframes pulse-red {
+                @keyframes gentle-pulse {
                     0%, 100% {
-                        box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7);
+                        transform: scale(1);
+                        color: #f87171; /* Tailwind red-400 */
                     }
-                    70% {
-                        box-shadow: 0 0 0 8px rgba(239, 68, 68, 0);
+                    50% {
+                        transform: scale(1.1);
+                        color: #fca5a5; /* Tailwind red-300 */
                     }
                 }
-                .pulse-alert {
-                    animation: pulse-red 2s infinite;
+                .pulse-alert svg {
+                    animation: gentle-pulse 2s ease-in-out infinite;
                 }
             `}</style>
             <header className="flex flex-shrink-0 items-center justify-between border-b border-gray-700/50 bg-[#131314] p-4">
