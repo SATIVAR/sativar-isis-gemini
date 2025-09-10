@@ -1,5 +1,6 @@
 
 
+
 import React, { createContext, useState, useContext, useEffect, useMemo, useCallback } from 'react';
 import type { Settings, WpConfig, WooProduct, WooCategory, Product } from '../types.ts';
 import { checkApiStatus, getProducts, getCategories } from '../services/wpApiService.ts';
@@ -61,10 +62,14 @@ A saída DEVE ser um único objeto JSON, sem nenhum texto, markdown (como \`\`\`
 
 # LÓGICA DE NEGÓCIO OBRIGATÓRIA:
 1.  **Validação da Receita**: Sua tarefa mais crítica é determinar a validade da receita.
-    a. Encontre a **data de emissão** na receita.
-    b. Calcule a **data de vencimento**: Some o número de meses do campo {{PRESCRIPTION_VALIDITY_MONTHS}} à data de emissão. A receita é válida durante todo o mês de vencimento. Ex: emitida em 05/Jan, válida por 1 mês, vence em 29/Fev (se bissexto) ou 28/Fev.
-    c. Compare a data de vencimento com a data atual. A receita é válida se a data atual for ANTES ou IGUAL à data de vencimento.
-    d. **Data de Emissão Ausente**: Se a data de emissão não for encontrada, a análise NÃO DEVE ser bloqueada. Continue o orçamento, mas adicione um alerta claro no campo 'observations', como: "Alerta: A data de emissão da receita não foi encontrada, impossibilitando a validação de sua vigência."
+    a. **Encontre a Data de Emissão**: Procure na receita por uma "data de emissão" ou data similar.
+    b. **Se a Data de Emissão estiver AUSENTE**:
+        - Defina o campo \`validity\` no JSON como "Validade não determinada".
+        - Adicione um alerta no campo \`observations\` do JSON: "Alerta: A data de emissão da receita não foi encontrada, impossibilitando a validação de sua vigência."
+        - Continue a análise normalmente.
+    c. **Se a Data de Emissão for ENCONTRADA**:
+        - Calcule a data de vencimento somando {{PRESCRIPTION_VALIDITY_MONTHS}} meses à data de emissão. A validade se estende até o final do mês de vencimento.
+        - Compare com a data atual para determinar se está "Válida até DD/MM/AAAA" ou "Vencida em DD/MM/AAAA", e use esse valor no campo \`validity\`.
 2.  **Busca de Produtos e Alternativas**: Para cada produto na receita:
     a. Tente encontrar uma correspondência exata na tabela de produtos. Se encontrar, use o status "OK".
     b. Se não houver correspondência exata, procure por um produto SIMILAR ou EQUIVALENTE. Verifique por nomes parecidos e concentrações próximas.
@@ -74,7 +79,7 @@ A saída DEVE ser um único objeto JSON, sem nenhum texto, markdown (como \`\`\`
 
 # DETALHAMENTO DOS CAMPOS JSON:
 - patientName: O nome completo do paciente.
-- validity: O status de validade da receita. Use um dos seguintes formatos: "Válida até DD/MM/AAAA", "Vencida em DD/MM/AAAA", ou "Validade não determinada (data de emissão ausente)".
+- validity: O status de validade da receita. Use um dos seguintes formatos: "Válida até DD/MM/AAAA", "Vencida em DD/MM/AAAA", ou "Validade não determinada".
 - products: Um array com cada produto da receita. Para cada produto, preencha:
     - name: O nome do produto encontrado na tabela ou o nome da receita se não encontrado.
     - quantity: A quantidade. Se for uma sugestão, use a quantidade ajustada.
@@ -97,11 +102,11 @@ A saída DEVE ser um único objeto JSON, sem nenhum texto, markdown (como \`\`\`
     - Adicione \\n\\n.
     - Adicione o bloco de PIX com a seguinte estrutura, mantendo as quebras de linha (\\n):
       \`Para agilizar, você pode pagar via PIX.
-      Nossa chave PIX (CNPJ) e: {{CHAVE_PIX_CNPJ}}
+      Nossa chave PIX (CNPJ) é: {{CHAVE_PIX_CNPJ}}
       NOME_BANCO: {{NOME_BANCO}}
       RAZAO SOCIAL: {{RAZAO_SOCIAL}}\`
     - Adicione \\n\\n.
-    - Finalize a mensagem EXATAMENTE com: \`Se precisar de algo, é só chamar no WhatsApp ou dar uma olhada no nosso site {{SITE}}.\\nEquipe {{NOME_ASSOCIACAO}}\`
+    - Finalize a mensagem EXATAMENTE com: \`Se precisar de algo, é só chamar no nosso WhatsApp {{WHATSAPP}}. Acompanhe a gente também no Instagram {{INSTAGRAM}} ou em nosso site {{SITE}}.\\n\\nAbraços,\\nEquipe {{NOME_ASSOCIACAO}}\`
 - medicalHistory: Histórico médico relevante, se houver.
 - doctorNotes: Posologia e notas do médico, se houver.
 - observations: Alertas importantes para a equipe (ex: data de emissão ausente, receita vencida, etc.).
@@ -116,7 +121,6 @@ A saída DEVE ser um único objeto JSON, sem nenhum texto, markdown (como \`\`\`
 const generateConfigurationBlock = (settings: Settings): string => {
   return `
 # DADOS OPERACIONAIS
-{{VALOR_FRETE_PADRAO}}: 50.00
 {{CHAVE_PIX_CNPJ}}: "${settings.pixKey}"
 {{RAZAO_SOCIAL}}: "${settings.companyName}"
 {{NOME_BANCO}}: "${settings.bankName}"

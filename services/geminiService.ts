@@ -220,3 +220,43 @@ export const pingAI = async (userMessage: string, settingsIncomplete: boolean): 
         throw handleGeminiError(error);
     }
 };
+
+export const generateHighlight = async (recentQuoteSummary?: string): Promise<string> => {
+    const apiKey = getApiKey();
+    if (!apiKey) {
+        throw new Error(API_KEY_MISSING_ERROR);
+    }
+    const ai = new GoogleGenAI({ apiKey });
+
+    const systemInstruction = "Você é Ísis, a assistente de IA da associação. Sua tarefa é criar um post de 'Destaque do Dia' que seja otimista, informativo e convidativo. O post deve ser curto, ideal para redes sociais, e usar emojis para ser amigável. Sempre termine com uma chamada para ação clara, convidando para uma nova consulta ou para entrar em contato.";
+    
+    const userMessage = recentQuoteSummary
+        ? `Aqui está o resumo de um orçamento recente: "${recentQuoteSummary}". Crie um 'Destaque do Dia' baseado neste caso, focando nos resultados positivos e no cuidado oferecido, sem revelar dados pessoais. O tom deve ser inspirador.`
+        : `Crie um 'Destaque do Dia' com um fato interessante e positivo sobre o uso de cannabis medicinal. O tom deve ser educativo e encorajador.`;
+
+    try {
+        const response = await ai.models.generateContent({
+            model: 'gemini-2.5-flash',
+            contents: userMessage,
+            config: {
+                systemInstruction: systemInstruction,
+            }
+        });
+        
+        incrementApiCallCount();
+        const details = recentQuoteSummary ? 'Highlight from quote' : 'Highlight with fact';
+        addApiCall({ type: 'text_query', status: 'success', details });
+
+        const responseText = response.text;
+        if (!responseText) {
+            throw new Error("A IA não retornou uma resposta de texto.");
+        }
+        
+        return responseText;
+
+    } catch (error) {
+        const details = recentQuoteSummary ? 'Highlight from quote' : 'Highlight with fact';
+        addApiCall({ type: 'text_query', status: 'error', details, error: error instanceof Error ? error.message : String(error) });
+        throw handleGeminiError(error);
+    }
+};

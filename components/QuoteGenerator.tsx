@@ -1,8 +1,7 @@
 
-
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { useSettings } from '../hooks/useSettings.ts';
-import { processPrescription, pingAI, isApiKeyConfigured } from '../services/geminiService.ts';
+import { processPrescription, pingAI, isApiKeyConfigured, generateHighlight } from '../services/geminiService.ts';
 import { getSativarUsers } from '../services/wpApiService.ts';
 import type { ChatMessage, QuoteResult } from '../types.ts';
 import { AlertTriangleIcon } from './icons.tsx';
@@ -12,7 +11,7 @@ const getInitialMessages = (): ChatMessage[] => [
     {
         id: 'init-greeting',
         sender: 'ai',
-        content: { type: 'text', text: 'Olá! Sou a Ísis, sua parceira de equipe virtual. Estou aqui para ajudar a gente a agilizar os orçamentos e tirar dúvidas. 😊' },
+        content: { type: 'text', text: 'Olá! Sou a Ísis, sua parceira de equipe virtual. Fico feliz em ajudar! Posso analisar receitas para gerar orçamentos em segundos, consultar informações de associados e muito mais. 😊' },
     },
     {
         id: 'init-actions',
@@ -24,6 +23,7 @@ const getInitialMessages = (): ChatMessage[] => [
                 { label: 'Analisar Receita', payload: 'start_quote' },
                 { label: 'Consultar Associado', payload: 'start_user_lookup' },
                 { label: 'Informações Gerais', payload: 'general_info' },
+                { label: 'Gerar Destaque do Dia', payload: 'generate_highlight' },
             ]
         }
     }
@@ -87,6 +87,47 @@ export const QuoteGenerator: React.FC = () => {
             content: { type: 'text', text: actionLabel },
             isActionComplete: true,
         };
+        
+        // Handle async actions separately
+        if (payload === 'generate_highlight') {
+            setChatFlow('idle');
+            const loadingMessage: ChatMessage = {
+                id: `ai-loading-${Date.now()}`,
+                sender: 'ai',
+                content: { type: 'loading' },
+            };
+
+            setMessages(prev => [...prev.filter(m => m.id !== messageId), userResponseMessage, loadingMessage]);
+            setIsLoading(true);
+            setLoadingAction('text');
+
+            try {
+                const lastQuoteMessage = [...messages].reverse().find(m => m.content.type === 'quote');
+                const recentQuoteSummary = lastQuoteMessage && lastQuoteMessage.content.type === 'quote' 
+                    ? lastQuoteMessage.content.result.internalSummary 
+                    : undefined;
+                
+                const result = await generateHighlight(recentQuoteSummary);
+                const aiMessage: ChatMessage = {
+                    id: `ai-highlight-${Date.now()}`,
+                    sender: 'ai',
+                    content: { type: 'text', text: result },
+                };
+                setMessages(prev => [...prev.slice(0, -1), aiMessage]);
+            } catch (err) {
+                const errorMessage: ChatMessage = {
+                    id: `ai-error-${Date.now()}`,
+                    sender: 'ai',
+                    content: { type: 'error', message: err instanceof Error ? err.message : 'Ocorreu um erro desconhecido.' },
+                };
+                setMessages(prev => [...prev.slice(0, -1), errorMessage]);
+            } finally {
+                setIsLoading(false);
+                setLoadingAction(null);
+                setProcessingAction(null);
+            }
+            return;
+        }
         
         // Replace action message with user's choice and add follow-ups
         setMessages(prevMessages => {
