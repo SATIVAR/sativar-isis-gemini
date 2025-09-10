@@ -4,7 +4,7 @@ import { useSettings } from '../hooks/useSettings.ts';
 import { processPrescription, pingAI, isApiKeyConfigured, generateHighlight } from '../services/geminiService.ts';
 import { getSativarUsers } from '../services/wpApiService.ts';
 import type { ChatMessage, QuoteResult } from '../types.ts';
-import { AlertTriangleIcon } from './icons.tsx';
+import { AlertTriangleIcon, XCircleIcon } from './icons.tsx';
 import { Chat } from './Chat.tsx';
 
 const getInitialMessages = (): ChatMessage[] => [
@@ -29,6 +29,36 @@ const getInitialMessages = (): ChatMessage[] => [
     }
 ];
 
+const FilePreviewModal: React.FC<{
+    file: { url: string; type: string; name: string };
+    onClose: () => void;
+}> = ({ file, onClose }) => {
+    return (
+        <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4" onClick={onClose} role="dialog" aria-modal="true" aria-labelledby="file-preview-title">
+            <div className="bg-[#202124] rounded-xl border border-gray-700 w-full max-w-4xl h-[90vh] flex flex-col shadow-2xl" onClick={e => e.stopPropagation()}>
+                <div className="flex-shrink-0 p-3 border-b border-gray-700 flex justify-between items-center">
+                    <p id="file-preview-title" className="text-white font-semibold truncate">{file.name}</p>
+                    <button onClick={onClose} className="p-1 rounded-full text-gray-400 hover:bg-gray-700 hover:text-white" aria-label="Fechar visualização">
+                        <XCircleIcon className="w-6 h-6"/>
+                    </button>
+                </div>
+                <div className="flex-grow p-2 overflow-auto flex items-center justify-center">
+                    {file.type.startsWith('image/') ? (
+                        <img src={file.url} alt={`Visualização de ${file.name}`} className="max-w-full max-h-full object-contain" />
+                    ) : file.type === 'application/pdf' ? (
+                        <iframe src={file.url} className="w-full h-full border-0" title={file.name} />
+                    ) : (
+                        <div className="text-center text-gray-400 p-10">
+                            <p>Visualização não disponível para este tipo de arquivo.</p>
+                            <a href={file.url} download={file.name} className="mt-4 inline-block text-fuchsia-400 underline">Baixar arquivo</a>
+                        </div>
+                    )}
+                </div>
+            </div>
+        </div>
+    );
+};
+
 
 export const QuoteGenerator: React.FC = () => {
     const { settings, isLoaded, wooProducts, systemPrompt, wpConfig } = useSettings();
@@ -41,6 +71,8 @@ export const QuoteGenerator: React.FC = () => {
     const [processingAction, setProcessingAction] = useState<{ messageId: string; payload: string } | null>(null);
     const [chatFlow, setChatFlow] = useState<'idle' | 'quote' | 'user_lookup'>('idle');
     const initialMessageSent = useRef(false);
+    const [previewFile, setPreviewFile] = useState<{ url: string; type: string; name: string } | null>(null);
+
 
     // This effect runs once settings are loaded to initialize component state
     useEffect(() => {
@@ -221,10 +253,17 @@ export const QuoteGenerator: React.FC = () => {
     const handleSendFile = useCallback(async (file: File) => {
         if (showSettingsWarning || apiKeyMissing || wpConfigMissing) return;
 
+        const fileURL = URL.createObjectURL(file);
+
         const userMessage: ChatMessage = {
             id: `user-${Date.now()}`,
             sender: 'user',
-            content: { type: 'file_request', fileName: file.name },
+            content: { 
+                type: 'file_request', 
+                fileName: file.name,
+                fileURL: fileURL,
+                fileType: file.type,
+            },
         };
         const loadingMessage: ChatMessage = {
             id: `ai-loading-${Date.now()}`,
@@ -354,6 +393,18 @@ export const QuoteGenerator: React.FC = () => {
         setChatFlow('idle');
     }, []);
 
+    const handleOpenFilePreview = (file: { url: string; type: string; name: string }) => {
+        setPreviewFile(file);
+    };
+
+    const handleClosePreview = () => {
+        if (previewFile) {
+            // Revoke the object URL to prevent memory leaks
+            URL.revokeObjectURL(previewFile.url);
+        }
+        setPreviewFile(null);
+    };
+
     const isChatDisabled = showSettingsWarning || apiKeyMissing || wpConfigMissing;
     let disabledReason = "";
     if (apiKeyMissing) {
@@ -366,6 +417,9 @@ export const QuoteGenerator: React.FC = () => {
 
     return (
         <div className="flex h-full flex-col">
+            {previewFile && (
+                <FilePreviewModal file={previewFile} onClose={handleClosePreview} />
+            )}
             {apiKeyMissing && (
                 <div className="flex-shrink-0 p-2">
                     <div className="mx-auto max-w-4xl rounded-md bg-red-900/50 p-3 text-sm text-red-300 flex items-start gap-3 border border-red-700/50">
@@ -398,6 +452,7 @@ export const QuoteGenerator: React.FC = () => {
                 onAction={handleAction}
                 processingAction={processingAction}
                 onResetChat={handleResetChat}
+                onOpenFilePreview={handleOpenFilePreview}
             />
         </div>
     );

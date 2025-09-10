@@ -237,10 +237,11 @@ interface MessageBubbleProps {
     processingAction: { messageId: string; payload: string } | null;
     loadingAction: 'file' | 'text' | null;
     onResetChat: () => void;
+    onOpenFilePreview: (file: { url: string; type: string; name: string }) => void;
 }
 
 
-const MessageBubble: React.FC<MessageBubbleProps> = ({ message, onAction, processingAction, loadingAction, onResetChat }) => {
+const MessageBubble: React.FC<MessageBubbleProps> = ({ message, onAction, processingAction, loadingAction, onResetChat, onOpenFilePreview }) => {
     const [copied, setCopied] = useState(false);
 
     const handleCopy = (textToCopy: string) => {
@@ -255,7 +256,18 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({ message, onAction, proces
             case 'text':
                 return <p className="whitespace-pre-wrap">{content.text}</p>;
             case 'file_request':
-                return <p className="text-gray-300">Arquivo enviado: <span className="font-medium text-white">{content.fileName}</span></p>
+                return (
+                    <p className="text-gray-300">
+                      Arquivo enviado:{" "}
+                      <button
+                        onClick={() => onOpenFilePreview({ url: content.fileURL, type: content.fileType, name: content.fileName })}
+                        className="font-medium text-fuchsia-300 hover:text-fuchsia-200 underline focus:outline-none focus:ring-2 focus:ring-fuchsia-400 rounded"
+                        aria-label={`Visualizar arquivo ${content.fileName}`}
+                      >
+                        {content.fileName}
+                      </button>
+                    </p>
+                );
             case 'loading': {
                 return <TypingIndicator />;
             }
@@ -453,6 +465,7 @@ interface ChatProps {
     onAction: (messageId: string, payload: string) => void;
     processingAction: { messageId: string; payload: string } | null;
     onResetChat: () => void;
+    onOpenFilePreview: (file: { url: string; type: string; name: string }) => void;
 }
 
 export const Chat: React.FC<ChatProps> = ({
@@ -465,6 +478,7 @@ export const Chat: React.FC<ChatProps> = ({
     onAction,
     processingAction,
     onResetChat,
+    onOpenFilePreview,
 }) => {
     const chatEndRef = useRef<HTMLDivElement | null>(null);
 
@@ -483,6 +497,7 @@ export const Chat: React.FC<ChatProps> = ({
                         processingAction={processingAction} 
                         loadingAction={loadingAction}
                         onResetChat={onResetChat}
+                        onOpenFilePreview={onOpenFilePreview}
                     />
                 ))}
                 <div ref={chatEndRef} />

@@ -31,6 +31,8 @@ export interface TextContent {
 export interface FileRequestContent {
     type: 'file_request';
     fileName: string;
+    fileURL: string;
+    fileType: string;
 }
 
 export interface LoadingContent {
