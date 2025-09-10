@@ -7,6 +7,7 @@ import { AlertTriangleIcon, ClipboardCheckIcon, ClipboardIcon, DownloadIcon, Plu
 import { Loader } from './Loader.tsx';
 import { ReminderModal } from './Reminders.tsx';
 import { TypingIndicator } from './TypingIndicator.tsx';
+import { ProductSearch } from './ProductSearch.tsx';
 
 const AIAvatar: React.FC = () => (
     <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-fuchsia-900">
@@ -83,7 +84,21 @@ const QuoteResultDisplay: React.FC<QuoteResultDisplayProps> = ({ result, onReset
     const [isReminderModalOpen, setIsReminderModalOpen] = useState(false);
     const { settings } = useSettings();
 
-    const isExpired = result.validity.toLowerCase().includes('vencida');
+    const lowerValidity = result.validity.toLowerCase();
+    const isExpired = lowerValidity.includes('vencida');
+    const isUndetermined = lowerValidity.includes('não determinada');
+
+    let validityClassName = 'text-green-400';
+    if (isExpired) validityClassName = 'text-red-300 font-bold';
+    if (isUndetermined) validityClassName = 'text-yellow-300';
+
+    let warningMessage = null;
+    if (isExpired) {
+        warningMessage = `Atenção: Esta receita venceu. O orçamento foi gerado para referência, mas a venda não pode ser concluída.`;
+    } else if (isUndetermined) {
+        warningMessage = 'Atenção: A data de emissão da receita não foi encontrada. A validade não pôde ser confirmada. Verifique manualmente antes de prosseguir.';
+    }
+
 
     const handleCopy = () => {
         navigator.clipboard.writeText(result.patientMessage);
@@ -169,12 +184,21 @@ const QuoteResultDisplay: React.FC<QuoteResultDisplayProps> = ({ result, onReset
                 />
             )}
             <div className="mt-2 w-full space-y-4 text-sm">
+                 {warningMessage && (
+                    <div className="p-3 mb-2 bg-yellow-900/40 rounded-lg border border-yellow-700/50 flex items-start gap-3">
+                        <AlertTriangleIcon className="w-6 h-6 text-yellow-300 flex-shrink-0 mt-0.5" />
+                        <div>
+                            <p className="font-semibold text-yellow-200">Atenção à Validade da Receita</p>
+                            <p className="text-yellow-300 text-xs mt-1">{warningMessage}</p>
+                        </div>
+                    </div>
+                )}
                 <div>
                     <h3 className="font-semibold text-fuchsia-300 mb-2">Resumo Interno para a Equipe</h3>
                     <div className="p-4 bg-[#202124] rounded-lg border border-gray-700 space-y-4">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <ReadOnlyField label="Paciente" value={result.patientName} />
-                            <ReadOnlyField label="Validade da Receita" value={result.validity} valueClassName={isExpired ? 'text-red-300' : 'text-green-400'}/>
+                            <ReadOnlyField label="Validade da Receita" value={result.validity} valueClassName={validityClassName}/>
                         </div>
 
                         <ReadOnlyField label="Resumo para Equipe" value={result.internalSummary} />
@@ -202,7 +226,8 @@ const QuoteResultDisplay: React.FC<QuoteResultDisplayProps> = ({ result, onReset
                      <div className="flex items-center gap-2">
                          <button
                             onClick={() => setIsReminderModalOpen(true)}
-                            className="flex items-center gap-2 px-4 py-2 text-sm text-gray-300 font-medium rounded-lg hover:bg-gray-700/60 transition-colors"
+                            disabled={isExpired}
+                            className="flex items-center gap-2 px-4 py-2 text-sm text-gray-300 font-medium rounded-lg hover:bg-gray-700/60 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                             aria-label="Criar um lembrete para este orçamento"
                         >
                             <BellIcon className="w-4 h-4" />
@@ -210,7 +235,8 @@ const QuoteResultDisplay: React.FC<QuoteResultDisplayProps> = ({ result, onReset
                         </button>
                         <button 
                             onClick={handleDownloadPDF}
-                            className="flex items-center gap-2 px-4 py-2 bg-gray-700 text-sm text-gray-200 font-medium rounded-lg hover:bg-gray-600 transition-colors"
+                            disabled={isExpired}
+                            className="flex items-center gap-2 px-4 py-2 bg-gray-700 text-sm text-gray-200 font-medium rounded-lg hover:bg-gray-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                             aria-label="Baixar orçamento como PDF"
                         >
                             <DownloadIcon className="w-4 h-4" />
@@ -278,6 +304,8 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({ message, onAction, proces
                 />;
             case 'user_result':
                 return <UserResultDisplay users={content.users} searchTerm={content.searchTerm} />;
+            case 'product_search':
+                return <ProductSearch />;
             case 'error':
                  return (
                     <div className="flex items-start gap-3 p-3 bg-red-900/20 rounded-lg border border-red-700/50">

@@ -1,7 +1,5 @@
 
 
-
-
 import React, { createContext, useState, useContext, useEffect, useMemo, useCallback } from 'react';
 import type { Settings, WpConfig, WooProduct, WooCategory, Product } from '../types.ts';
 import { checkApiStatus, getProducts, getCategories } from '../services/wpApiService.ts';
@@ -43,7 +41,7 @@ const LOCAL_SETTINGS_KEY = 'sativar_isis_local_settings';
 const SETTINGS_SYNC_PENDING_KEY = 'sativar_isis_settings_sync_pending';
 
 
-// --- Prompt Generation Logic (Refactored for JSON Output) ---
+// --- Prompt Generation Logic (Refactored for Robustness and Consistency) ---
 
 const PROMPT_PARTS = {
   CONFIGURATION_HEADER: `[0. DADOS DE CONFIGURAÇÃO ESSENCIAL]
@@ -57,13 +55,44 @@ Proatividade: Seja direta, mas sempre gentil. Se algo estiver ambíguo, gere a m
 Cultura Iracema: Sua comunicação, especialmente no campo 'patientMessage', deve sempre refletir nossos pilares: acolhimento, empatia e cuidado.`,
   KNOWLEDGE_BASE: `[2. SUA BASE DE CONHECIMENTO]
 Sua única fonte de verdade são os dados na seção [0. DADOS DE CONFIGURAÇÃO ESSENCIAL] e a tabela de produtos fornecida. Você deve basear TODAS as suas respostas e orçamentos estritamente nestes dados. Se uma informação não estiver disponível, você NÃO a possui.`,
-  JSON_OUTPUT_INSTRUCTIONS: `[3. SUA TAREFA, LÓGICA E FORMATO DE SAÍDA]
+};
+
+/**
+ * Creates a map of placeholder keys to their corresponding values from settings.
+ * This ensures a single source of truth for dynamic data in the prompt.
+ * @param settings - The current application settings.
+ * @returns An object mapping placeholders to values.
+ */
+const getPromptPlaceholders = (settings: Settings): Record<string, string> => ({
+  '{{CHAVE_PIX_CNPJ}}': settings.pixKey,
+  '{{RAZAO_SOCIAL}}': settings.companyName,
+  '{{NOME_BANCO}}': settings.bankName,
+  '{{PRESCRIPTION_VALIDITY_MONTHS}}': settings.prescriptionValidityMonths || '1',
+  '{{TEXTO_FRETE}}': settings.shippingContext,
+  '{{TEXTO_PAGAMENTO}}': settings.paymentContext,
+  '{{PRAZO_PRODUCAO_ENTREGA}}': settings.productionTime,
+  '{{NOME_ASSOCIACAO}}': settings.associationName,
+  '{{ENDERECO}}': settings.address,
+  '{{WHATSAPP}}': settings.whatsapp,
+  '{{SITE}}': settings.site,
+  '{{INSTAGRAM}}': settings.instagram,
+  '{{SOBRE_ASSOCIACAO}}': settings.about,
+  '{{HORARIO_FUNCIONAMENTO}}': settings.operatingHours,
+});
+
+
+/**
+ * Returns the template for the JSON output instructions, using placeholders.
+ * @returns A template string.
+ */
+const getJsonOutputInstructionsTemplate = (): string => {
+    return `[3. SUA TAREFA, LÓGICA E FORMATO DE SAÍDA]
 Sua tarefa principal é analisar a receita, aplicar a lógica de negócio abaixo e gerar um orçamento em JSON.
 A saída DEVE ser um único objeto JSON, sem nenhum texto, markdown (como \`\`\`json) ou explicação adicional.
 
 # LÓGICA DE NEGÓCIO OBRIGATÓRIA:
 1.  **Validação da Receita**: Sua tarefa mais crítica é determinar a validade da receita.
-    a. **Encontre a Data de Emissão**: Procure na receita por uma "data de emissão" ou data similar.
+    a. **Encontre a Data de Emissão**: Procure na receita por uma "data de emissão" ou data similar. **IGNORE QUALQUER DATA DE VALIDADE QUE JÁ ESTEJA ESCRITA NA RECEITA.** O cálculo é sua responsabilidade.
     b. **Se a Data de Emissão estiver AUSENTE**:
         - Defina o campo \`validity\` no JSON como "Validade não determinada".
         - Adicione um alerta no campo \`observations\` do JSON: "Alerta: A data de emissão da receita não foi encontrada, impossibilitando a validação de sua vigência."
@@ -88,58 +117,65 @@ A saída DEVE ser um único objeto JSON, sem nenhum texto, markdown (como \`\`\`
     - suggestionNotes: (Opcional) Uma breve nota para a equipe explicando a alternativa sugerida.
 - totalValue: Calcule o **subtotal** (soma apenas dos produtos). Formate como "R$ XXX,XX".
 - internalSummary: Um resumo MUITO BREVE para a equipe, focando em pontos de atenção.
-- patientMessage: Uma mensagem COMPLETA e amigável para o paciente. **A ESTRUTURA E FORMATAÇÃO ABAIXO SÃO OBRIGATÓRIAS. Siga à risca, incluindo emojis, quebras de linha (\\n) e espaçamento entre seções (\\n\\n). MESMO QUE PRODUTOS NÃO SEJAM ENCONTRADOS, a estrutura completa deve ser mantida.**
-    - Comece com "Paciente: [Nome do Paciente]".
+- patientMessage: Uma mensagem COMPLETA, clara e amigável para o paciente. **A ESTRUTURA E FORMATAÇÃO ABAIXO SÃO OBRIGATÓRIAS. Siga à risca, incluindo emojis, quebras de linha (\\n) e espaçamento entre seções (\\n\\n). MESMO QUE PRODUTOS NÃO SEJAM ENCONTRADOS, a estrutura completa deve ser mantida.**
+    - Comece com: \`Olá, [Nome do Paciente]! Tudo bem? 😊\\n\\nSou a Ísis, da equipe {{NOME_ASSOCIACAO}}. Analisei sua receita e preparei seu orçamento. Confira os detalhes abaixo:\`
     - Adicione \\n\\n.
-    - Crie a seção "📦 PRODUTOS:". Na linha seguinte (\\n), liste cada item:
-        - Se o produto for encontrado: \`* [Nome do Produto] (Qtd: [Quantidade]) - Valor Unit: R$ [Preço Unitário]\`
-        - Se for uma alternativa: \`* [Nome do Produto Alternativo] (Qtd: [Quantidade]) - Valor Unit: R$ [Preço Unitário] (Alternativa sugerida)\`
-        - Se o produto NÃO for encontrado: \`* [Nome do Produto da Receita] - **Produto indisponível. Nossa equipe entrará em contato.**\`
+    - Crie a seção de produtos com o cabeçalho: \`📦 *RESUMO DO ORÇAMENTO*\`
+    - Na linha seguinte (\\n), liste cada item:
+        - Se o produto for encontrado: \`• [Nome do Produto] (Qtd: [Quantidade]) - R$ [Preço Unitário]\`
+        - Se for uma alternativa: \`• [Nome do Produto Alternativo] (Qtd: [Quantidade]) - R$ [Preço Unitário] (Alternativa sugerida)\`
+        - Se o produto NÃO for encontrado: \`• [Nome do Produto da Receita] - **Produto indisponível. Nossa equipe entrará em contato.**\`
     - Adicione \\n\\n.
-    - Crie a seção "💰 VALORES:". Na linha seguinte (\\n), \`Subtotal dos produtos: R$ [Subtotal]\`. Na próxima linha (\\n), \`Frete: {{TEXTO_FRETE}}\`.
+    - Crie a seção de valores:
+      \`------------------------------------\\n\`
+      \`Subtotal dos Produtos: R$ [Subtotal]\\n\`
+      \`Frete: {{TEXTO_FRETE}}\\n\`
+      \`------------------------------------\\n\`
     - Adicione \\n\\n.
-    - Crie a seção "💳 Forma de Pagamento:". Na linha seguinte (\\n), use o texto de {{TEXTO_PAGAMENTO}}. Na linha seguinte (\\n), use a informação de {{PRAZO_PRODUCAO_ENTREGA}}.
+    - Crie a seção de pagamento com o cabeçalho: \`💳 *PAGAMENTO E PRAZOS*\`
+    - Na linha seguinte (\\n), inclua: \`{{TEXTO_PAGAMENTO}}\`
     - Adicione \\n\\n.
     - Adicione o bloco de PIX com a seguinte estrutura, mantendo as quebras de linha (\\n):
-      \`Para agilizar, você pode pagar via PIX.
-      Nossa chave PIX (CNPJ) é: {{CHAVE_PIX_CNPJ}}
-      NOME_BANCO: {{NOME_BANCO}}
-      RAZAO SOCIAL: {{RAZAO_SOCIAL}}\`
+      \`*Para agilizar, o pagamento pode ser feito via PIX:*
+      *Chave PIX (CNPJ):* \`{{CHAVE_PIX_CNPJ}}\`
+      *Banco:* {{NOME_BANCO}}
+      *Beneficiário:* {{RAZAO_SOCIAL}}\`
     - Adicione \\n\\n.
-    - Finalize a mensagem EXATAMENTE com: \`Se precisar de algo, é só chamar no nosso WhatsApp {{WHATSAPP}}. Acompanhe a gente também no Instagram {{INSTAGRAM}} ou em nosso site {{SITE}}.\\n\\nAbraços,\\nEquipe {{NOME_ASSOCIACAO}}\`
+    - Adicione o prazo: \`Após a confirmação do pagamento, seu pedido segue para produção. {{PRAZO_PRODUCAO_ENTREGA}}.\`
+    - Adicione \\n\\n.
+    - Finalize a mensagem EXATAMENTE com: \`Qualquer dúvida, é só chamar a gente no WhatsApp: {{WHATSAPP}}.\\n\\nFicamos à disposição!\\n\\nAbraços,\\nEquipe {{NOME_ASSOCIACAO}}\`
 - medicalHistory: Histórico médico relevante, se houver.
 - doctorNotes: Posologia e notas do médico, se houver.
 - observations: Alertas importantes para a equipe (ex: data de emissão ausente, receita vencida, etc.).
-`
+`;
 };
 
+
 /**
- * Generates the configuration data block for the system prompt.
- * @param settings - The current application settings.
- * @returns A formatted string with all configuration data.
+ * Returns the template for the configuration data block, using placeholders.
+ * @returns A template string.
  */
-const generateConfigurationBlock = (settings: Settings): string => {
+const getConfigurationBlockTemplate = (): string => {
   return `
 # DADOS OPERACIONAIS
-{{CHAVE_PIX_CNPJ}}: "${settings.pixKey}"
-{{RAZAO_SOCIAL}}: "${settings.companyName}"
-{{NOME_BANCO}}: "${settings.bankName}"
-{{TAXA_CARTAO_CREDITO_PERCENTUAL}}: 3.98
-{{PRESCRIPTION_VALIDITY_MONTHS}}: "${settings.prescriptionValidityMonths || '1'}"
-{{TEXTO_FRETE}}: "${settings.shippingContext}"
-{{TEXTO_PAGAMENTO}}: "${settings.paymentContext}"
-{{PRAZO_PRODUCAO_ENTREGA}}: "${settings.productionTime}"
+{{CHAVE_PIX_CNPJ}}: "{{CHAVE_PIX_CNPJ}}"
+{{RAZAO_SOCIAL}}: "{{RAZAO_SOCIAL}}"
+{{NOME_BANCO}}: "{{NOME_BANCO}}"
+{{PRESCRIPTION_VALIDITY_MONTHS}}: "{{PRESCRIPTION_VALIDITY_MONTHS}}"
+{{TEXTO_FRETE}}: "{{TEXTO_FRETE}}"
+{{TEXTO_PAGAMENTO}}: "{{TEXTO_PAGAMENTO}}"
+{{PRAZO_PRODUCAO_ENTREGA}}: "{{PRAZO_PRODUCAO_ENTREGA}}"
 
 # DADOS DE CONTATO E INSTITUCIONAIS
-{{NOME_ASSOCIACAO}}: "${settings.associationName}"
-{{ENDERECO}}: "${settings.address}"
-{{WHATSAPP}}: "${settings.whatsapp}"
-{{SITE}}: "${settings.site}"
-{{INSTAGRAM}}: "${settings.instagram}"
+{{NOME_ASSOCIACAO}}: "{{NOME_ASSOCIACAO}}"
+{{ENDERECO}}: "{{ENDERECO}}"
+{{WHATSAPP}}: "{{WHATSAPP}}"
+{{SITE}}: "{{SITE}}"
+{{INSTAGRAM}}: "{{INSTAGRAM}}"
 
 # CONTEXTO ADICIONAL
-Sobre a Associação: ${settings.about}
-Horário de Funcionamento: ${settings.operatingHours}
+Sobre a Associação: {{SOBRE_ASSOCIACAO}}
+Horário de Funcionamento: {{HORARIO_FUNCIONAMENTO}}
   `.trim();
 };
 
@@ -485,18 +521,30 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     const isFromWooCommerce = wooProducts.length > 0;
     const productSource = isFromWooCommerce ? wooProducts : settings.products;
 
-    const configBlock = generateConfigurationBlock(settings);
-    const productTable = generateProductTable(productSource, isFromWooCommerce);
-
-    // Assemble the final prompt in a modular way
-    return [
+    // 1. Assemble all template parts
+    const templates = [
       PROMPT_PARTS.CONFIGURATION_HEADER,
-      configBlock,
+      getConfigurationBlockTemplate(),
       PROMPT_PARTS.PERSONA,
       PROMPT_PARTS.KNOWLEDGE_BASE,
-      PROMPT_PARTS.JSON_OUTPUT_INSTRUCTIONS,
-      productTable
-    ].join('\n\n');
+      getJsonOutputInstructionsTemplate(),
+      generateProductTable(productSource, isFromWooCommerce),
+    ];
+
+    let combinedPrompt = templates.join('\n\n');
+    
+    // 2. Get the placeholder-to-value map
+    const placeholders = getPromptPlaceholders(settings);
+
+    // 3. Replace all placeholders in the combined template
+    for (const [key, value] of Object.entries(placeholders)) {
+        // Use a global regex to replace all occurrences of the placeholder key.
+        // We escape the key to handle special regex characters like curly braces.
+        const escapedKey = key.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+        combinedPrompt = combinedPrompt.replace(new RegExp(escapedKey, 'g'), value);
+    }
+    
+    return combinedPrompt;
   }, [settings, wooProducts]);
 
   const value = useMemo(() => ({ 

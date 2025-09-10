@@ -1,4 +1,3 @@
-
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { useSettings } from '../hooks/useSettings.ts';
 import { processPrescription, pingAI, isApiKeyConfigured, generateHighlight } from '../services/geminiService.ts';
@@ -72,7 +71,14 @@ export const QuoteGenerator: React.FC = () => {
     const [chatFlow, setChatFlow] = useState<'idle' | 'quote' | 'user_lookup'>('idle');
     const initialMessageSent = useRef(false);
     const [previewFile, setPreviewFile] = useState<{ url: string; type: string; name: string } | null>(null);
+    const objectUrls = useRef<string[]>([]);
 
+    // On unmount, clean up all URLs created during the component's lifetime
+    useEffect(() => {
+        return () => {
+            objectUrls.current.forEach(url => URL.revokeObjectURL(url));
+        };
+    }, []);
 
     // This effect runs once settings are loaded to initialize component state
     useEffect(() => {
@@ -198,18 +204,11 @@ export const QuoteGenerator: React.FC = () => {
                     });
                     break;
                 case 'info_products':
-                    {
-                        const productsList = wooProducts.length > 0 ? wooProducts : settings.products;
-                        let responseText = 'Não encontrei produtos cadastrados no momento. Por favor, consulte um de nossos atendentes.';
-                        if (productsList.length > 0) {
-                            responseText = 'Aqui estão os produtos que trabalhamos atualmente:\n\n' +
-                                productsList.map(p => `• *${p.name}* - R$ ${p.price}`).join('\n');
-                        }
-                        followUpMessages.push({
-                            id: `ai-resp-${Date.now()}`, sender: 'ai',
-                            content: { type: 'text', text: responseText }
-                        });
-                    }
+                    followUpMessages.push({
+                        id: `ai-resp-${Date.now()}`,
+                        sender: 'ai',
+                        content: { type: 'product_search' }
+                    });
                     break;
                 case 'info_hours':
                     followUpMessages.push({
@@ -254,6 +253,7 @@ export const QuoteGenerator: React.FC = () => {
         if (showSettingsWarning || apiKeyMissing || wpConfigMissing) return;
 
         const fileURL = URL.createObjectURL(file);
+        objectUrls.current.push(fileURL); // Track the URL for later cleanup
 
         const userMessage: ChatMessage = {
             id: `user-${Date.now()}`,
@@ -389,6 +389,9 @@ export const QuoteGenerator: React.FC = () => {
     }, [showSettingsWarning]);
 
     const handleResetChat = useCallback(() => {
+        // Revoke all previously created object URLs to prevent memory leaks
+        objectUrls.current.forEach(url => URL.revokeObjectURL(url));
+        objectUrls.current = [];
         setMessages(getInitialMessages());
         setChatFlow('idle');
     }, []);
@@ -398,10 +401,7 @@ export const QuoteGenerator: React.FC = () => {
     };
 
     const handleClosePreview = () => {
-        if (previewFile) {
-            // Revoke the object URL to prevent memory leaks
-            URL.revokeObjectURL(previewFile.url);
-        }
+        // We no longer revoke the URL here. It will be cleaned up on chat reset or component unmount.
         setPreviewFile(null);
     };
 

@@ -113,6 +113,10 @@ const ApiSearchComponent: React.FC = () => {
     const [error, setError] = useState<string | null>(null);
     const [searchPerformed, setSearchPerformed] = useState(false);
     const [showRawJson, setShowRawJson] = useState(false);
+    
+    // Pagination state
+    const [currentPage, setCurrentPage] = useState(1);
+    const ITEMS_PER_PAGE = 10;
 
     const handleSearch = async () => {
         if (!wpConfig.url) {
@@ -123,6 +127,7 @@ const ApiSearchComponent: React.FC = () => {
         setError(null);
         setSearchPerformed(true);
         setShowRawJson(false);
+        setCurrentPage(1); // Reset page on new search
         try {
             const searchResults = searchType === 'users'
                 ? await getSativarUsers(wpConfig, searchTerm)
@@ -170,14 +175,49 @@ const ApiSearchComponent: React.FC = () => {
             )
         }
         
+        // Pagination logic
+        const totalPages = Math.ceil(results.length / ITEMS_PER_PAGE);
+        const paginatedResults = results.slice(
+            (currentPage - 1) * ITEMS_PER_PAGE,
+            currentPage * ITEMS_PER_PAGE
+        );
+
+        const PaginationControls = () => {
+            if (totalPages <= 1) return null;
+            return (
+                <div className="flex justify-center items-center gap-4 mt-4 text-sm">
+                    <button
+                        onClick={() => setCurrentPage(p => Math.max(p - 1, 1))}
+                        disabled={currentPage === 1}
+                        className="px-4 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    >
+                        Anterior
+                    </button>
+                    <span className="text-gray-400 font-medium">
+                        Página {currentPage} de {totalPages}
+                    </span>
+                    <button
+                        onClick={() => setCurrentPage(p => Math.min(p + 1, totalPages))}
+                        disabled={currentPage === totalPages}
+                        className="px-4 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    >
+                        Próxima
+                    </button>
+                </div>
+            );
+        };
+
         return (
             <>
-                <div className="flex justify-end mb-2">
+                <div className="flex justify-between items-center mb-2">
+                    <p className="text-xs text-gray-400">
+                        Mostrando {paginatedResults.length} de {results.length} resultados.
+                    </p>
                     <button 
                         onClick={() => setShowRawJson(prev => !prev)}
                         className="text-xs text-gray-400 hover:text-white bg-gray-700 px-2 py-1 rounded"
                     >
-                        {showRawJson ? 'Ocultar' : 'Exibir'} JSON
+                        {showRawJson ? 'Ocultar JSON' : 'Exibir JSON'}
                     </button>
                 </div>
                 {showRawJson && (
@@ -187,11 +227,12 @@ const ApiSearchComponent: React.FC = () => {
                 )}
                 <div className="overflow-auto max-h-96 pr-2">
                     {searchType === 'users' ? (
-                        <UserResultsTable users={results as SativarUser[]} />
+                        <UserResultsTable users={paginatedResults as SativarUser[]} />
                     ) : (
-                        <ProductResultsTable products={results as WooProduct[]} />
+                        <ProductResultsTable products={paginatedResults as WooProduct[]} />
                     )}
                 </div>
+                <PaginationControls />
             </>
         );
     }
@@ -210,14 +251,14 @@ const ApiSearchComponent: React.FC = () => {
                  <div className="flex flex-col sm:flex-row gap-4">
                     <div className="flex items-center p-1 bg-[#303134] rounded-lg">
                         <button 
-                            onClick={() => setSearchType('users')}
+                            onClick={() => { setSearchType('users'); setCurrentPage(1); }}
                             className={`flex-1 flex items-center justify-center text-sm font-semibold px-4 py-1.5 rounded-md transition-colors ${searchType === 'users' ? 'bg-fuchsia-700 text-white' : 'text-gray-400 hover:text-white'}`}
                         >
                             <UsersIcon className="w-4 h-4 mr-2" />
                             Usuários
                         </button>
                          <button 
-                            onClick={() => setSearchType('products')}
+                            onClick={() => { setSearchType('products'); setCurrentPage(1); }}
                             className={`flex-1 flex items-center justify-center text-sm font-semibold px-4 py-1.5 rounded-md transition-colors ${searchType === 'products' ? 'bg-fuchsia-700 text-white' : 'text-gray-400 hover:text-white'}`}
                         >
                             <StoreIcon className="w-4 h-4 mr-2" />
