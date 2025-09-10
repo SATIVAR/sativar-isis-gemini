@@ -1,6 +1,7 @@
 
 
 
+
 import React, { createContext, useState, useContext, useEffect, useMemo, useCallback } from 'react';
 import type { Settings, WpConfig, WooProduct, WooCategory, Product } from '../types.ts';
 import { checkApiStatus, getProducts, getCategories } from '../services/wpApiService.ts';
@@ -70,12 +71,11 @@ A saída DEVE ser um único objeto JSON, sem nenhum texto, markdown (como \`\`\`
     c. **Se a Data de Emissão for ENCONTRADA**:
         - Calcule a data de vencimento somando {{PRESCRIPTION_VALIDITY_MONTHS}} meses à data de emissão. A validade se estende até o final do mês de vencimento.
         - Compare com a data atual para determinar se está "Válida até DD/MM/AAAA" ou "Vencida em DD/MM/AAAA", e use esse valor no campo \`validity\`.
-2.  **Busca de Produtos e Alternativas**: Para cada produto na receita:
-    a. Tente encontrar uma correspondência exata na tabela de produtos. Se encontrar, use o status "OK".
-    b. Se não houver correspondência exata, procure por um produto SIMILAR ou EQUIVALENTE. Verifique por nomes parecidos e concentrações próximas.
-    c. Se encontrar um produto similar com concentração DIFERENTE, veja se é possível atender à prescrição ajustando a quantidade. Exemplo: Receita pede "2 frascos de 20mg/ml". Catálogo tem "10mg/ml". Sugira "4 frascos de 10mg/ml".
-    d. Se encontrar uma alternativa viável (item b ou c), use o status "Alerta: Sugestão de alternativa" e explique a sugestão no campo 'suggestionNotes' para a equipe interna. Ex: "Sugerido 4x frascos de 10mg/ml para atingir a concentração de 20mg/ml prescrita."
-    e. Se não houver correspondência exata NEM alternativa viável, use o status "Alerta: Produto não encontrado no catálogo" e deixe o 'suggestionNotes' vazio.
+2.  **Busca Inteligente de Produtos**: Para cada produto na receita, use seu raciocínio para encontrar a melhor correspondência na TABELA DE PRODUTOS OFICIAL. O nome na receita pode ser genérico ou diferente do catálogo. **Concentre-se nas características técnicas do produto, usando as colunas 'Componentes Chave', 'Concentração' e 'Volume' como sua principal fonte de verdade.**
+    a. **Se encontrar uma correspondência clara** (mesmo que o nome não seja idêntico), use o produto do catálogo e defina o status como "OK". Ex: Receita "Óleo de CBD 3%" corresponde ao produto do catálogo "CBD FULL SPECTRUM 3% 1000 mg".
+    b. **Se não houver correspondência exata de características**, procure por uma alternativa viável. Por exemplo, se a receita pede "20mg/ml" e o catálogo tem "10mg/ml", sugira o dobro da quantidade do produto de 10mg/ml.
+    c. **Se encontrar uma alternativa viável**, use o status "Alerta: Sugestão de alternativa" e explique a sugestão no campo 'suggestionNotes' para a equipe interna. Ex: "Sugerido 2x frascos de 10mg/ml para atingir a concentração de 20mg/ml prescrita."
+    d. **Se não houver correspondência nem alternativa**, use o status "Alerta: Produto não encontrado no catálogo".
 
 # DETALHAMENTO DOS CAMPOS JSON:
 - patientName: O nome completo do paciente.
@@ -144,6 +144,50 @@ Horário de Funcionamento: ${settings.operatingHours}
 };
 
 /**
+ * Parses a product name to extract key attributes like components, concentration, and volume.
+ * This helper function makes the data more structured for the AI.
+ * @param name - The product name string.
+ * @returns An object with parsed attributes.
+ */
+const parseProductAttributes = (name: string) => {
+    const attributes = {
+        components: new Set<string>(),
+        concentration: new Set<string>(),
+        volume: new Set<string>(),
+    };
+
+    const lowerName = name.toLowerCase();
+
+    // Components
+    if (lowerName.includes('cbd')) attributes.components.add('CBD');
+    if (lowerName.includes('thc')) attributes.components.add('THC');
+    if (lowerName.includes('full spectrum')) attributes.components.add('Full Spectrum');
+    if (lowerName.includes('broad spectrum')) attributes.components.add('Broad Spectrum');
+    if (lowerName.includes('isolado') || lowerName.includes('isolate')) attributes.components.add('Isolado');
+    if (lowerName.includes('rosin')) attributes.components.add('Rosin');
+    if (lowerName.includes('base + atomizador')) attributes.components.add('Atomizador');
+
+    // Concentration (e.g., 10%, 1000mg, 33mg/ml)
+    const concentrations = name.match(/(\d+(\.\d+)?\s*?%|\d+(\.\d+)?\s*?mg(\/ml)?)/gi);
+    if (concentrations) {
+        concentrations.forEach(c => attributes.concentration.add(c.replace(/\s+/g, '')));
+    }
+
+    // Volume (e.g., 30ml, 1ml)
+    const volumes = name.match(/\d+(\.\d+)?\s*?ml/gi);
+    if (volumes) {
+        volumes.forEach(v => attributes.volume.add(v.replace(/\s+/g, '')));
+    }
+
+    return {
+        components: Array.from(attributes.components).join(', ') || 'N/A',
+        concentration: Array.from(attributes.concentration).join(', ') || 'N/A',
+        volume: Array.from(attributes.volume).join(', ') || 'N/A',
+    };
+};
+
+
+/**
  * Generates the product table in Markdown format for the system prompt.
  * @param products - An array of products (either from WooCommerce or local settings).
  * @param isFromWooCommerce - A boolean indicating the source of the products.
@@ -152,15 +196,16 @@ Horário de Funcionamento: ${settings.operatingHours}
 const generateProductTable = (products: (WooProduct | Product)[], isFromWooCommerce: boolean): string => {
   const stripHtml = (html: string) => (html ? html.replace(/<[^>]*>?/gm, '') : '');
 
-  const tableHeader = `| Nome do Produto | Preço (R$) | Descrição Breve |
-|---|---|---|`;
+  const tableHeader = `| Nome do Produto | Preço (R$) | Componentes Chave | Concentração | Volume | Descrição Breve |
+|---|---|---|---|---|---|`;
 
   const tableRows = products && products.length > 0
     ? products.map(p => {
         const desc = 'short_description' in p ? stripHtml(p.short_description) : p.description;
-        return `| ${p.name} | ${p.price} | ${desc || ''} |`;
+        const attrs = parseProductAttributes(p.name);
+        return `| ${p.name} | ${p.price} | ${attrs.components} | ${attrs.concentration} | ${attrs.volume} | ${desc || ''} |`;
       }).join('\n')
-    : '| Nenhum produto cadastrado | - | - |';
+    : '| Nenhum produto cadastrado | - | - | - | - | - |';
     
   const sourceComment = isFromWooCommerce
     ? '# Fonte dos Produtos: WooCommerce API (em tempo real)'
