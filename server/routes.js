@@ -265,5 +265,21 @@ router.put('/chats/:id/title', async (req, res, next) => {
     }
 });
 
+// DELETE /api/chats/:id - Delete a conversation
+router.delete('/chats/:id', async (req, res, next) => {
+  const { id } = req.params;
+  try {
+    const result = await chatQuery('DELETE FROM conversations WHERE id = ?', [id]);
+    if (result.changes === 0) {
+      return res.status(404).json({ error: 'Conversation not found.' });
+    }
+    console.log(chalk.yellow(`[DELETE] Removed conversation: ${id}`));
+    res.status(204).send(); // No Content
+  } catch (err) {
+    console.error(chalk.red(`[${req.method} ${req.originalUrl}] Error deleting conversation:`), err.message);
+    next(err);
+  }
+});
+
 
 module.exports = router;

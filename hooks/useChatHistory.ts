@@ -13,6 +13,7 @@ interface ChatHistoryContextType {
     addMessage: (message: ChatMessage) => Promise<void>;
     setMessages: React.Dispatch<React.SetStateAction<ChatMessage[]>>;
     updateConversationTitle: (id: string, title: string) => Promise<void>;
+    deleteConversation: (id: string) => Promise<void>;
 }
 
 const ChatHistoryContext = createContext<ChatHistoryContextType | undefined>(undefined);
@@ -142,6 +143,27 @@ export const ChatHistoryProvider: React.FC<{ children: React.ReactNode }> = ({ c
         }
     }, []);
 
+    const deleteConversation = useCallback(async (conversationId: string) => {
+        try {
+            await apiClient.delete(`/chats/${conversationId}`);
+            
+            const updatedConversations = conversations.filter(c => c.id !== conversationId);
+            setConversations(updatedConversations);
+
+            if (activeConversationId === conversationId) {
+                if (updatedConversations.length > 0) {
+                    await selectConversation(updatedConversations[0].id);
+                } else {
+                    await startNewConversation();
+                }
+            }
+        } catch (error) {
+            console.error(`Failed to delete conversation ${conversationId}`, error);
+            alert("Falha ao apagar a conversa. Tente novamente.");
+            await loadConversations(false); // Re-fetch to correct state
+        }
+    }, [conversations, activeConversationId, selectConversation, startNewConversation, loadConversations]);
+
     const value = useMemo(() => ({
         conversations,
         activeConversationId,
@@ -152,8 +174,9 @@ export const ChatHistoryProvider: React.FC<{ children: React.ReactNode }> = ({ c
         startNewConversation,
         addMessage,
         setMessages,
-        updateConversationTitle
-    }), [conversations, activeConversationId, messages, isLoading, isChatEmpty, selectConversation, startNewConversation, addMessage, setMessages, updateConversationTitle]);
+        updateConversationTitle,
+        deleteConversation
+    }), [conversations, activeConversationId, messages, isLoading, isChatEmpty, selectConversation, startNewConversation, addMessage, setMessages, updateConversationTitle, deleteConversation]);
 
     return React.createElement(ChatHistoryContext.Provider, { value }, children);
 };

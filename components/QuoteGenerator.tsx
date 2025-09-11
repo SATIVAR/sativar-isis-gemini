@@ -44,7 +44,7 @@ export const QuoteGenerator: React.FC = () => {
     const {
         messages, setMessages, addMessage,
         conversations, activeConversationId,
-        selectConversation, startNewConversation,
+        selectConversation, startNewConversation, deleteConversation,
         isLoading: isHistoryLoading, isChatEmpty, updateConversationTitle
     } = useChatHistory();
 
@@ -246,6 +246,7 @@ export const QuoteGenerator: React.FC = () => {
                 activeConversationId={activeConversationId}
                 onSelectConversation={selectConversation}
                 onNewConversation={startNewConversation}
+                onDeleteConversation={deleteConversation}
                 isLoading={isHistoryLoading}
             />
             <div className="flex h-full flex-col flex-grow">
