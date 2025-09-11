@@ -27,22 +27,23 @@ const TabItem: React.FC<{
     };
 
     return (
-        <div className={`w-full group relative flex items-center rounded-lg text-sm text-left font-medium transition-colors ${
-            isActive ? 'bg-fuchsia-600/20' : 'hover:bg-gray-700/50'
-        }`}>
+        <div 
+            className="w-full group relative flex items-center justify-center"
+            title={conversation.title}
+        >
             <button
                 onClick={onClick}
-                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg ${
-                    isActive ? 'text-fuchsia-200' : 'text-gray-400'
+                className={`w-12 h-12 flex items-center justify-center rounded-lg transition-colors ${
+                    isActive ? 'bg-fuchsia-600/20 text-fuchsia-200' : 'hover:bg-gray-700/50 text-gray-400'
                 }`}
                 aria-current={isActive}
+                aria-label={`Selecionar conversa: ${conversation.title}`}
             >
-                <FileTextIcon className="w-4 h-4 flex-shrink-0" />
-                <span className="truncate flex-grow">{conversation.title}</span>
+                <FileTextIcon className="w-6 h-6" />
             </button>
-             <button 
+            <button 
                 onClick={handleDelete}
-                className="absolute right-1 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 text-gray-500 hover:text-red-400 p-1 rounded-full transition-opacity focus:opacity-100"
+                className="absolute right-1 top-1 p-1 rounded-full bg-[#202124] opacity-0 group-hover:opacity-100 text-gray-500 hover:text-red-400 hover:bg-gray-800 transition-all focus:opacity-100 z-10"
                 aria-label={`Apagar conversa ${conversation.title}`}
             >
                 <Trash2Icon className="w-4 h-4" />
@@ -67,17 +68,17 @@ export const ChatHistoryTabs: React.FC<ChatHistoryTabsProps> = ({ conversations,
     };
 
     return (
-        <aside className="w-64 flex-shrink-0 bg-[#202124] border-r border-gray-700/50 p-4 flex flex-col h-full">
+        <aside className="w-20 flex-shrink-0 bg-[#202124] border-r border-gray-700/50 p-2 flex flex-col h-full">
             <button
                 onClick={handleNewConversationClick}
                 disabled={isLoading}
-                className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-gray-700 text-sm text-white font-semibold rounded-lg shadow-md hover:bg-gray-600 transition-colors disabled:opacity-50 disabled:cursor-wait"
+                className="w-12 h-12 mx-auto flex items-center justify-center bg-gray-700 text-white rounded-lg shadow-md hover:bg-gray-600 transition-colors disabled:opacity-50 disabled:cursor-wait"
+                title="Nova Análise"
+                aria-label="Iniciar nova análise"
             >
-                <PlusIcon className="w-5 h-5" />
-                Nova Análise
+                <PlusIcon className="w-6 h-6" />
             </button>
-            <div className="flex-grow overflow-y-auto mt-4 space-y-1 pr-1 -mr-2">
-                <p className="text-xs font-semibold text-gray-500 uppercase px-2 mb-2">Histórico</p>
+            <div className="flex-grow overflow-y-auto mt-4 space-y-2">
                 {isLoading ? (
                     <div className="flex justify-center items-center pt-10">
                         <Loader />
