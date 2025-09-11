@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useReminders } from '../hooks/useReminders.ts';
 import type { Reminder, Task } from '../types.ts';
 import { BellIcon, CalendarIcon, CheckIcon, EditIcon, RepeatIcon, Trash2Icon, XCircleIcon, UserIcon, PackageIcon, FileTextIcon, PlusCircleIcon, ChevronDownIcon } from './icons.tsx';
@@ -29,30 +29,42 @@ const IconMap = availableIcons.reduce((acc, curr) => {
 export const ReminderModal: React.FC<ReminderModalProps> = ({ onClose, reminder, quoteId, patientName }) => {
     const { addReminder, updateReminder } = useReminders();
     const modal = useModal();
-    const [title, setTitle] = useState('');
-    const [dueDate, setDueDate] = useState('');
-    const [notes, setNotes] = useState('');
-    const [recurrence, setRecurrence] = useState<Reminder['recurrence']>('none');
-    const [priority, setPriority] = useState<Reminder['priority']>('medium');
-    const [tasks, setTasks] = useState<Task[]>([]);
+    
+    const initialReminderState = useMemo(() => {
+        if (reminder) {
+            return {
+                title: reminder.patientName,
+                dueDate: new Date(reminder.dueDate).toISOString().substring(0, 16),
+                notes: reminder.notes,
+                recurrence: reminder.recurrence,
+                priority: reminder.priority || 'medium',
+                tasks: reminder.tasks || []
+            };
+        }
+        return {
+            title: patientName ? `Follow-up com ${patientName}` : 'Nova Tarefa',
+            dueDate: '',
+            notes: '',
+            recurrence: 'none' as const,
+            priority: 'medium' as const,
+            tasks: [] as Task[]
+        };
+    }, [reminder, patientName]);
+
+    const [title, setTitle] = useState(initialReminderState.title);
+    const [dueDate, setDueDate] = useState(initialReminderState.dueDate);
+    const [notes, setNotes] = useState(initialReminderState.notes);
+    const [recurrence, setRecurrence] = useState<Reminder['recurrence']>(initialReminderState.recurrence);
+    const [priority, setPriority] = useState<Reminder['priority']>(initialReminderState.priority);
+    const [tasks, setTasks] = useState<Task[]>(initialReminderState.tasks);
     const [newTaskText, setNewTaskText] = useState('');
     const [activeIconPicker, setActiveIconPicker] = useState<string | null>(null);
     const [isSaving, setIsSaving] = useState(false);
-    
-    useEffect(() => {
-        if (reminder) {
-            setTitle(reminder.patientName);
-            setDueDate(new Date(reminder.dueDate).toISOString().substring(0, 16));
-            setNotes(reminder.notes);
-            setRecurrence(reminder.recurrence);
-            setPriority(reminder.priority || 'medium');
-            setTasks(reminder.tasks || []);
-        } else if (patientName) {
-            setTitle(`Follow-up com ${patientName}`);
-        } else {
-             setTitle('Nova Tarefa');
-        }
-    }, [reminder, patientName]);
+
+    const hasUnsavedChanges = useMemo(() => {
+        const currentState = { title, dueDate, notes, recurrence, priority, tasks };
+        return JSON.stringify(initialReminderState) !== JSON.stringify(currentState);
+    }, [initialReminderState, title, dueDate, notes, recurrence, priority, tasks]);
 
     const handleAddTask = () => {
         if (newTaskText.trim() === '') return;
@@ -79,8 +91,9 @@ export const ReminderModal: React.FC<ReminderModalProps> = ({ onClose, reminder,
         setTasks(prev => prev.map(t => t.id === taskId ? { ...t, text: newText } : t));
     };
 
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
+    const handleSubmit = useCallback(async (event?: React.FormEvent) => {
+        if (event) event.preventDefault();
+        
         if (!title || !dueDate) {
             modal.alert({ title: 'Campos Obrigatórios', message: 'Por favor, preencha o título e a data de vencimento.' });
             return;
@@ -110,7 +123,37 @@ export const ReminderModal: React.FC<ReminderModalProps> = ({ onClose, reminder,
         } finally {
             setIsSaving(false);
         }
-    };
+    }, [addReminder, updateReminder, modal, title, dueDate, notes, recurrence, priority, tasks, quoteId, reminder, onClose]);
+
+    const handleCloseAttempt = useCallback(async () => {
+        if (hasUnsavedChanges) {
+            const confirmed = await modal.confirm({
+                title: 'Alterações não salvas',
+                message: 'Você tem alterações não salvas. Deseja salvá-las antes de sair?',
+                confirmLabel: 'Salvar e Sair',
+                cancelLabel: 'Descartar',
+            });
+
+            if (confirmed) {
+                await handleSubmit();
+            } else {
+                onClose();
+            }
+        } else {
+            onClose();
+        }
+    }, [hasUnsavedChanges, modal, handleSubmit, onClose]);
+    
+    useEffect(() => {
+        const handleKeyDown = (event: KeyboardEvent) => {
+          if (event.key === 'Escape') {
+            event.preventDefault();
+            handleCloseAttempt();
+          }
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [handleCloseAttempt]);
     
     const now = new Date();
     now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
@@ -122,9 +165,8 @@ export const ReminderModal: React.FC<ReminderModalProps> = ({ onClose, reminder,
         { id: 'high', label: 'Alta', color: 'bg-red-600', ringColor: 'border-red-500' },
     ];
 
-
     return (
-        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4" onClick={onClose}>
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4" onClick={handleCloseAttempt}>
             <div className="bg-[#303134] rounded-xl border border-gray-700 p-6 w-full max-w-lg shadow-2xl" onClick={e => e.stopPropagation()}>
                 <form onSubmit={handleSubmit}>
                     <h3 className="text-xl font-bold mb-6 text-white">{reminder ? 'Editar Tarefa' : 'Criar Nova Tarefa'}</h3>
@@ -242,7 +284,7 @@ export const ReminderModal: React.FC<ReminderModalProps> = ({ onClose, reminder,
                         </div>
                     </div>
                     <div className="flex justify-end gap-3 mt-8">
-                        <button type="button" onClick={onClose} className="px-5 py-2 bg-gray-700 text-sm text-gray-300 font-medium rounded-lg hover:bg-gray-600 transition-colors">Cancelar</button>
+                        <button type="button" onClick={handleCloseAttempt} className="px-5 py-2 bg-gray-700 text-sm text-gray-300 font-medium rounded-lg hover:bg-gray-600 transition-colors">Cancelar</button>
                         <button 
                             type="submit" 
                             disabled={isSaving}

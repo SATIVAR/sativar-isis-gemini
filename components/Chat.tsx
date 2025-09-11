@@ -3,7 +3,7 @@ import { jsPDF } from 'jspdf';
 import { useSettings } from '../hooks/useSettings.ts';
 import { useReminders } from '../hooks/useReminders.ts';
 import type { ChatMessage, QuoteResult, MessageContent, SativarUser } from '../types.ts';
-import { AlertTriangleIcon, ClipboardCheckIcon, ClipboardIcon, DownloadIcon, PlusIcon, SendIcon, UserIcon, BellIcon, RefreshCwIcon, CheckIcon, CalendarIcon } from './icons.tsx';
+import { AlertTriangleIcon, ClipboardCheckIcon, ClipboardIcon, DownloadIcon, PlusIcon, SendIcon, UserIcon, BellIcon, RefreshCwIcon, CheckIcon, CalendarIcon, XCircleIcon } from './icons.tsx';
 import { Loader } from './Loader.tsx';
 import { ReminderModal } from './Reminders.tsx';
 import { TypingIndicator } from './TypingIndicator.tsx';
@@ -325,7 +325,7 @@ const QuoteResultDisplay: React.FC<QuoteResultDisplayProps> = ({ result }) => {
 interface MessageBubbleProps {
     message: ChatMessage;
     onAction: (messageId: string, payload: string) => void;
-    processingAction: { messageId: string; payload: string } | null;
+    processingAction: { messageId: string; payload: string; text?: string } | null;
     loadingAction: 'file' | 'text' | null;
     onOpenFilePreview: (file: { url: string; type: string; name: string }) => void;
 }
@@ -378,9 +378,18 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({ message, onAction, proces
                  );
             case 'actions':
                 const isThisGroupProcessing = processingAction?.messageId === message.id;
+                const thinkingText = isThisGroupProcessing ? processingAction.text : null;
                 return (
                     <div>
                         {content.text && <p className="whitespace-pre-wrap mb-3">{content.text}</p>}
+                        
+                        {thinkingText && (
+                            <div className="flex items-center gap-2 text-sm text-fuchsia-300 mb-3 transition-opacity duration-300 ease-in-out">
+                                <TypingIndicator />
+                                <span className="italic">{thinkingText}</span>
+                            </div>
+                        )}
+
                         <div className="flex flex-wrap gap-2">
                             {content.actions.map(action => {
                                 const isThisButtonProcessing = isThisGroupProcessing && processingAction?.payload === action.payload;
@@ -391,7 +400,7 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({ message, onAction, proces
                                         disabled={isThisGroupProcessing}
                                         className={`text-white text-sm font-medium py-1.5 px-3 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-fuchsia-500
                                             ${isThisButtonProcessing
-                                                ? 'bg-fuchsia-900 animate-pulse'
+                                                ? 'bg-fuchsia-900'
                                                 : 'bg-gray-700'
                                             }
                                             ${isThisGroupProcessing
@@ -506,6 +515,18 @@ const ChatInput: React.FC<{
             handleSend();
         }
     };
+
+    const handleRemoveFile = () => {
+        setFile(null);
+        // If the text input only contains the filename, clear it.
+        // Otherwise, keep the user-typed text.
+        if (file && text === file.name) {
+            setText('');
+        }
+        if (fileInputRef.current) {
+            fileInputRef.current.value = "";
+        }
+    };
     
     const placeholder = isLoading
         ? (loadingAction === 'file' ? 'Analisando receita...' : 'Processando sua solicitação...')
@@ -546,6 +567,16 @@ const ChatInput: React.FC<{
                     className="flex-grow bg-transparent px-2 text-sm text-gray-200 placeholder-gray-400 focus:outline-none"
                     disabled={isLoading || disabled}
                 />
+                 {file && !isLoading && (
+                    <button
+                        onClick={handleRemoveFile}
+                        className="p-1 rounded-full text-gray-400 hover:bg-gray-700 hover:text-white transition-colors"
+                        aria-label="Remover arquivo anexo"
+                        title="Remover arquivo"
+                    >
+                        <XCircleIcon className="w-5 h-5" />
+                    </button>
+                )}
                 <button
                     onClick={handleSend}
                     disabled={(!file && !text.trim()) || isLoading || disabled}
@@ -567,7 +598,7 @@ interface ChatProps {
     disabledReason: string;
     loadingAction: 'file' | 'text' | null;
     onAction: (messageId: string, payload: string) => void;
-    processingAction: { messageId: string; payload: string } | null;
+    processingAction: { messageId: string; payload: string; text?: string } | null;
     onOpenFilePreview: (file: { url: string; type: string; name: string }) => void;
 }
 

@@ -51,13 +51,13 @@ const TabItem: React.FC<{
         >
             <button
                 onClick={onClick}
-                className={`w-12 h-12 flex items-center justify-center rounded-lg transition-colors ${
+                className={`w-10 h-10 flex items-center justify-center rounded-lg transition-colors ${
                     isActive ? 'bg-fuchsia-600/20 text-fuchsia-200' : 'hover:bg-gray-700/50 text-gray-400'
                 }`}
                 aria-current={isActive}
                 aria-label={`Selecionar conversa: ${conversation.title}`}
             >
-                <FileTextIcon className="w-6 h-6" />
+                <FileTextIcon className="w-5 h-5" />
             </button>
             <button 
                 onClick={handleDelete}
@@ -95,15 +95,15 @@ export const ChatHistoryTabs: React.FC<ChatHistoryTabsProps> = ({ conversations,
     const canDelete = conversations.length > 1;
 
     return (
-        <aside className="w-20 flex-shrink-0 bg-[#202124] border-l border-gray-700/50 p-2 flex flex-col h-full">
+        <aside className="w-16 flex-shrink-0 bg-[#202124] border-l border-gray-700/50 p-2 flex flex-col h-full">
             <button
                 onClick={handleNewConversationClick}
                 disabled={isLoading}
-                className="w-12 h-12 mx-auto flex items-center justify-center bg-gray-700 text-white rounded-lg shadow-md hover:bg-gray-600 transition-colors disabled:opacity-50 disabled:cursor-wait"
+                className="w-10 h-10 mx-auto flex items-center justify-center bg-gray-700 text-white rounded-lg shadow-md hover:bg-gray-600 transition-colors disabled:opacity-50 disabled:cursor-wait"
                 title="Nova Análise"
                 aria-label="Iniciar nova análise"
             >
-                <PlusIcon className="w-6 h-6" />
+                <PlusIcon className="w-5 h-5" />
             </button>
             <div className="flex-grow overflow-y-auto mt-4 space-y-2">
                 {isLoading ? (

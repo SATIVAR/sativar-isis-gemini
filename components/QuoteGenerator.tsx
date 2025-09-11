@@ -53,7 +53,7 @@ export const QuoteGenerator: React.FC = () => {
     const [loadingAction, setLoadingAction] = useState<'file' | 'text' | null>(null);
     const [showSettingsWarning, setShowSettingsWarning] = useState(false);
     const [wpConfigMissing, setWpConfigMissing] = useState(false);
-    const [processingAction, setProcessingAction] = useState<{ messageId: string; payload: string } | null>(null);
+    const [processingAction, setProcessingAction] = useState<{ messageId: string; payload: string; text?: string } | null>(null);
     const [previewFile, setPreviewFile] = useState<{ url: string; type: string; name: string } | null>(null);
     const objectUrls = useRef<string[]>([]);
     
@@ -82,7 +82,6 @@ export const QuoteGenerator: React.FC = () => {
         if (!actionMessage || actionMessage.content.type !== 'actions') return;
 
         setProcessingAction({ messageId, payload });
-        await new Promise(resolve => setTimeout(resolve, 300));
 
         const actionLabel = actionMessage.content.actions.find(a => a.payload === payload)?.label || 'Minha escolha';
 
@@ -94,12 +93,15 @@ export const QuoteGenerator: React.FC = () => {
             timestamp: new Date().toISOString(),
         };
         
+        // Replace action buttons with user's plain text response
+        setMessages(prev => [...prev.filter(m => m.id !== messageId), userResponseMessage]);
+        await addMessage(userResponseMessage);
+
         // Handle async 'generate_highlight' action
         if (payload === 'generate_highlight') {
             const loadingMessage: ChatMessage = { id: `ai-loading-${Date.now()}`, sender: 'ai', content: { type: 'loading' }, timestamp: new Date().toISOString() };
             
-            setMessages(prev => [...prev.filter(m => m.id !== messageId), userResponseMessage, loadingMessage]);
-            await addMessage(userResponseMessage);
+            setMessages(prev => [...prev, loadingMessage]);
             
             setIsSending(true);
             setLoadingAction('text');
@@ -123,14 +125,34 @@ export const QuoteGenerator: React.FC = () => {
             return;
         }
         
-        // Handle other actions
-        const currentMessages = [...messages.filter(m => m.id !== messageId), userResponseMessage];
+        // Handle 'start_quote' action with thinking simulation
+        if (payload === 'start_quote') {
+            setProcessingAction({ messageId, payload, text: 'Iniciando sistema de análise...' });
+
+            setTimeout(() => {
+                setProcessingAction({ messageId, payload, text: 'Preparando para receber o arquivo...' });
+            }, 800);
+
+            setTimeout(async () => {
+                const followUpMessage: ChatMessage = { 
+                    id: `ai-resp-${Date.now()}`, 
+                    sender: 'ai', 
+                    content: { type: 'text', text: 'Ótimo! Por favor, anexe o arquivo da receita (imagem ou PDF) no campo abaixo para eu analisar.' }, 
+                    timestamp: new Date().toISOString() 
+                };
+                setMessages(prev => [...prev, followUpMessage]);
+                await addMessage(followUpMessage);
+                
+                setProcessingAction(null);
+            }, 1600);
+            
+            return; 
+        }
+
+        // Handle other synchronous actions
         let followUpMessages: ChatMessage[] = [];
         
         switch (payload) {
-            case 'start_quote':
-                followUpMessages.push({ id: `ai-resp-${Date.now()}`, sender: 'ai', content: { type: 'text', text: 'Ótimo! Por favor, anexe o arquivo da receita (imagem ou PDF) no campo abaixo para eu analisar.' }, timestamp: new Date().toISOString() });
-                break;
             case 'start_user_lookup':
                 followUpMessages.push({ id: `ai-resp-${Date.now()}`, sender: 'ai', content: { type: 'user_search' }, timestamp: new Date().toISOString() });
                 break;
@@ -151,15 +173,16 @@ export const QuoteGenerator: React.FC = () => {
                 break;
         }
 
-        setMessages([...currentMessages, ...followUpMessages]);
-        await addMessage(userResponseMessage);
-        for(const msg of followUpMessages) {
-            await addMessage(msg);
+        if (followUpMessages.length > 0) {
+            setMessages(prev => [...prev, ...followUpMessages]);
+            for(const msg of followUpMessages) {
+                await addMessage(msg);
+            }
         }
         
         setProcessingAction(null);
 
-    }, [messages, settings, wooProducts, addMessage, setMessages]);
+    }, [messages, settings, addMessage, setMessages]);
 
     const handleSendFile = useCallback(async (file: File) => {
         if (showSettingsWarning || apiKeyMissing || wpConfigMissing) return;
