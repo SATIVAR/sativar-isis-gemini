@@ -26,12 +26,11 @@ export const ChatHistoryProvider: React.FC<{ children: React.ReactNode }> = ({ c
     const [isChatEmpty, setIsChatEmpty] = useState(false);
 
     const selectConversation = useCallback(async (conversationId: string, setLoading = true) => {
-        // The original guard `if (activeConversationId === conversationId) return;`
-        // created a dependency on `activeConversationId` which caused a re-render
-        // loop when loading initial data. Removing it makes this function stable,
-        // fixing the bug where users could not switch tabs. The minor trade-off
-        // is re-fetching messages if the same tab is clicked again.
-        if (activeConversationId === conversationId && activeConversationId !== null) return;
+        // The check `if (activeConversationId === conversationId)` was removed.
+        // It created a dependency on `activeConversationId` which caused a re-render
+        // loop on initial load, preventing users from switching conversations.
+        // This makes the function's identity stable across renders.
+        // The trade-off is re-fetching messages if the same tab is clicked again, which is an acceptable behavior.
 
         if (setLoading) setIsLoading(true);
         
@@ -52,7 +51,7 @@ export const ChatHistoryProvider: React.FC<{ children: React.ReactNode }> = ({ c
         } finally {
             if (setLoading) setIsLoading(false);
         }
-    }, [activeConversationId]);
+    }, [setMessages, setActiveConversationId, setIsLoading]); // Dependency array is now stable.
 
     const startNewConversation = useCallback(async () => {
         setIsLoading(true);
@@ -105,7 +104,7 @@ export const ChatHistoryProvider: React.FC<{ children: React.ReactNode }> = ({ c
         } finally {
             setIsLoading(false);
         }
-    }, []);
+    }, [setConversations, setActiveConversationId, setMessages, setIsLoading]);
     
     const loadConversations = useCallback(async (selectFirst = true) => {
         setIsLoading(true);
@@ -124,7 +123,7 @@ export const ChatHistoryProvider: React.FC<{ children: React.ReactNode }> = ({ c
         } finally {
             setIsLoading(false);
         }
-    }, [selectConversation, startNewConversation]);
+    }, [selectConversation, startNewConversation, setConversations, setIsLoading, setIsChatEmpty]);
 
     useEffect(() => {
         loadConversations();
@@ -147,28 +146,32 @@ export const ChatHistoryProvider: React.FC<{ children: React.ReactNode }> = ({ c
         } catch (error) {
             console.error(`Failed to update title for conversation ${id}`, error);
         }
-    }, []);
+    }, [setConversations]);
 
     const deleteConversation = useCallback(async (conversationId: string) => {
         try {
             await apiClient.delete(`/chats/${conversationId}`);
             
-            const updatedConversations = conversations.filter(c => c.id !== conversationId);
-            setConversations(updatedConversations);
-
-            if (activeConversationId === conversationId) {
-                if (updatedConversations.length > 0) {
-                    await selectConversation(updatedConversations[0].id);
-                } else {
-                    await startNewConversation();
+            setConversations(prev => {
+                const updatedConversations = prev.filter(c => c.id !== conversationId);
+                
+                if (activeConversationId === conversationId) {
+                    if (updatedConversations.length > 0) {
+                        selectConversation(updatedConversations[0].id);
+                    } else {
+                        startNewConversation();
+                    }
                 }
-            }
+                
+                return updatedConversations;
+            });
+
         } catch (error) {
             console.error(`Failed to delete conversation ${conversationId}`, error);
             alert("Falha ao apagar a conversa. Tente novamente.");
             await loadConversations(false); // Re-fetch to correct state
         }
-    }, [conversations, activeConversationId, selectConversation, startNewConversation, loadConversations]);
+    }, [activeConversationId, selectConversation, startNewConversation, loadConversations, setConversations]);
 
     const value = useMemo(() => ({
         conversations,
@@ -182,7 +185,7 @@ export const ChatHistoryProvider: React.FC<{ children: React.ReactNode }> = ({ c
         setMessages,
         updateConversationTitle,
         deleteConversation
-    }), [conversations, activeConversationId, messages, isLoading, isChatEmpty, selectConversation, startNewConversation, addMessage, setMessages, updateConversationTitle, deleteConversation]);
+    }), [conversations, activeConversationId, messages, isLoading, isChatEmpty, selectConversation, startNewConversation, addMessage, updateConversationTitle, deleteConversation]);
 
     return React.createElement(ChatHistoryContext.Provider, { value }, children);
 };
