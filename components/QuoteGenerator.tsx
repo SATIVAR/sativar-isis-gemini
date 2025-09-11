@@ -21,6 +21,7 @@ const getInitialMessages = (): ChatMessage[] => [
             actions: [
                 { label: 'Analisar Receita', payload: 'start_quote' },
                 { label: 'Consultar Associado', payload: 'start_user_lookup' },
+                { label: 'Produtos Disponíveis', payload: 'info_products' },
                 { label: 'Informações Gerais', payload: 'general_info' },
                 { label: 'Gerar Destaque do Dia', payload: 'generate_highlight' },
             ]
@@ -188,7 +189,6 @@ export const QuoteGenerator: React.FC = () => {
                         content: {
                             type: 'actions', text: 'Claro! Sobre o que você gostaria de saber?',
                             actions: [
-                                { label: 'Produtos disponíveis', payload: 'info_products' },
                                 { label: 'Horário de funcionamento', payload: 'info_hours' },
                                 { label: 'Formas de pagamento', payload: 'info_payment' },
                                 { label: 'Outra dúvida', payload: 'info_other' },

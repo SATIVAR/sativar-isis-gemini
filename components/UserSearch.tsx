@@ -3,19 +3,32 @@ import { useSettings } from '../hooks/useSettings.ts';
 import type { SativarUser } from '../types.ts';
 import { getSativarUsers } from '../services/wpApiService.ts';
 import { Loader } from './Loader.tsx';
-import { SearchIcon, UsersIcon, AlertTriangleIcon } from './icons.tsx';
+import { SearchIcon, UsersIcon, AlertTriangleIcon, BellIcon } from './icons.tsx';
+import { ReminderModal } from './Reminders.tsx';
 
 // A single row in the results table
-const UserRow: React.FC<{ user: SativarUser }> = ({ user }) => (
+const UserRow: React.FC<{ user: SativarUser; onAddReminder: (user: SativarUser) => void; }> = ({ user, onAddReminder }) => (
     <tr className="border-b border-gray-700/50 hover:bg-[#303134]/50 transition-colors">
-        <td className="px-4 py-3 font-medium text-white">
+        <td className="px-4 py-3 font-medium text-white align-top">
             {user.display_name}
         </td>
-        <td className="px-4 py-3 text-gray-300">{user.email || 'N/A'}</td>
-        <td className="px-4 py-3 text-gray-300">{user.acf_fields?.cpf || 'N/A'}</td>
-        <td className="px-4 py-3 text-gray-300">{user.acf_fields?.telefone || 'N/A'}</td>
-        <td className="px-4 py-3 text-gray-400 text-xs truncate max-w-[150px]" title={user.acf_fields?.nome_completo_responc ? `Responsável: ${user.acf_fields.nome_completo_responc}` : ''}>
-            {user.acf_fields?.nome_completo_responc && `Resp: ${user.acf_fields.nome_completo_responc}`}
+        <td className="px-4 py-3 text-gray-300 text-xs align-top">
+            <div className="flex flex-col gap-1">
+                {user.email && <div className="truncate" title={user.email}><strong>Email:</strong> {user.email}</div>}
+                {user.acf_fields?.cpf && <div><strong>CPF:</strong> {user.acf_fields.cpf}</div>}
+                {user.acf_fields?.telefone && <div><strong>Tel:</strong> {user.acf_fields.telefone}</div>}
+                {user.acf_fields?.nome_completo_responc && <div className="truncate" title={`Responsável: ${user.acf_fields.nome_completo_responc}`}><strong>Resp:</strong> {user.acf_fields.nome_completo_responc}</div>}
+            </div>
+        </td>
+        <td className="px-4 py-3 text-center align-top">
+             <button
+                onClick={() => onAddReminder(user)}
+                className="p-2 rounded-full text-gray-400 hover:bg-fuchsia-900/50 hover:text-fuchsia-300 transition-colors duration-200"
+                title="Criar lembrete para este associado"
+                aria-label="Criar lembrete"
+            >
+                <BellIcon className="w-5 h-5" />
+            </button>
         </td>
     </tr>
 );
@@ -28,6 +41,7 @@ export const UserSearch: React.FC = () => {
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [searchPerformed, setSearchPerformed] = useState(false);
+    const [reminderUser, setReminderUser] = useState<SativarUser | null>(null);
 
     const [currentPage, setCurrentPage] = useState(1);
     const ITEMS_PER_PAGE = 5;
@@ -50,6 +64,10 @@ export const UserSearch: React.FC = () => {
         } finally {
             setIsLoading(false);
         }
+    };
+
+    const handleAddReminder = (user: SativarUser) => {
+        setReminderUser(user);
     };
 
     const paginatedResults = useMemo(() => {
@@ -96,14 +114,12 @@ export const UserSearch: React.FC = () => {
                         <thead className="text-xs text-gray-400 uppercase bg-[#202124]">
                             <tr>
                                 <th scope="col" className="px-4 py-3">Nome</th>
-                                <th scope="col" className="px-4 py-3">Email</th>
-                                <th scope="col" className="px-4 py-3">CPF</th>
-                                <th scope="col" className="px-4 py-3">Telefone</th>
-                                <th scope="col" className="px-4 py-3">Detalhes</th>
+                                <th scope="col" className="px-4 py-3">Infos</th>
+                                <th scope="col" className="px-4 py-3 text-center">Ações</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-700/50">
-                            {paginatedResults.map(user => <UserRow key={user.id} user={user} />)}
+                            {paginatedResults.map(user => <UserRow key={user.id} user={user} onAddReminder={handleAddReminder} />)}
                         </tbody>
                     </table>
                 </div>
@@ -133,6 +149,13 @@ export const UserSearch: React.FC = () => {
     };
 
     return (
+        <>
+        {reminderUser && (
+            <ReminderModal
+                onClose={() => setReminderUser(null)}
+                patientName={reminderUser.display_name}
+            />
+        )}
         <div className="mt-2 w-full max-w-2xl space-y-4 text-sm bg-gradient-to-b from-[#252629] to-[#202124] rounded-xl border border-gray-700 p-4 shadow-lg">
             <h3 className="text-base font-semibold text-fuchsia-300">Consulta de Associados</h3>
             <div className="flex items-center gap-2">
@@ -159,5 +182,6 @@ export const UserSearch: React.FC = () => {
             </div>
             {renderContent()}
         </div>
+        </>
     );
 };

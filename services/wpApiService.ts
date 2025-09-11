@@ -48,6 +48,15 @@ const isPhone = (term: string): boolean => {
     return digits.length === 10 || digits.length === 11;
 };
 
+/**
+ * Checks if a string consists of exactly 4 digits.
+ * @param term The search term.
+ * @returns True if it's 4 digits.
+ */
+const isLastFourPhoneDigits = (term: string): boolean => {
+    return /^\d{4}$/.test(term.trim());
+};
+
 
 async function apiRequest<T>(endpoint: string, options: ApiRequestOptions): Promise<T> {
   const { auth, params, ...fetchOptions } = options;
@@ -185,6 +194,17 @@ export async function getSativarUsers(auth: WpConfig, search: string = ''): Prom
             params.acf_filters = { cpf: normalizeDigits(trimmedSearch) };
         } else if (isPhone(trimmedSearch)) {
             params.acf_filters = { telefone: normalizeDigits(trimmedSearch) };
+        } else if (isLastFourPhoneDigits(trimmedSearch)) {
+            // API doesn't support suffix search, so fetch a broad list (up to 100 users)
+            // and filter on the client. This is not perfectly scalable but works for moderate user bases.
+            const allUsers = await apiRequest<SativarUser[]>('/wp-json/sativar/v1/clientes', { auth, method: 'GET', params: { per_page: '100' } });
+            
+            return allUsers.filter(user => {
+                const phone = user.acf_fields?.telefone;
+                if (!phone) return false;
+                const normalizedPhone = normalizeDigits(phone);
+                return normalizedPhone.endsWith(trimmedSearch);
+            });
         } else {
             // Fallback to general search for names, emails, etc.
             params.search = trimmedSearch;
