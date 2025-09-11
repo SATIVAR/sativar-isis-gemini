@@ -33,10 +33,24 @@ const TabItem: React.FC<{
 };
 
 export const ChatHistoryTabs: React.FC<ChatHistoryTabsProps> = ({ conversations, activeConversationId, onSelectConversation, onNewConversation, isLoading }) => {
+    
+    const handleNewConversationClick = () => {
+        const CONVERSATION_LIMIT = 5;
+        const isLimitReached = conversations.length >= CONVERSATION_LIMIT;
+
+        const message = isLimitReached
+            ? "Você atingiu o limite de 5 conversas. Iniciar uma nova análise substituirá a conversa mais antiga do seu histórico. Deseja continuar?"
+            : "Isso iniciará uma nova análise. A conversa atual será salva no seu histórico. Deseja continuar?";
+
+        if (window.confirm(message)) {
+            onNewConversation();
+        }
+    };
+
     return (
         <aside className="w-64 flex-shrink-0 bg-[#202124] border-r border-gray-700/50 p-4 flex flex-col h-full">
             <button
-                onClick={onNewConversation}
+                onClick={handleNewConversationClick}
                 disabled={isLoading}
                 className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-gray-700 text-sm text-white font-semibold rounded-lg shadow-md hover:bg-gray-600 transition-colors disabled:opacity-50 disabled:cursor-wait"
             >

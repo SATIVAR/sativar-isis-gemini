@@ -2,31 +2,6 @@ import React, { createContext, useState, useContext, useEffect, useCallback, use
 import { apiClient } from '../services/database/apiClient.ts';
 import type { ChatMessage, Conversation } from '../types.ts';
 
-// Helper for initial messages (from QuoteGenerator)
-const getInitialMessages = (): ChatMessage[] => [
-    {
-        id: 'init-greeting',
-        sender: 'ai',
-        content: { type: 'text', text: 'Olá! Sou a Ísis, sua parceira de equipe virtual. Fico feliz em ajudar! Posso analisar receitas para gerar orçamentos em segundos, consultar informações de associados e muito mais. 😊' },
-    },
-    {
-        id: 'init-actions',
-        sender: 'ai',
-        content: {
-            type: 'actions',
-            text: 'Como posso te ajudar agora?',
-            actions: [
-                { label: 'Analisar Receita', payload: 'start_quote' },
-                { label: 'Consultar Associado', payload: 'start_user_lookup' },
-                { label: 'Produtos Disponíveis', payload: 'info_products' },
-                { label: 'Informações Gerais', payload: 'general_info' },
-                { label: 'Gerar Destaque do Dia', payload: 'generate_highlight' },
-            ]
-        }
-    }
-];
-
-
 interface ChatHistoryContextType {
     conversations: Conversation[];
     activeConversationId: string | null;
@@ -50,7 +25,10 @@ export const ChatHistoryProvider: React.FC<{ children: React.ReactNode }> = ({ c
     const [isChatEmpty, setIsChatEmpty] = useState(false);
 
     const selectConversation = useCallback(async (conversationId: string, setLoading = true) => {
-        if (activeConversationId === conversationId && messages.length > 0) return;
+        // This guard was too restrictive and could prevent loading chats.
+        // It's safer to always fetch when the user explicitly clicks a conversation.
+        if (activeConversationId === conversationId) return;
+
         if (setLoading) setIsLoading(true);
         
         try {
@@ -69,7 +47,7 @@ export const ChatHistoryProvider: React.FC<{ children: React.ReactNode }> = ({ c
         } finally {
             if (setLoading) setIsLoading(false);
         }
-    }, [activeConversationId, messages.length]);
+    }, [activeConversationId]);
 
     const startNewConversation = useCallback(async () => {
         setIsLoading(true);
@@ -81,10 +59,32 @@ export const ChatHistoryProvider: React.FC<{ children: React.ReactNode }> = ({ c
                 title: newConvoTitle
             });
             
-            const initialMessages = getInitialMessages();
+            // FIX: Generate initial messages with unique IDs to prevent primary key violation on subsequent new conversations.
+            const initialMessages: ChatMessage[] = [
+                {
+                    id: crypto.randomUUID(),
+                    sender: 'ai',
+                    content: { type: 'text', text: 'Olá! Sou a Ísis, sua parceira de equipe virtual. Fico feliz em ajudar! Posso analisar receitas para gerar orçamentos em segundos, consultar informações de associados e muito mais. 😊' },
+                },
+                {
+                    id: crypto.randomUUID(),
+                    sender: 'ai',
+                    content: {
+                        type: 'actions',
+                        text: 'Como posso te ajudar agora?',
+                        actions: [
+                            { label: 'Analisar Receita', payload: 'start_quote' },
+                            { label: 'Consultar Associado', payload: 'start_user_lookup' },
+                            { label: 'Produtos Disponíveis', payload: 'info_products' },
+                            { label: 'Informações Gerais', payload: 'general_info' },
+                            { label: 'Gerar Destaque do Dia', payload: 'generate_highlight' },
+                        ]
+                    }
+                }
+            ];
+
             // The API handles FIFO logic, just need to re-fetch the list
             const convos = await apiClient.get<Conversation[]>('/chats');
-            // FIX: Corrected typo from `convo` to `convos`.
             setConversations(convos);
             setActiveConversationId(newConvo.id);
             setMessages(initialMessages);
@@ -105,13 +105,9 @@ export const ChatHistoryProvider: React.FC<{ children: React.ReactNode }> = ({ c
         setIsChatEmpty(false);
         try {
             const convos = await apiClient.get<Conversation[]>('/chats');
-            // FIX: Corrected typo from `convo` to `convos`.
             setConversations(convos);
-            // FIX: Corrected typo from `convo` to `convos`.
             if (convos.length > 0 && selectFirst) {
-                // FIX: Corrected typo from `convo` to `convos`.
                 await selectConversation(convos[0].id, false);
-            // FIX: Corrected typo from `convo` to `convos`.
             } else if (convos.length === 0) {
                 await startNewConversation();
             }
@@ -159,7 +155,6 @@ export const ChatHistoryProvider: React.FC<{ children: React.ReactNode }> = ({ c
         updateConversationTitle
     }), [conversations, activeConversationId, messages, isLoading, isChatEmpty, selectConversation, startNewConversation, addMessage, setMessages, updateConversationTitle]);
 
-    // FIX: Replaced JSX with React.createElement to fix TSX parsing errors in a .ts file.
     return React.createElement(ChatHistoryContext.Provider, { value }, children);
 };
 
