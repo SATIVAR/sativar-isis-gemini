@@ -26,9 +26,12 @@ export const ChatHistoryProvider: React.FC<{ children: React.ReactNode }> = ({ c
     const [isChatEmpty, setIsChatEmpty] = useState(false);
 
     const selectConversation = useCallback(async (conversationId: string, setLoading = true) => {
-        // This guard was too restrictive and could prevent loading chats.
-        // It's safer to always fetch when the user explicitly clicks a conversation.
-        if (activeConversationId === conversationId) return;
+        // The original guard `if (activeConversationId === conversationId) return;`
+        // created a dependency on `activeConversationId` which caused a re-render
+        // loop when loading initial data. Removing it makes this function stable,
+        // fixing the bug where users could not switch tabs. The minor trade-off
+        // is re-fetching messages if the same tab is clicked again.
+        if (activeConversationId === conversationId && activeConversationId !== null) return;
 
         if (setLoading) setIsLoading(true);
         
@@ -38,7 +41,8 @@ export const ChatHistoryProvider: React.FC<{ children: React.ReactNode }> = ({ c
                 id: msg.id,
                 sender: msg.sender,
                 content: typeof msg.content === 'string' ? JSON.parse(msg.content) : msg.content,
-                isActionComplete: msg.is_action_complete === 1
+                isActionComplete: msg.is_action_complete === 1,
+                timestamp: msg.timestamp
             }));
             setMessages(parsedMessages);
             setActiveConversationId(conversationId);
@@ -66,6 +70,7 @@ export const ChatHistoryProvider: React.FC<{ children: React.ReactNode }> = ({ c
                     id: crypto.randomUUID(),
                     sender: 'ai',
                     content: { type: 'text', text: 'Olá! Sou a Ísis, sua parceira de equipe virtual. Fico feliz em ajudar! Posso analisar receitas para gerar orçamentos em segundos, consultar informações de associados e muito mais. 😊' },
+                    timestamp: new Date().toISOString(),
                 },
                 {
                     id: crypto.randomUUID(),
@@ -80,7 +85,8 @@ export const ChatHistoryProvider: React.FC<{ children: React.ReactNode }> = ({ c
                             { label: 'Informações Gerais', payload: 'general_info' },
                             { label: 'Gerar Destaque do Dia', payload: 'generate_highlight' },
                         ]
-                    }
+                    },
+                    timestamp: new Date().toISOString(),
                 }
             ];
 

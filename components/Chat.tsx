@@ -11,7 +11,7 @@ import { ProductSearch } from './ProductSearch.tsx';
 import { UserSearch } from './UserSearch.tsx';
 
 const AIAvatar: React.FC = () => (
-    <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-fuchsia-900">
+    <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-fuchsia-900 self-end">
         <svg
             xmlns="http://www.w3.org/2000/svg"
             width="24"
@@ -36,7 +36,7 @@ const AIAvatar: React.FC = () => (
 );
 
 const UserAvatar: React.FC = () => (
-    <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-gray-600">
+    <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-gray-600 self-end">
         <UserIcon className="h-5 w-5 text-gray-300" />
     </div>
 );
@@ -420,32 +420,45 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({ message, onAction, proces
     
     const isUserActionCompleteText = message.sender === 'user' && message.content.type === 'text' && message.isActionComplete;
 
+    const formattedTime = new Date(message.timestamp).toLocaleTimeString('pt-BR', {
+        hour: '2-digit',
+        minute: '2-digit'
+    });
+
     return (
         <div className={`flex items-start gap-3 ${!isAI ? 'justify-end' : ''}`}>
             {isAI && <AIAvatar />}
-            <div className={`group relative max-w-xl rounded-xl px-4 py-3 ${isAI ? 'bg-[#303134]' : 'bg-brand-primary text-white'}`}>
-                {canBeCopied && (
-                    <button 
-                        onClick={() => handleCopy(message.content.type === 'text' ? message.content.text : '')} 
-                        className={`absolute top-2 right-2 p-1 rounded-md transition-all opacity-0 group-hover:opacity-100 z-10 ${copyButtonClass}`}
-                        aria-label="Copiar mensagem"
-                    >
-                        {copied ? <ClipboardCheckIcon className="w-4 h-4 text-green-400" /> : <ClipboardIcon className="w-4 h-4 text-gray-400" />}
-                    </button>
-                )}
-                {isUserActionCompleteText ? (
-                    <div className="flex items-end gap-1.5">
-                        <div className={canBeCopied ? 'pr-8' : ''}>
-                           {renderContent(message.content)}
+            <div className={`flex flex-col gap-1 max-w-xl ${isAI ? 'items-start' : 'items-end'}`}>
+                <div className={`group relative rounded-2xl px-4 py-3 shadow-md ${
+                    isAI 
+                    ? 'bg-[#303134] rounded-bl-none' 
+                    : 'bg-brand-primary text-white rounded-br-none'
+                }`}>
+                    {canBeCopied && (
+                        <button 
+                            onClick={() => handleCopy(message.content.type === 'text' ? message.content.text : '')} 
+                            className={`absolute top-2 right-2 p-1 rounded-md transition-all opacity-0 group-hover:opacity-100 z-10 ${copyButtonClass}`}
+                            aria-label="Copiar mensagem"
+                        >
+                            {copied ? <ClipboardCheckIcon className="w-4 h-4 text-green-400" /> : <ClipboardIcon className="w-4 h-4 text-gray-400" />}
+                        </button>
+                    )}
+                    {isUserActionCompleteText ? (
+                        <div className="flex items-end gap-1.5">
+                            <div className={canBeCopied ? 'pr-8' : ''}>
+                               {renderContent(message.content)}
+                            </div>
+                            <CheckIcon className="w-4 h-4 text-white/70 flex-shrink-0 mb-0.5"><title>Ação concluída</title></CheckIcon>
                         </div>
-                        {/* FIX: The `title` prop is not valid for Icon components. Replaced with a child `<title>` element for accessibility. */}
-                        <CheckIcon className="w-4 h-4 text-white/70 flex-shrink-0 mb-0.5"><title>Ação concluída</title></CheckIcon>
-                    </div>
-                ) : (
-                    <div className={canBeCopied ? 'pr-8' : ''}>
-                        {renderContent(message.content)}
-                    </div>
-                )}
+                    ) : (
+                        <div className={canBeCopied ? 'pr-8' : ''}>
+                            {renderContent(message.content)}
+                        </div>
+                    )}
+                </div>
+                <time dateTime={message.timestamp} className="text-xs text-gray-500 px-2">
+                    {formattedTime}
+                </time>
             </div>
             {!isAI && <UserAvatar />}
         </div>
@@ -572,7 +585,13 @@ export const Chat: React.FC<ChatProps> = ({
     const chatEndRef = useRef<HTMLDivElement | null>(null);
 
     useEffect(() => {
-        chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+        // A zero-delay timeout pushes the scroll operation to the end of the event queue,
+        // ensuring it runs after the browser has finished rendering the new message.
+        // This makes the scroll more reliable, especially for large messages like quotes.
+        const timer = setTimeout(() => {
+            chatEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+        }, 0);
+        return () => clearTimeout(timer);
     }, [messages]);
 
     return (

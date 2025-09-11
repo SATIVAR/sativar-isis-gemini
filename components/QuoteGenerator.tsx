@@ -90,11 +90,12 @@ export const QuoteGenerator: React.FC = () => {
             sender: 'user',
             content: { type: 'text', text: actionLabel },
             isActionComplete: true,
+            timestamp: new Date().toISOString(),
         };
         
         // Handle async 'generate_highlight' action
         if (payload === 'generate_highlight') {
-            const loadingMessage: ChatMessage = { id: `ai-loading-${Date.now()}`, sender: 'ai', content: { type: 'loading' } };
+            const loadingMessage: ChatMessage = { id: `ai-loading-${Date.now()}`, sender: 'ai', content: { type: 'loading' }, timestamp: new Date().toISOString() };
             
             setMessages(prev => [...prev.filter(m => m.id !== messageId), userResponseMessage, loadingMessage]);
             await addMessage(userResponseMessage);
@@ -106,11 +107,11 @@ export const QuoteGenerator: React.FC = () => {
                 const recentQuoteSummary = lastQuoteMessage?.content.type === 'quote' ? lastQuoteMessage.content.result.internalSummary : undefined;
                 
                 const result = await generateHighlight(recentQuoteSummary);
-                const aiMessage: ChatMessage = { id: `ai-highlight-${Date.now()}`, sender: 'ai', content: { type: 'text', text: result } };
+                const aiMessage: ChatMessage = { id: `ai-highlight-${Date.now()}`, sender: 'ai', content: { type: 'text', text: result }, timestamp: new Date().toISOString() };
                 setMessages(prev => [...prev.slice(0, -1), aiMessage]);
                 await addMessage(aiMessage);
             } catch (err) {
-                const errorMessage: ChatMessage = { id: `ai-error-${Date.now()}`, sender: 'ai', content: { type: 'error', message: err instanceof Error ? err.message : 'Ocorreu um erro desconhecido.' } };
+                const errorMessage: ChatMessage = { id: `ai-error-${Date.now()}`, sender: 'ai', content: { type: 'error', message: err instanceof Error ? err.message : 'Ocorreu um erro desconhecido.' }, timestamp: new Date().toISOString() };
                 setMessages(prev => [...prev.slice(0, -1), errorMessage]);
                 await addMessage(errorMessage);
             } finally {
@@ -127,25 +128,25 @@ export const QuoteGenerator: React.FC = () => {
         
         switch (payload) {
             case 'start_quote':
-                followUpMessages.push({ id: `ai-resp-${Date.now()}`, sender: 'ai', content: { type: 'text', text: 'Ótimo! Por favor, anexe o arquivo da receita (imagem ou PDF) no campo abaixo para eu analisar.' } });
+                followUpMessages.push({ id: `ai-resp-${Date.now()}`, sender: 'ai', content: { type: 'text', text: 'Ótimo! Por favor, anexe o arquivo da receita (imagem ou PDF) no campo abaixo para eu analisar.' }, timestamp: new Date().toISOString() });
                 break;
             case 'start_user_lookup':
-                followUpMessages.push({ id: `ai-resp-${Date.now()}`, sender: 'ai', content: { type: 'user_search' } });
+                followUpMessages.push({ id: `ai-resp-${Date.now()}`, sender: 'ai', content: { type: 'user_search' }, timestamp: new Date().toISOString() });
                 break;
             case 'general_info':
-                followUpMessages.push({ id: `ai-resp-${Date.now()}`, sender: 'ai', content: { type: 'actions', text: 'Claro! Sobre o que você gostaria de saber?', actions: [ { label: 'Horário de funcionamento', payload: 'info_hours' }, { label: 'Formas de pagamento', payload: 'info_payment' }, { label: 'Outra dúvida', payload: 'info_other' }, ] } });
+                followUpMessages.push({ id: `ai-resp-${Date.now()}`, sender: 'ai', content: { type: 'actions', text: 'Claro! Sobre o que você gostaria de saber?', actions: [ { label: 'Horário de funcionamento', payload: 'info_hours' }, { label: 'Formas de pagamento', payload: 'info_payment' }, { label: 'Outra dúvida', payload: 'info_other' }, ] }, timestamp: new Date().toISOString() });
                 break;
             case 'info_products':
-                followUpMessages.push({ id: `ai-resp-${Date.now()}`, sender: 'ai', content: { type: 'product_search' } });
+                followUpMessages.push({ id: `ai-resp-${Date.now()}`, sender: 'ai', content: { type: 'product_search' }, timestamp: new Date().toISOString() });
                 break;
             case 'info_hours':
-                followUpMessages.push({ id: `ai-resp-${Date.now()}`, sender: 'ai', content: { type: 'text', text: `Nosso horário de funcionamento é: ${settings.operatingHours || 'Não informado.'}` } });
+                followUpMessages.push({ id: `ai-resp-${Date.now()}`, sender: 'ai', content: { type: 'text', text: `Nosso horário de funcionamento é: ${settings.operatingHours || 'Não informado.'}` }, timestamp: new Date().toISOString() });
                 break;
             case 'info_payment':
-                followUpMessages.push({ id: `ai-resp-${Date.now()}`, sender: 'ai', content: { type: 'text', text: `O pagamento pode ser feito via PIX. A chave é o CNPJ: ${settings.pixKey || 'Não informado.'}` } });
+                followUpMessages.push({ id: `ai-resp-${Date.now()}`, sender: 'ai', content: { type: 'text', text: `O pagamento pode ser feito via PIX. A chave é o CNPJ: ${settings.pixKey || 'Não informado.'}` }, timestamp: new Date().toISOString() });
                 break;
             case 'info_other':
-                followUpMessages.push({ id: `ai-resp-${Date.now()}`, sender: 'ai', content: { type: 'text', text: 'Sem problemas. Por favor, digite sua pergunta que eu tentarei responder.' } });
+                followUpMessages.push({ id: `ai-resp-${Date.now()}`, sender: 'ai', content: { type: 'text', text: 'Sem problemas. Por favor, digite sua pergunta que eu tentarei responder.' }, timestamp: new Date().toISOString() });
                 break;
         }
 
@@ -165,8 +166,8 @@ export const QuoteGenerator: React.FC = () => {
         const fileURL = URL.createObjectURL(file);
         objectUrls.current.push(fileURL);
 
-        const userMessage: ChatMessage = { id: `user-${Date.now()}`, sender: 'user', content: { type: 'file_request', fileName: file.name, fileURL: fileURL, fileType: file.type } };
-        const loadingMessage: ChatMessage = { id: `ai-loading-${Date.now()}`, sender: 'ai', content: { type: 'loading' } };
+        const userMessage: ChatMessage = { id: `user-${Date.now()}`, sender: 'user', content: { type: 'file_request', fileName: file.name, fileURL: fileURL, fileType: file.type }, timestamp: new Date().toISOString() };
+        const loadingMessage: ChatMessage = { id: `ai-loading-${Date.now()}`, sender: 'ai', content: { type: 'loading' }, timestamp: new Date().toISOString() };
 
         setMessages(prev => [...prev, userMessage, loadingMessage]);
         await addMessage(userMessage);
@@ -179,11 +180,11 @@ export const QuoteGenerator: React.FC = () => {
                 const dynamicTitle = await generateConversationTitle(result.internalSummary || `Análise para ${result.patientName || 'Paciente'}`);
                 updateConversationTitle(activeConversationId, dynamicTitle);
             }
-            const resultMessage: ChatMessage = { id: `ai-result-${Date.now()}`, sender: 'ai', content: { type: 'quote', result } };
+            const resultMessage: ChatMessage = { id: `ai-result-${Date.now()}`, sender: 'ai', content: { type: 'quote', result }, timestamp: new Date().toISOString() };
             setMessages(prev => [...prev.slice(0, -1), resultMessage]);
             await addMessage(resultMessage);
         } catch (err) {
-            const errorMessage: ChatMessage = { id: `ai-error-${Date.now()}`, sender: 'ai', content: { type: 'error', message: err instanceof Error ? err.message : 'Ocorreu um erro desconhecido.' } };
+            const errorMessage: ChatMessage = { id: `ai-error-${Date.now()}`, sender: 'ai', content: { type: 'error', message: err instanceof Error ? err.message : 'Ocorreu um erro desconhecido.' }, timestamp: new Date().toISOString() };
             setMessages(prev => [...prev.slice(0, -1), errorMessage]);
             await addMessage(errorMessage);
         } finally {
@@ -195,8 +196,8 @@ export const QuoteGenerator: React.FC = () => {
     const handleSendText = useCallback(async (text: string) => {
         if (apiKeyMissing) return;
 
-        const userMessage: ChatMessage = { id: `user-${Date.now()}`, sender: 'user', content: { type: 'text', text } };
-        const loadingMessage: ChatMessage = { id: `ai-loading-${Date.now()}`, sender: 'ai', content: { type: 'loading' } };
+        const userMessage: ChatMessage = { id: `user-${Date.now()}`, sender: 'user', content: { type: 'text', text }, timestamp: new Date().toISOString() };
+        const loadingMessage: ChatMessage = { id: `ai-loading-${Date.now()}`, sender: 'ai', content: { type: 'loading' }, timestamp: new Date().toISOString() };
 
         setMessages(prev => [...prev, userMessage, loadingMessage]);
         await addMessage(userMessage);
@@ -205,11 +206,11 @@ export const QuoteGenerator: React.FC = () => {
         setLoadingAction('text');
         try {
             const result = await pingAI(text, showSettingsWarning);
-            const aiMessage: ChatMessage = { id: `ai-text-${Date.now()}`, sender: 'ai', content: { type: 'text', text: result } };
+            const aiMessage: ChatMessage = { id: `ai-text-${Date.now()}`, sender: 'ai', content: { type: 'text', text: result }, timestamp: new Date().toISOString() };
             setMessages(prev => [...prev.slice(0, -1), aiMessage]);
             await addMessage(aiMessage);
         } catch (err) {
-            const errorMessage: ChatMessage = { id: `ai-error-${Date.now()}`, sender: 'ai', content: { type: 'error', message: err instanceof Error ? err.message : 'Ocorreu um erro desconhecido.' } };
+            const errorMessage: ChatMessage = { id: `ai-error-${Date.now()}`, sender: 'ai', content: { type: 'error', message: err instanceof Error ? err.message : 'Ocorreu um erro desconhecido.' }, timestamp: new Date().toISOString() };
             setMessages(prev => [...prev.slice(0, -1), errorMessage]);
             await addMessage(errorMessage);
         } finally {

@@ -75,6 +75,7 @@ export interface ChatMessage {
     sender: 'user' | 'ai';
     content: MessageContent;
     isActionComplete?: boolean;
+    timestamp: string;
 }
 
 
