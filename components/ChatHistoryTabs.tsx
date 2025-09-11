@@ -1,7 +1,9 @@
+
 import React from 'react';
 import type { Conversation } from '../types.ts';
 import { PlusIcon, FileTextIcon, Trash2Icon } from './icons.tsx';
 import { Loader } from './Loader.tsx';
+import { useModal } from '../hooks/useModal.ts';
 
 interface ChatHistoryTabsProps {
     conversations: Conversation[];
@@ -19,14 +21,26 @@ const TabItem: React.FC<{
     onDelete: (id: string) => void;
     canDelete: boolean;
 }> = ({ conversation, isActive, onClick, onDelete, canDelete }) => {
+    const modal = useModal();
     
-    const handleDelete = (e: React.MouseEvent) => {
+    const handleDelete = async (e: React.MouseEvent) => {
         e.stopPropagation();
         if (!canDelete) {
-            alert("Não é possível apagar a última conversa do histórico.");
+            modal.alert({
+                title: "Ação Inválida",
+                message: "Não é possível apagar a última conversa do histórico. Inicie uma nova conversa para poder apagar esta."
+            });
             return;
         }
-        if (window.confirm(`Tem certeza que deseja apagar a conversa "${conversation.title}"? Esta ação não pode ser desfeita.`)) {
+        
+        const confirmed = await modal.confirm({
+            title: "Confirmar Exclusão",
+            message: `Tem certeza que deseja apagar a conversa "${conversation.title}"? Esta ação não pode ser desfeita.`,
+            confirmLabel: "Apagar",
+            danger: true
+        });
+
+        if (confirmed) {
             onDelete(conversation.id);
         }
     };
@@ -58,16 +72,23 @@ const TabItem: React.FC<{
 };
 
 export const ChatHistoryTabs: React.FC<ChatHistoryTabsProps> = ({ conversations, activeConversationId, onSelectConversation, onNewConversation, onDeleteConversation, isLoading }) => {
+    const modal = useModal();
     
-    const handleNewConversationClick = () => {
+    const handleNewConversationClick = async () => {
         const CONVERSATION_LIMIT = 5;
         const isLimitReached = conversations.length >= CONVERSATION_LIMIT;
 
         const message = isLimitReached
             ? "Você atingiu o limite de 5 conversas. Iniciar uma nova análise substituirá a conversa mais antiga do seu histórico. Deseja continuar?"
             : "Isso iniciará uma nova análise. A conversa atual será salva no seu histórico. Deseja continuar?";
+        
+        const confirmed = await modal.confirm({
+            title: "Nova Análise",
+            message,
+            confirmLabel: "Continuar"
+        });
 
-        if (window.confirm(message)) {
+        if (confirmed) {
             onNewConversation();
         }
     };

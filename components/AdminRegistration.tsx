@@ -1,6 +1,7 @@
 
 import React, { useState } from 'react';
 import { EyeIcon, EyeOffIcon } from './icons.tsx';
+import { useModal } from '../hooks/useModal.ts';
 
 interface AdminRegistrationProps {
   onRegistrationSuccess: () => void;
@@ -15,6 +16,7 @@ export const AdminRegistration: React.FC<AdminRegistrationProps> = ({ onRegistra
   const [error, setError] = useState('');
   const [isPasswordVisible, setIsPasswordVisible] = useState(false);
   const [isConfirmVisible, setIsConfirmVisible] = useState(false);
+  const modal = useModal();
 
   const handleRegister = (e: React.FormEvent) => {
     e.preventDefault();
@@ -31,7 +33,10 @@ export const AdminRegistration: React.FC<AdminRegistrationProps> = ({ onRegistra
         const adminCredentials = { username, password };
         localStorage.setItem(ADMIN_STORAGE_KEY, JSON.stringify(adminCredentials));
         setError('');
-        alert('Administrador cadastrado com sucesso! Você será redirecionado para a tela de login.');
+        modal.alert({
+            title: 'Sucesso!',
+            message: 'Administrador cadastrado com sucesso! Você será redirecionado para a tela de login.'
+        });
         onRegistrationSuccess();
     } catch (err) {
         setError('Não foi possível salvar as credenciais. Verifique as permissões do navegador.');

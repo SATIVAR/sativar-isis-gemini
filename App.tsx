@@ -11,6 +11,7 @@ import { QuoteGenerator } from './components/QuoteGenerator.tsx';
 import { Logo } from './components/Logo.tsx';
 import { Loader } from './components/Loader.tsx';
 import { ChatHistoryProvider } from './hooks/useChatHistory.ts';
+import { ModalProvider } from './hooks/useModal.ts';
 
 export type Page = 'chat' | 'settings';
 
@@ -106,10 +107,12 @@ function App() {
         <RemindersProvider>
           <ApiHistoryProvider>
             <NotificationProvider>
-              <ChatHistoryProvider>
-                <NotificationTrigger />
-                <AppContent />
-              </ChatHistoryProvider>
+              <ModalProvider>
+                <ChatHistoryProvider>
+                  <NotificationTrigger />
+                  <AppContent />
+                </ChatHistoryProvider>
+              </ModalProvider>
             </NotificationProvider>
           </ApiHistoryProvider>
         </RemindersProvider>

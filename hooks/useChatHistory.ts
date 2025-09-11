@@ -1,6 +1,8 @@
+
 import React, { createContext, useState, useContext, useEffect, useCallback, useMemo } from 'react';
 import { apiClient } from '../services/database/apiClient.ts';
 import type { ChatMessage, Conversation } from '../types.ts';
+import { useModal } from './useModal.ts';
 
 interface ChatHistoryContextType {
     conversations: Conversation[];
@@ -25,6 +27,7 @@ export const ChatHistoryProvider: React.FC<{ children: React.ReactNode }> = ({ c
     const [messages, setMessages] = useState<ChatMessage[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isChatEmpty, setIsChatEmpty] = useState(false);
+    const modal = useModal();
 
     const activeConversation = useMemo(() => {
         return conversations.find(c => c.id === activeConversationId) || null;
@@ -173,10 +176,13 @@ export const ChatHistoryProvider: React.FC<{ children: React.ReactNode }> = ({ c
 
         } catch (error) {
             console.error(`Failed to delete conversation ${conversationId}`, error);
-            alert("Falha ao apagar a conversa. Tente novamente.");
+            modal.alert({
+                title: 'Erro de Exclusão',
+                message: 'Falha ao apagar a conversa. Tente novamente.'
+            });
             await loadConversations(false); // Re-fetch to correct state
         }
-    }, [activeConversationId, selectConversation, startNewConversation, loadConversations, setConversations]);
+    }, [activeConversationId, selectConversation, startNewConversation, loadConversations, setConversations, modal]);
 
     const value = useMemo(() => ({
         conversations,

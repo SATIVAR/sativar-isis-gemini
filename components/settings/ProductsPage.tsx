@@ -4,6 +4,7 @@ import { useSettings } from '../../hooks/useSettings.ts';
 import type { Product, WooProduct } from '../../types.ts';
 import { StoreIcon, EditIcon, Trash2Icon, PlusCircleIcon, SearchIcon, PackageIcon, DropletIcon, SunriseIcon, LeafIcon, RefreshCwIcon, AlertTriangleIcon } from '../icons.tsx';
 import { Loader } from '../Loader.tsx';
+import { useModal } from '../../hooks/useModal.ts';
 
 const ProductIcon: React.FC<{ icon?: string; className?: string }> = ({ icon, className = 'w-5 h-5 text-gray-400' }) => {
     switch (icon) {
@@ -242,6 +243,7 @@ const WooCommerceProducts: React.FC = () => {
 
 export const ProductsPage: React.FC = () => {
     const { formState, setFormState } = useSettings();
+    const modal = useModal();
     const [isProductModalOpen, setIsProductModalOpen] = useState(false);
     const [editingProduct, setEditingProduct] = useState<Product | null>(null);
     const [productSearch, setProductSearch] = useState('');
@@ -266,8 +268,15 @@ export const ProductsPage: React.FC = () => {
         setEditingProduct(null);
     };
 
-    const handleDeleteProduct = (id: Product['id']) => {
-        if(confirm('Tem certeza que deseja excluir este produto?')) {
+    const handleDeleteProduct = async (id: Product['id']) => {
+        const confirmed = await modal.confirm({
+            title: 'Confirmar Exclusão',
+            message: 'Tem certeza que deseja excluir este produto?',
+            confirmLabel: 'Excluir',
+            danger: true
+        });
+
+        if(confirmed) {
             const newProducts = formState.products.filter(p => p.id !== id);
             setFormState(prev => ({ ...prev, products: newProducts }));
         }

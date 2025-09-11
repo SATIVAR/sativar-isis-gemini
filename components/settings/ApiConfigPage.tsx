@@ -6,6 +6,7 @@ import type { WpConfig, SativarUser, WooProduct } from '../../types.ts';
 import { checkApiStatus, getSativarUsers, getProducts, type ApiStatus } from '../../services/wpApiService.ts';
 import { Loader } from '../Loader.tsx';
 import { CheckCircleIcon, AlertCircleIcon, ServerIcon, EyeIcon, EyeOffIcon, StoreIcon, UsersIcon, SearchIcon, AlertTriangleIcon } from '../icons.tsx';
+import { useModal } from '../../hooks/useModal.ts';
 
 const PasswordInput: React.FC<{ value: string, onChange: (e: React.ChangeEvent<HTMLInputElement>) => void, id: string, name: string, hasError: boolean, placeholder?: string }> = ({ value, onChange, id, name, hasError, placeholder }) => {
     const [isVisible, setIsVisible] = useState(false);
@@ -299,6 +300,7 @@ const ApiSearchComponent: React.FC = () => {
 
 export const ApiConfigPage: React.FC = () => {
   const { wpConfig, saveWpConfig } = useSettings();
+  const modal = useModal();
   const [formState, setFormState] = useState<WpConfig>(wpConfig);
   const [isTesting, setIsTesting] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -390,9 +392,9 @@ export const ApiConfigPage: React.FC = () => {
         } else { // only sativarOK is true
             message += "Usuários (SATIVAR) conectado, mas o endpoint do WooCommerce falhou. Verifique as chaves Consumer.";
         }
-        alert(message);
+        modal.alert({ title: 'Configurações Salvas', message });
     } else {
-        alert("Erro: Falha na conexão com ambos os endpoints. Verifique todas as credenciais. As configurações não foram salvas.");
+        modal.alert({ title: 'Erro de Conexão', message: "Falha na conexão com ambos os endpoints. Verifique todas as credenciais. As configurações não foram salvas." });
     }
     setIsSaving(false);
   };

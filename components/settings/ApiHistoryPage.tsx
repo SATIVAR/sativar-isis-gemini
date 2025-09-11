@@ -3,6 +3,7 @@ import React from 'react';
 import { useApiHistory } from '../../hooks/useApiHistory.ts';
 import type { ApiCall } from '../../services/apiHistoryService.ts';
 import { ClockIcon, CheckCircleIcon, AlertCircleIcon, FileTextIcon, SendIcon, Trash2Icon, DownloadIcon } from '../icons.tsx';
+import { useModal } from '../../hooks/useModal.ts';
 
 const HistoryItem: React.FC<{ item: ApiCall }> = ({ item }) => {
     const isSuccess = item.status === 'success';
@@ -49,9 +50,17 @@ const HistoryItem: React.FC<{ item: ApiCall }> = ({ item }) => {
 
 export const ApiHistoryPage: React.FC = () => {
     const { history, clearHistory } = useApiHistory();
+    const modal = useModal();
 
-    const handleClearHistory = () => {
-        if (window.confirm('Tem certeza de que deseja limpar todo o histórico de chamadas da API? Esta ação não pode ser desfeita.')) {
+    const handleClearHistory = async () => {
+        const confirmed = await modal.confirm({
+            title: 'Limpar Histórico',
+            message: 'Tem certeza de que deseja limpar todo o histórico de chamadas da API? Esta ação não pode ser desfeita.',
+            confirmLabel: 'Limpar Tudo',
+            danger: true
+        });
+
+        if (confirmed) {
             clearHistory();
         }
     };

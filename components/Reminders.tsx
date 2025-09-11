@@ -1,8 +1,10 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { useReminders } from '../hooks/useReminders.ts';
 import type { Reminder, Task } from '../types.ts';
 import { BellIcon, CalendarIcon, CheckIcon, EditIcon, RepeatIcon, Trash2Icon, XCircleIcon, UserIcon, PackageIcon, FileTextIcon, PlusCircleIcon, ChevronDownIcon } from './icons.tsx';
 import { Loader } from './Loader.tsx';
+import { useModal } from '../hooks/useModal.ts';
 
 interface ReminderModalProps {
     onClose: () => void;
@@ -26,6 +28,7 @@ const IconMap = availableIcons.reduce((acc, curr) => {
 
 export const ReminderModal: React.FC<ReminderModalProps> = ({ onClose, reminder, quoteId, patientName }) => {
     const { addReminder, updateReminder } = useReminders();
+    const modal = useModal();
     const [title, setTitle] = useState('');
     const [dueDate, setDueDate] = useState('');
     const [notes, setNotes] = useState('');
@@ -79,7 +82,7 @@ export const ReminderModal: React.FC<ReminderModalProps> = ({ onClose, reminder,
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!title || !dueDate) {
-            alert('Por favor, preencha o título e a data de vencimento.');
+            modal.alert({ title: 'Campos Obrigatórios', message: 'Por favor, preencha o título e a data de vencimento.' });
             return;
         }
 
@@ -103,7 +106,7 @@ export const ReminderModal: React.FC<ReminderModalProps> = ({ onClose, reminder,
             onClose();
         } catch (error) {
             console.error("Failed to save reminder:", error);
-            alert("Ocorreu um erro ao salvar a tarefa. Tente novamente.");
+            modal.alert({ title: 'Erro ao Salvar', message: 'Ocorreu um erro ao salvar a tarefa. Tente novamente.' });
         } finally {
             setIsSaving(false);
         }
@@ -289,6 +292,7 @@ const TaskItem: React.FC<{ task: Task; onToggle: (taskId: string) => void }> = (
 
 const ReminderItem: React.FC<{ reminder: Reminder; onEdit: (reminder: Reminder) => void; }> = ({ reminder, onEdit }) => {
     const { toggleReminderCompletion, deleteReminder, updateReminder } = useReminders();
+    const modal = useModal();
     const [isExpanded, setIsExpanded] = useState(false);
     const isOverdue = !reminder.isCompleted && new Date(reminder.dueDate) < new Date();
     const dueDate = new Date(reminder.dueDate);
@@ -335,6 +339,18 @@ const ReminderItem: React.FC<{ reminder: Reminder; onEdit: (reminder: Reminder) 
             parts.push('1 nota');
         }
         return parts.join(', ');
+    };
+
+    const handleDeleteClick = async () => {
+        const confirmed = await modal.confirm({
+            title: 'Confirmar Exclusão',
+            message: 'Tem certeza que deseja excluir esta tarefa?',
+            confirmLabel: 'Excluir',
+            danger: true,
+        });
+        if (confirmed) {
+            await deleteReminder(reminder.id);
+        }
     };
 
     return (
@@ -386,11 +402,7 @@ const ReminderItem: React.FC<{ reminder: Reminder; onEdit: (reminder: Reminder) 
                 <div className="flex-shrink-0 flex items-center gap-1">
                      <button onClick={() => onEdit(reminder)} className="p-1 rounded hover:bg-gray-600 text-gray-400 hover:text-white transition-colors" aria-label="Editar tarefa"><EditIcon className="w-4 h-4" /></button>
                      <button 
-                        onClick={async () => {
-                            if (window.confirm('Tem certeza que deseja excluir esta tarefa?')) {
-                                await deleteReminder(reminder.id);
-                            }
-                        }} 
+                        onClick={handleDeleteClick}
                         className="p-1 rounded hover:bg-gray-600 text-gray-400 hover:text-red-400 transition-colors" 
                         aria-label="Excluir tarefa"
                      >
