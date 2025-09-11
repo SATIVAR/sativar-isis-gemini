@@ -20,6 +20,33 @@
         },
       }
     </script>
+  <style>
+    /* Custom Scrollbar Styles for Webkit browsers (Chrome, Safari, Edge, etc.) */
+    ::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: #131314; /* Matches the body background */
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background-color: #4a4a4f; /* Neutral dark gray */
+      border-radius: 10px;
+      border: 2px solid #131314; /* Padding effect */
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background-color: #a855f7; /* Fuchsia accent on hover */
+    }
+
+    /* Custom Scrollbar Styles for Firefox */
+    html {
+      scrollbar-width: thin;
+      scrollbar-color: #4a4a4f #131314;
+    }
+  </style>
   <script type="importmap">
 {
   "imports": {

@@ -44,6 +44,7 @@ export const QuoteGenerator: React.FC = () => {
     const {
         messages, setMessages, addMessage,
         conversations, activeConversationId,
+        activeConversation,
         selectConversation, startNewConversation, deleteConversation,
         isLoading: isHistoryLoading, isChatEmpty, updateConversationTitle
     } = useChatHistory();
@@ -231,11 +232,14 @@ export const QuoteGenerator: React.FC = () => {
         setPreviewFile(file);
     };
 
-    const isChatDisabled = showSettingsWarning || apiKeyMissing || wpConfigMissing;
+    const isChatClosed = activeConversation?.is_closed === true;
+    const isChatDisabled = showSettingsWarning || apiKeyMissing || wpConfigMissing || isChatClosed;
+    
     let disabledReason = "";
     if (apiKeyMissing) disabledReason = "Ação necessária: A Chave da API do Gemini não foi configurada no ambiente.";
     else if (wpConfigMissing) disabledReason = "Ação necessária: Configure a API do Sativar_WP_API nas Configurações.";
     else if (showSettingsWarning) disabledReason = "Complete as configurações da associação para habilitar o envio de receitas.";
+    else if (isChatClosed) disabledReason = "Chat encerrado. Inicie uma nova análise para continuar.";
 
     return (
         <div className="flex h-full flex-row">

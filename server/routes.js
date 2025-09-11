@@ -2,7 +2,7 @@
 
 const express = require('express');
 const { query } = require('./db');
-const { chatQuery } = require('./chatDb');
+const { chatQuery, getChatDb } = require('./chatDb');
 const router = express.Router();
 const chalk = require('chalk');
 
@@ -148,7 +148,11 @@ router.delete('/reminders/:id', async (req, res, next) => {
 // GET /api/chats - Get recent conversations
 router.get('/chats', async (req, res, next) => {
   try {
-    const conversations = await chatQuery('SELECT * FROM conversations ORDER BY updated_at DESC');
+    const conversationsRaw = await chatQuery('SELECT * FROM conversations ORDER BY updated_at DESC');
+    const conversations = conversationsRaw.map(c => ({
+        ...c,
+        is_closed: c.is_closed === 1
+    }));
     res.json(conversations);
   } catch (err) {
     console.error(chalk.red(`[${req.method} ${req.originalUrl}] Error fetching conversations:`), err.message);
@@ -185,25 +189,51 @@ router.get('/chats/:id', async (req, res, next) => {
     }
 });
 
-// POST /api/chats - Create a new conversation with FIFO logic
+// POST /api/chats - Create a new conversation with FIFO and closing logic
 router.post('/chats', async (req, res, next) => {
     try {
         const { id, title } = req.body;
+        const chatDb = getChatDb();
 
-        const CONVERSATION_LIMIT = 5;
-        const allConversations = await chatQuery('SELECT id FROM conversations ORDER BY updated_at ASC');
+        // Using a transaction to ensure all operations succeed or fail together
+        const createNewConvo = chatDb.transaction(() => {
+            // 1. Close the most recent active conversation
+            chatDb.prepare(`
+                UPDATE conversations 
+                SET is_closed = 1 
+                WHERE id = (
+                    SELECT id FROM conversations 
+                    WHERE is_closed = 0 
+                    ORDER BY updated_at DESC 
+                    LIMIT 1
+                )
+            `).run();
 
-        if (allConversations.length >= CONVERSATION_LIMIT) {
-            const oldestConvo = allConversations[0];
-            await chatQuery('DELETE FROM conversations WHERE id = ?', [oldestConvo.id]);
-            console.log(chalk.yellow(`[FIFO] Removed least recent conversation: ${oldestConvo.id}`));
+            // 2. Enforce the conversation limit with FIFO
+            const CONVERSATION_LIMIT = 5;
+            const conversations = chatDb.prepare('SELECT id FROM conversations ORDER BY created_at ASC').all();
+            if (conversations.length >= CONVERSATION_LIMIT) {
+                const oldestConvoId = conversations[0].id;
+                chatDb.prepare('DELETE FROM conversations WHERE id = ?').run(oldestConvoId);
+                console.log(chalk.yellow(`[FIFO] Removed least recent conversation: ${oldestConvoId}`));
+            }
+            
+            // 3. Insert the new conversation as active
+            chatDb.prepare('INSERT INTO conversations (id, title, is_closed) VALUES (?, ?, 0)').run(id, title);
+        });
+
+        createNewConvo();
+
+        // Fetch the newly created conversation to return it
+        const newConversationResult = await chatQuery('SELECT * FROM conversations WHERE id = ?', [id]);
+        if (newConversationResult.length === 0) {
+            throw new Error("Failed to create and retrieve new conversation.");
         }
-
-        const insertQuery = `INSERT INTO conversations (id, title) VALUES (?, ?)`;
-        await chatQuery(insertQuery, [id, title]);
-
-        const newConversation = await chatQuery('SELECT * FROM conversations WHERE id = ?', [id]);
-        res.status(201).json(newConversation[0]);
+        const newConversation = {
+            ...newConversationResult[0],
+            is_closed: newConversationResult[0].is_closed === 1,
+        };
+        res.status(201).json(newConversation);
 
     } catch (err) {
         console.error(chalk.red(`[${req.method} ${req.originalUrl}] Error creating conversation:`), err.message);

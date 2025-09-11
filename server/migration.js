@@ -61,7 +61,8 @@ CREATE TABLE IF NOT EXISTS conversations (
   id TEXT PRIMARY KEY,
   title TEXT NOT NULL,
   created_at TEXT DEFAULT (datetime('now', 'localtime')),
-  updated_at TEXT DEFAULT (datetime('now', 'localtime'))
+  updated_at TEXT DEFAULT (datetime('now', 'localtime')),
+  is_closed INTEGER NOT NULL DEFAULT 0 -- 0 for false, 1 for true
 );
 
 CREATE TABLE IF NOT EXISTS messages (

@@ -5,6 +5,7 @@ import type { ChatMessage, Conversation } from '../types.ts';
 interface ChatHistoryContextType {
     conversations: Conversation[];
     activeConversationId: string | null;
+    activeConversation: Conversation | null;
     messages: ChatMessage[];
     isLoading: boolean;
     isChatEmpty: boolean;
@@ -24,6 +25,10 @@ export const ChatHistoryProvider: React.FC<{ children: React.ReactNode }> = ({ c
     const [messages, setMessages] = useState<ChatMessage[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isChatEmpty, setIsChatEmpty] = useState(false);
+
+    const activeConversation = useMemo(() => {
+        return conversations.find(c => c.id === activeConversationId) || null;
+    }, [conversations, activeConversationId]);
 
     const selectConversation = useCallback(async (conversationId: string, setLoading = true) => {
         // The check `if (activeConversationId === conversationId)` was removed.
@@ -176,6 +181,7 @@ export const ChatHistoryProvider: React.FC<{ children: React.ReactNode }> = ({ c
     const value = useMemo(() => ({
         conversations,
         activeConversationId,
+        activeConversation,
         messages,
         isLoading,
         isChatEmpty,
@@ -185,7 +191,7 @@ export const ChatHistoryProvider: React.FC<{ children: React.ReactNode }> = ({ c
         setMessages,
         updateConversationTitle,
         deleteConversation
-    }), [conversations, activeConversationId, messages, isLoading, isChatEmpty, selectConversation, startNewConversation, addMessage, updateConversationTitle, deleteConversation]);
+    }), [conversations, activeConversationId, activeConversation, messages, isLoading, isChatEmpty, selectConversation, startNewConversation, addMessage, updateConversationTitle, deleteConversation]);
 
     return React.createElement(ChatHistoryContext.Provider, { value }, children);
 };
