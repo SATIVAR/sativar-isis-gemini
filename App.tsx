@@ -10,6 +10,7 @@ import { NotificationProvider, useNotifications } from './hooks/useNotifications
 import { QuoteGenerator } from './components/QuoteGenerator.tsx';
 import { Logo } from './components/Logo.tsx';
 import { Loader } from './components/Loader.tsx';
+import { ChatHistoryProvider } from './hooks/useChatHistory.ts';
 
 export type Page = 'chat' | 'settings';
 
@@ -105,8 +106,10 @@ function App() {
         <RemindersProvider>
           <ApiHistoryProvider>
             <NotificationProvider>
-              <NotificationTrigger />
-              <AppContent />
+              <ChatHistoryProvider>
+                <NotificationTrigger />
+                <AppContent />
+              </ChatHistoryProvider>
             </NotificationProvider>
           </ApiHistoryProvider>
         </RemindersProvider>

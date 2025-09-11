@@ -2,6 +2,7 @@
 
 const express = require('express');
 const { query } = require('./db');
+const { chatQuery } = require('./chatDb');
 const router = express.Router();
 const chalk = require('chalk');
 
@@ -141,5 +142,128 @@ router.delete('/reminders/:id', async (req, res, next) => {
     next(err);
   }
 });
+
+// --- Chat History Routes ---
+
+// GET /api/chats - Get recent conversations
+router.get('/chats', async (req, res, next) => {
+  try {
+    const conversations = await chatQuery('SELECT * FROM conversations ORDER BY updated_at DESC');
+    res.json(conversations);
+  } catch (err) {
+    console.error(chalk.red(`[${req.method} ${req.originalUrl}] Error fetching conversations:`), err.message);
+    next(err);
+  }
+});
+
+// GET /api/chats/:id - Get messages for a conversation
+router.get('/chats/:id', async (req, res, next) => {
+    const { id } = req.params;
+    try {
+        const rows = await chatQuery('SELECT * FROM messages WHERE conversation_id = ? ORDER BY timestamp ASC', [id]);
+        
+        const messages = rows.map(msg => {
+            try {
+                return {
+                    ...msg,
+                    content: JSON.parse(msg.content),
+                    is_action_complete: msg.is_action_complete === 1,
+                };
+            } catch (e) {
+                console.error(`Failed to parse message content for msg ID ${msg.id}`);
+                return {
+                    ...msg,
+                    content: { type: 'error', message: 'Failed to load message content.' },
+                    is_action_complete: msg.is_action_complete === 1,
+                }
+            }
+        });
+        res.json(messages);
+    } catch (err) {
+        console.error(chalk.red(`[${req.method} ${req.originalUrl}] Error fetching messages for conversation ${id}:`), err.message);
+        next(err);
+    }
+});
+
+// POST /api/chats - Create a new conversation with FIFO logic
+router.post('/chats', async (req, res, next) => {
+    try {
+        const { id, title } = req.body;
+
+        const CONVERSATION_LIMIT = 5;
+        const allConversations = await chatQuery('SELECT id FROM conversations ORDER BY updated_at ASC');
+
+        if (allConversations.length >= CONVERSATION_LIMIT) {
+            const oldestConvo = allConversations[0];
+            await chatQuery('DELETE FROM conversations WHERE id = ?', [oldestConvo.id]);
+            console.log(chalk.yellow(`[FIFO] Removed least recent conversation: ${oldestConvo.id}`));
+        }
+
+        const insertQuery = `INSERT INTO conversations (id, title) VALUES (?, ?)`;
+        await chatQuery(insertQuery, [id, title]);
+
+        const newConversation = await chatQuery('SELECT * FROM conversations WHERE id = ?', [id]);
+        res.status(201).json(newConversation[0]);
+
+    } catch (err) {
+        console.error(chalk.red(`[${req.method} ${req.originalUrl}] Error creating conversation:`), err.message);
+        next(err);
+    }
+});
+
+// POST /api/chats/:id/messages - Add a message to a conversation
+router.post('/chats/:id/messages', async (req, res, next) => {
+    const { id: conversation_id } = req.params;
+    const { id, sender, content, isActionComplete } = req.body;
+    
+    // The timestamp is crucial for ordering, let the server generate it for consistency
+    const timestamp = new Date().toISOString();
+
+    try {
+        const insertQuery = `
+            INSERT INTO messages (id, conversation_id, sender, content, timestamp, is_action_complete)
+            VALUES (?, ?, ?, ?, ?, ?)
+        `;
+        const params = [
+            id,
+            conversation_id,
+            sender,
+            JSON.stringify(content),
+            timestamp,
+            isActionComplete ? 1 : 0
+        ];
+        
+        await chatQuery(insertQuery, params);
+        
+        const [newMessage] = await chatQuery('SELECT * from messages WHERE id = ?', [id]);
+
+        res.status(201).json(newMessage);
+
+    } catch (err) {
+        console.error(chalk.red(`[${req.method} ${req.originalUrl}] Error adding message:`), err.message);
+        next(err);
+    }
+});
+
+// PUT /api/chats/:id/title - Update conversation title
+router.put('/chats/:id/title', async (req, res, next) => {
+    const { id } = req.params;
+    const { title } = req.body;
+
+    if (!title) {
+        return res.status(400).json({ error: 'Title is required.' });
+    }
+
+    try {
+        // Also update the `updated_at` timestamp to ensure the conversation moves to the top of the list,
+        // matching the optimistic update behavior on the frontend.
+        await chatQuery('UPDATE conversations SET title = ?, updated_at = datetime(\'now\', \'localtime\') WHERE id = ?', [title, id]);
+        res.status(200).json({ success: true });
+    } catch (err) {
+        console.error(chalk.red(`[${req.method} ${req.originalUrl}] Error updating conversation title:`), err.message);
+        next(err);
+    }
+});
+
 
 module.exports = router;

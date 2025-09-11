@@ -178,6 +178,14 @@ export interface SativarUser {
     };
 }
 
+// From hooks/useChatHistory.ts
+export interface Conversation {
+  id: string;
+  title: string;
+  created_at: string; // ISO string
+  updated_at: string; // ISO string
+}
+
 
 // FIX: Add Vite client types to fix import.meta.env errors across the application.
 // This avoids the need for triple-slash directives in multiple files and provides type safety.

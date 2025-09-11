@@ -5,6 +5,7 @@ const cors = require('cors');
 const apiRoutes = require('./routes');
 const chalk = require('chalk');
 const { testPoolConnection } = require('./db');
+const { testChatDbConnection } = require('./chatDb');
 const { runMigrations } = require('./migration');
 require('dotenv').config();
 
@@ -14,12 +15,16 @@ const port = process.env.PORT || 3001;
 // The main async function to start the server
 const startServer = async () => {
     try {
-        // 1. Test the database connection and wait for it to succeed
-        console.log(chalk.blue('Connecting to the database...'));
+        // 1. Test database connections
+        console.log(chalk.blue('Connecting to the main database...'));
         await testPoolConnection();
-        console.log(chalk.green.bold('✅ Successfully connected to the database.'));
+        console.log(chalk.green.bold('✅ Successfully connected to the main database.'));
+
+        console.log(chalk.cyan('Connecting to the CHAT database...'));
+        await testChatDbConnection();
+        console.log(chalk.cyan.bold('✅ Successfully connected to the CHAT database.'));
         
-        // 2. Run database migrations
+        // 2. Run database migrations for both DBs
         console.log(chalk.blue('Running database migrations...'));
         await runMigrations();
         

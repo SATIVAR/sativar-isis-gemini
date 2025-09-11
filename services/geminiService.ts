@@ -221,6 +221,47 @@ export const pingAI = async (userMessage: string, settingsIncomplete: boolean): 
     }
 };
 
+export const generateConversationTitle = async (conversationSummary: string): Promise<string> => {
+    const apiKey = getApiKey();
+    if (!apiKey) {
+        console.warn("API Key missing, cannot generate dynamic title.");
+        return "Análise de Receita"; 
+    }
+    const ai = new GoogleGenAI({ apiKey });
+
+    const systemInstruction = `You are an expert at creating concise, descriptive titles for chat conversations. Based on the provided summary, generate a title in Portuguese. The title must be 5 words or less. If a patient name is present, include it. Examples: "Orçamento - João Silva", "Dúvida sobre CBD 10%", "Consulta de Estoque".`;
+    
+    const userMessage = `Conversation Summary: "${conversationSummary}"`;
+
+    try {
+        const response = await ai.models.generateContent({
+            model: 'gemini-2.5-flash',
+            contents: userMessage,
+            config: {
+                systemInstruction,
+                thinkingConfig: { thinkingBudget: 0 } // Low latency for a simple task.
+            }
+        });
+        
+        incrementApiCallCount();
+        addApiCall({ type: 'text_query', status: 'success', details: 'Generate conversation title' });
+
+        const responseText = response.text?.trim();
+        if (!responseText) {
+            throw new Error("A IA não retornou um título.");
+        }
+        
+        // Basic sanitization, remove quotes
+        return responseText.replace(/["'“”]/g, '');
+
+    } catch (error) {
+        addApiCall({ type: 'text_query', status: 'error', details: 'Generate conversation title', error: error instanceof Error ? error.message : String(error) });
+        // Don't throw, just log and return a fallback
+        console.error("Failed to generate dynamic title:", error);
+        return "Análise de Receita";
+    }
+};
+
 export const generateHighlight = async (recentQuoteSummary?: string): Promise<string> => {
     const apiKey = getApiKey();
     if (!apiKey) {

@@ -130,10 +130,9 @@ const ScheduleModal: React.FC<{
 
 interface QuoteResultDisplayProps {
     result: QuoteResult;
-    onResetChat: () => void;
 }
 
-const QuoteResultDisplay: React.FC<QuoteResultDisplayProps> = ({ result, onResetChat }) => {
+const QuoteResultDisplay: React.FC<QuoteResultDisplayProps> = ({ result }) => {
     const [copied, setCopied] = useState(false);
     const [isReminderModalOpen, setIsReminderModalOpen] = useState(false);
     const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
@@ -317,14 +316,6 @@ const QuoteResultDisplay: React.FC<QuoteResultDisplayProps> = ({ result, onReset
                             PDF
                         </button>
                     </div>
-                     <button
-                        onClick={onResetChat}
-                        className="flex items-center gap-2 px-4 py-2 bg-gray-700 text-sm text-white font-semibold rounded-lg shadow-md hover:bg-gray-600 transition-colors"
-                        aria-label="Analisar nova receita"
-                    >
-                        <RefreshCwIcon className="w-4 h-4" />
-                        Analisar Nova Receita
-                    </button>
                 </div>
             </div>
         </>
@@ -336,12 +327,11 @@ interface MessageBubbleProps {
     onAction: (messageId: string, payload: string) => void;
     processingAction: { messageId: string; payload: string } | null;
     loadingAction: 'file' | 'text' | null;
-    onResetChat: () => void;
     onOpenFilePreview: (file: { url: string; type: string; name: string }) => void;
 }
 
 
-const MessageBubble: React.FC<MessageBubbleProps> = ({ message, onAction, processingAction, loadingAction, onResetChat, onOpenFilePreview }) => {
+const MessageBubble: React.FC<MessageBubbleProps> = ({ message, onAction, processingAction, loadingAction, onOpenFilePreview }) => {
     const [copied, setCopied] = useState(false);
 
     const handleCopy = (textToCopy: string) => {
@@ -374,7 +364,6 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({ message, onAction, proces
             case 'quote':
                 return <QuoteResultDisplay 
                     result={content.result} 
-                    onResetChat={onResetChat} 
                 />;
             case 'user_search':
                 return <UserSearch />;
@@ -566,7 +555,6 @@ interface ChatProps {
     loadingAction: 'file' | 'text' | null;
     onAction: (messageId: string, payload: string) => void;
     processingAction: { messageId: string; payload: string } | null;
-    onResetChat: () => void;
     onOpenFilePreview: (file: { url: string; type: string; name: string }) => void;
 }
 
@@ -579,7 +567,6 @@ export const Chat: React.FC<ChatProps> = ({
     loadingAction,
     onAction,
     processingAction,
-    onResetChat,
     onOpenFilePreview,
 }) => {
     const chatEndRef = useRef<HTMLDivElement | null>(null);
@@ -598,7 +585,6 @@ export const Chat: React.FC<ChatProps> = ({
                         onAction={onAction} 
                         processingAction={processingAction} 
                         loadingAction={loadingAction}
-                        onResetChat={onResetChat}
                         onOpenFilePreview={onOpenFilePreview}
                     />
                 ))}
