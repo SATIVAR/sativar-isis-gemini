@@ -17,10 +17,15 @@ const TabItem: React.FC<{
     isActive: boolean;
     onClick: () => void;
     onDelete: (id: string) => void;
-}> = ({ conversation, isActive, onClick, onDelete }) => {
+    canDelete: boolean;
+}> = ({ conversation, isActive, onClick, onDelete, canDelete }) => {
     
     const handleDelete = (e: React.MouseEvent) => {
         e.stopPropagation();
+        if (!canDelete) {
+            alert("Não é possível apagar a última conversa do histórico.");
+            return;
+        }
         if (window.confirm(`Tem certeza que deseja apagar a conversa "${conversation.title}"? Esta ação não pode ser desfeita.`)) {
             onDelete(conversation.id);
         }
@@ -66,6 +71,8 @@ export const ChatHistoryTabs: React.FC<ChatHistoryTabsProps> = ({ conversations,
             onNewConversation();
         }
     };
+    
+    const canDelete = conversations.length > 1;
 
     return (
         <aside className="w-20 flex-shrink-0 bg-[#202124] border-r border-gray-700/50 p-2 flex flex-col h-full">
@@ -91,6 +98,7 @@ export const ChatHistoryTabs: React.FC<ChatHistoryTabsProps> = ({ conversations,
                             isActive={convo.id === activeConversationId}
                             onClick={() => onSelectConversation(convo.id)}
                             onDelete={onDeleteConversation}
+                            canDelete={canDelete}
                         />
                     ))
                 )}
