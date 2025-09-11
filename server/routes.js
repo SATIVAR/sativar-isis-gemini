@@ -197,17 +197,17 @@ router.post('/chats', async (req, res, next) => {
 
         // Using a transaction to ensure all operations succeed or fail together
         const createNewConvo = chatDb.transaction(() => {
-            // 1. Close the most recent active conversation
-            chatDb.prepare(`
-                UPDATE conversations 
-                SET is_closed = 1 
-                WHERE id = (
-                    SELECT id FROM conversations 
-                    WHERE is_closed = 0 
-                    ORDER BY updated_at DESC 
-                    LIMIT 1
-                )
-            `).run();
+            // 1. Find and close the most recent active conversation (if one exists)
+            const lastActiveConvo = chatDb.prepare(`
+                SELECT id FROM conversations 
+                WHERE is_closed = 0 
+                ORDER BY updated_at DESC 
+                LIMIT 1
+            `).get();
+
+            if (lastActiveConvo) {
+                chatDb.prepare('UPDATE conversations SET is_closed = 1 WHERE id = ?').run(lastActiveConvo.id);
+            }
 
             // 2. Enforce the conversation limit with FIFO
             const CONVERSATION_LIMIT = 5;
