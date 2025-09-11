@@ -156,7 +156,7 @@ export const UserSearch: React.FC = () => {
                 patientName={reminderUser.display_name}
             />
         )}
-        <div className="mt-2 w-full max-w-2xl space-y-4 text-sm bg-gradient-to-b from-[#252629] to-[#202124] rounded-xl border border-gray-700 p-4 shadow-lg">
+        <div className="mt-2 w-full space-y-4 text-sm bg-gradient-to-b from-[#252629] to-[#202124] rounded-xl border border-gray-700 p-4 shadow-lg">
             <h3 className="text-base font-semibold text-fuchsia-300">Consulta de Associados</h3>
             <div className="flex items-center gap-2">
                 <div className="relative flex-grow">

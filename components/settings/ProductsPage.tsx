@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useSettings } from '../../hooks/useSettings.ts';
 import type { Product, WooProduct } from '../../types.ts';
@@ -20,6 +19,7 @@ const ProductModal: React.FC<{
     onSave: (product: Product) => void;
     onClose: () => void;
 }> = ({ product, onSave, onClose }) => {
+    const [id, setId] = useState(product?.id?.toString() || '');
     const [name, setName] = useState(product?.name || '');
     const [price, setPrice] = useState(product?.price || '');
     const [description, setDescription] = useState(product?.description || '');
@@ -59,8 +59,14 @@ const ProductModal: React.FC<{
             return;
         }
 
+        const finalId = id.trim()
+            ? /^\d+$/.test(id.trim())
+                ? parseInt(id.trim(), 10)
+                : id.trim()
+            : crypto.randomUUID();
+
         const formattedPrice = parseFloat(sanitizedPrice).toFixed(2);
-        onSave({ id: product?.id || crypto.randomUUID(), name, price: formattedPrice, description, icon });
+        onSave({ id: finalId, name, price: formattedPrice, description, icon });
     };
 
     return (
@@ -69,6 +75,17 @@ const ProductModal: React.FC<{
                 <form onSubmit={handleSave}>
                     <h3 className="text-xl font-bold mb-6 text-white">{product ? 'Editar Produto' : 'Adicionar Produto'}</h3>
                     <div className="space-y-4">
+                        <div>
+                            <label htmlFor="id" className="block text-sm font-medium text-gray-300 mb-2">ID do Produto (Opcional)</label>
+                            <input
+                                id="id"
+                                value={id}
+                                onChange={e => setId(e.target.value)}
+                                className="w-full bg-[#202124] border border-gray-600/50 text-white rounded-lg px-3 py-2 focus:ring-2 focus:ring-fuchsia-500 outline-none transition font-mono"
+                                placeholder="ID do WooCommerce para mapeamento"
+                            />
+                             <p className="text-xs text-gray-400 mt-1">Deixe em branco para gerar um ID automático para um novo produto de fallback.</p>
+                        </div>
                         <div>
                           <label htmlFor="name" className="block text-sm font-medium text-gray-300 mb-2">Nome do Produto</label>
                           <input id="name" value={name} onChange={e => setName(e.target.value)} className={`w-full bg-[#202124] border text-white rounded-lg px-3 py-2 focus:ring-2 outline-none transition ${errors.name ? 'border-red-500 focus:ring-red-500' : 'border-gray-600/50 focus:ring-fuchsia-500'}`} required />
@@ -260,9 +277,29 @@ export const ProductsPage: React.FC = () => {
     };
 
     const handleSaveProduct = (product: Product) => {
+        const isEditing = !!editingProduct;
+    
+        // Check for ID collision
+        const idExists = formState.products.some(p => {
+            // If editing, skip the original product from the check
+            if (isEditing && p.id === editingProduct.id) {
+                return false;
+            }
+            // Check if the new/updated ID matches any other product
+            return p.id === product.id;
+        });
+
+        if (idExists) {
+            modal.alert({
+                title: 'ID Duplicado',
+                message: `O ID "${product.id}" já está em uso por outro produto. Por favor, use um ID único.`
+            });
+            return;
+        }
+
         const newProducts = editingProduct
-        ? formState.products.map(p => (p.id === product.id ? product : p))
-        : [...formState.products, product];
+            ? formState.products.map(p => (p.id === editingProduct.id ? product : p))
+            : [...formState.products, product];
         setFormState(prev => ({ ...prev, products: newProducts }));
         setIsProductModalOpen(false);
         setEditingProduct(null);
@@ -335,6 +372,7 @@ export const ProductsPage: React.FC = () => {
                         <table className="w-full text-sm text-left">
                             <thead className="text-xs text-gray-400 uppercase bg-[#202124]">
                                 <tr>
+                                    <th scope="col" className="px-4 py-3">ID</th>
                                     <th scope="col" className="px-4 py-3">Produto</th>
                                     <th scope="col" className="px-4 py-3">Preço (R$)</th>
                                     <th scope="col" className="px-4 py-3">Descrição</th>
@@ -346,6 +384,7 @@ export const ProductsPage: React.FC = () => {
                                 filteredProducts.length > 0 ? (
                                     filteredProducts.map(p => (
                                     <tr key={p.id} className="border-b border-gray-700 hover:bg-[#303134]">
+                                            <td className="px-4 py-3 text-gray-400 font-mono text-xs whitespace-nowrap">{p.id}</td>
                                             <td className="px-4 py-3 font-medium text-white">
                                             <div className="flex items-center gap-3">
                                                 <ProductIcon icon={p.icon} />
@@ -362,14 +401,14 @@ export const ProductsPage: React.FC = () => {
                                     ))
                                 ) : (
                                     <tr>
-                                        <td colSpan={4} className="text-center py-6 text-gray-500">
+                                        <td colSpan={5} className="text-center py-6 text-gray-500">
                                             Nenhum produto encontrado para "{productSearch}".
                                         </td>
                                     </tr>
                                 )
                                 ) : (
                                     <tr>
-                                        <td colSpan={4} className="text-center py-10">
+                                        <td colSpan={5} className="text-center py-10">
                                             <div className="flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-gray-700 bg-[#303134]/50 p-12 text-center">
                                                 <PackageIcon className="mx-auto h-12 w-12 text-gray-500" />
                                                 <h3 className="mt-4 text-lg font-semibold text-gray-300">Nenhum produto manual cadastrado</h3>

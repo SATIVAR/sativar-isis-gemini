@@ -81,7 +81,7 @@ export interface ChatMessage {
 
 // From hooks/useSettings.ts
 export interface Product {
-    id: string;
+    id: string | number; // Allow both UUIDs for manual products and numeric IDs for Woo mapping
     name: string;
     price: string;
     description: string;
