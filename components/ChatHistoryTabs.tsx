@@ -1,4 +1,3 @@
-
 import React from 'react';
 import type { Conversation } from '../types.ts';
 import { PlusIcon, FileTextIcon, Trash2Icon } from './icons.tsx';
@@ -96,7 +95,7 @@ export const ChatHistoryTabs: React.FC<ChatHistoryTabsProps> = ({ conversations,
     const canDelete = conversations.length > 1;
 
     return (
-        <aside className="w-20 flex-shrink-0 bg-[#202124] border-r border-gray-700/50 p-2 flex flex-col h-full">
+        <aside className="w-20 flex-shrink-0 bg-[#202124] border-l border-gray-700/50 p-2 flex flex-col h-full">
             <button
                 onClick={handleNewConversationClick}
                 disabled={isLoading}

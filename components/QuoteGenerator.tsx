@@ -246,14 +246,6 @@ export const QuoteGenerator: React.FC = () => {
             {previewFile && (
                 <FilePreviewModal file={previewFile} onClose={() => setPreviewFile(null)} />
             )}
-            <ChatHistoryTabs
-                conversations={conversations}
-                activeConversationId={activeConversationId}
-                onSelectConversation={selectConversation}
-                onNewConversation={startNewConversation}
-                onDeleteConversation={deleteConversation}
-                isLoading={isHistoryLoading}
-            />
             <div className="flex h-full flex-col flex-grow">
                 {apiKeyMissing && (
                     <div className="flex-shrink-0 p-2">
@@ -301,6 +293,14 @@ export const QuoteGenerator: React.FC = () => {
                     />
                 )}
             </div>
+            <ChatHistoryTabs
+                conversations={conversations}
+                activeConversationId={activeConversationId}
+                onSelectConversation={selectConversation}
+                onNewConversation={startNewConversation}
+                onDeleteConversation={deleteConversation}
+                isLoading={isHistoryLoading}
+            />
         </div>
     );
 };
