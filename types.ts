@@ -81,7 +81,7 @@ export interface ChatMessage {
 
 // From hooks/useSettings.ts
 export interface Product {
-    id: string | number; // Allow both UUIDs for manual products and numeric IDs for Woo mapping
+    id: string | number; // Allow both UUIDs for manual products and numeric IDs for Sativar - Seishat mapping
     name: string;
     price: string;
     description: string;
@@ -115,29 +115,29 @@ export interface WpConfig {
     applicationPassword?: string;
 }
 
-export interface WooProductImage {
+export interface SativarSeishatProductImage {
     id: number;
     src: string;
     name: string;
 }
 
-export interface WooProductCategory {
+export interface SativarSeishatProductCategory {
     id: number;
     name: string;
     slug: string;
 }
 
-export interface WooProduct {
+export interface SativarSeishatProduct {
     id: number;
     name: string;
     price: string;
     short_description: string;
     stock_quantity: number | null;
-    images: WooProductImage[];
-    categories: WooProductCategory[];
+    images: SativarSeishatProductImage[];
+    categories: SativarSeishatProductCategory[];
 }
 
-export interface WooCategory {
+export interface SativarSeishatCategory {
     id: number;
     name: string;
     slug: string;

@@ -1,3 +1,4 @@
+
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { useSettings } from '../hooks/useSettings.ts';
 import { processPrescription, pingAI, isApiKeyConfigured, generateHighlight, generateConversationTitle } from '../services/geminiService.ts';
@@ -40,7 +41,7 @@ const FilePreviewModal: React.FC<{
 
 
 export const QuoteGenerator: React.FC = () => {
-    const { isLoaded, wooProducts, systemPrompt, wpConfig, settings } = useSettings();
+    const { isLoaded, sativarSeishatProducts, systemPrompt, wpConfig, settings } = useSettings();
     const {
         messages, setMessages, addMessage,
         conversations, activeConversationId,
@@ -269,7 +270,7 @@ export const QuoteGenerator: React.FC = () => {
             {previewFile && (
                 <FilePreviewModal file={previewFile} onClose={() => setPreviewFile(null)} />
             )}
-            <div className="flex h-full flex-col flex-grow">
+            <div className="flex h-full flex-col flex-grow min-w-0">
                 {apiKeyMissing && (
                     <div className="flex-shrink-0 p-2">
                         <div className="mx-auto max-w-4xl rounded-md bg-red-900/50 p-3 text-sm text-red-300 flex items-start gap-3 border border-red-700/50">

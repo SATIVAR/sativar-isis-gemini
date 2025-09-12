@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useSettings } from '../../hooks/useSettings.ts';
-import type { Product, WooProduct } from '../../types.ts';
+import type { Product, SativarSeishatProduct } from '../../types.ts';
 import { StoreIcon, EditIcon, Trash2Icon, PlusCircleIcon, SearchIcon, PackageIcon, DropletIcon, SunriseIcon, LeafIcon, RefreshCwIcon, AlertTriangleIcon } from '../icons.tsx';
 import { Loader } from '../Loader.tsx';
 import { useModal } from '../../hooks/useModal.ts';
@@ -82,7 +82,7 @@ const ProductModal: React.FC<{
                                 value={id}
                                 onChange={e => setId(e.target.value)}
                                 className="w-full bg-[#202124] border border-gray-600/50 text-white rounded-lg px-3 py-2 focus:ring-2 focus:ring-fuchsia-500 outline-none transition font-mono"
-                                placeholder="ID do WooCommerce para mapeamento"
+                                placeholder="ID do Sativar - Seishat para mapeamento"
                             />
                              <p className="text-xs text-gray-400 mt-1">Deixe em branco para gerar um ID automático para um novo produto de fallback.</p>
                         </div>
@@ -98,7 +98,7 @@ const ProductModal: React.FC<{
                         </div>
                         <div>
                           <label htmlFor="description" className="block text-sm font-medium text-gray-300 mb-2">Descrição Breve</label>
-                          <input id="description" value={description} onChange={e => setDescription(e.target.value)} className="w-full bg-[#202124] border border-gray-600/50 text-white rounded-lg px-3 py-2 focus:ring-2 focus:ring-fuchsia-500 outline-none transition" placeholder="Ex: Óleo de CBD 20% 10ml" />
+                          <input id="description" value={description} onChange={e => setDescription(e.target.value)} className="w-full bg-[#202124] border border-gray-600/50 text-white rounded-lg px-3 py-2 focus:ring-2 focus:ring-fuchsia-500 focus:border-fuchsia-500 outline-none transition" placeholder="Ex: Óleo de CBD 20% 10ml" />
                         </div>
                          <div>
                             <label className="block text-sm font-medium text-gray-300 mb-2">Ícone do Produto</label>
@@ -128,12 +128,12 @@ const ProductModal: React.FC<{
     );
 };
 
-const WooCommerceProducts: React.FC = () => {
-    const { wooProducts, wooCategories, isWooLoading, wooError, lastWooSync, syncWithWooCommerce } = useSettings();
-    const [wooSearch, setWooSearch] = useState('');
+const SativarSeishatProducts: React.FC = () => {
+    const { sativarSeishatProducts, sativarSeishatCategories, isSativarSeishatLoading, sativarSeishatError, lastSativarSeishatSync, syncWithSativarSeishat } = useSettings();
+    const [sativarSeishatSearch, setSativarSeishatSearch] = useState('');
 
-    const filteredWooProducts = wooProducts.filter(p => {
-        const searchTerm = wooSearch.toLowerCase();
+    const filteredSativarSeishatProducts = sativarSeishatProducts.filter(p => {
+        const searchTerm = sativarSeishatSearch.toLowerCase();
         const descriptionText = (p.short_description || '').replace(/<[^>]*>?/gm, '').toLowerCase();
         return (
             p.name.toLowerCase().includes(searchTerm) ||
@@ -143,35 +143,35 @@ const WooCommerceProducts: React.FC = () => {
     });
 
     const renderContent = () => {
-        if (isWooLoading && !lastWooSync) { // Show big loader only on initial sync
+        if (isSativarSeishatLoading && !lastSativarSeishatSync) { // Show big loader only on initial sync
             return (
                 <div className="flex flex-col items-center justify-center gap-4 text-gray-400 py-20 rounded-lg border-2 border-dashed border-gray-700">
                     <Loader />
                     <p className="text-lg font-semibold text-gray-300">Sincronizando produtos...</p>
-                    <p className="text-sm text-gray-500">Buscando dados do WooCommerce.</p>
+                    <p className="text-sm text-gray-500">Buscando dados do Sativar - Seishat.</p>
                 </div>
             );
         }
 
-        if (wooError) {
+        if (sativarSeishatError) {
             return (
                  <div className="text-center py-10 px-4 rounded-lg border-2 border-dashed border-red-800/50 bg-red-900/20">
                     <AlertTriangleIcon className="mx-auto h-12 w-12 text-red-400" />
                     <h3 className="mt-4 text-lg font-semibold text-red-300">Falha na Sincronização</h3>
                     <p className="mt-1 text-sm text-red-400 max-w-md mx-auto">
-                        Não foi possível conectar ao WooCommerce. Verifique suas credenciais na página "Configuração da API" ou a URL do seu site.
+                        Não foi possível conectar ao Sativar - Seishat. Verifique suas credenciais na página "Configuração da API" ou a URL do seu site.
                     </p>
                 </div>
             );
         }
 
-        if (wooProducts.length === 0) {
+        if (sativarSeishatProducts.length === 0) {
             return (
                 <div className="text-center py-10">
                     <PackageIcon className="mx-auto h-12 w-12 text-gray-500" />
                     <h3 className="mt-4 text-lg font-semibold text-gray-300">Nenhum produto encontrado</h3>
                     <p className="mt-1 text-sm text-gray-400">
-                        Nenhum produto foi encontrado no seu WooCommerce ou a sincronização ainda não foi executada.
+                        Nenhum produto foi encontrado no seu Sativar - Seishat ou a sincronização ainda não foi executada.
                     </p>
                 </div>
             );
@@ -182,11 +182,11 @@ const WooCommerceProducts: React.FC = () => {
                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
                     <div className="p-4 bg-[#202124] rounded-lg">
                         <p className="text-sm text-gray-400">Produtos</p>
-                        <p className="text-2xl font-bold text-white">{wooProducts.length}</p>
+                        <p className="text-2xl font-bold text-white">{sativarSeishatProducts.length}</p>
                     </div>
                     <div className="p-4 bg-[#202124] rounded-lg">
                         <p className="text-sm text-gray-400">Categorias</p>
-                        <p className="text-2xl font-bold text-white">{wooCategories.length}</p>
+                        <p className="text-2xl font-bold text-white">{sativarSeishatCategories.length}</p>
                     </div>
                 </div>
                 <div className="relative mb-4">
@@ -196,8 +196,8 @@ const WooCommerceProducts: React.FC = () => {
                     <input
                         type="text"
                         placeholder="Buscar por nome, preço ou descrição..."
-                        value={wooSearch}
-                        onChange={e => setWooSearch(e.target.value)}
+                        value={sativarSeishatSearch}
+                        onChange={e => setSativarSeishatSearch(e.target.value)}
                         className="w-full bg-[#202124] border border-gray-700 text-gray-300 rounded-lg py-2 pl-9 pr-3 text-sm focus:ring-1 focus:ring-fuchsia-500 outline-none"
                     />
                 </div>
@@ -212,7 +212,7 @@ const WooCommerceProducts: React.FC = () => {
                             </tr>
                         </thead>
                         <tbody>
-                            {filteredWooProducts.map((p: WooProduct) => (
+                            {filteredSativarSeishatProducts.map((p: SativarSeishatProduct) => (
                                 <tr key={p.id} className="border-b border-gray-700 hover:bg-[#303134]/50">
                                     <td className="px-4 py-3 font-medium text-white">
                                         <div className="flex items-center gap-3">
@@ -238,18 +238,18 @@ const WooCommerceProducts: React.FC = () => {
         <div className="space-y-4 p-6 bg-[#303134]/50 border border-gray-700/50 rounded-lg">
             <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
                 <div>
-                    <h3 className="text-lg font-semibold text-fuchsia-300">Produtos (via WooCommerce)</h3>
-                    {lastWooSync && !wooError && (
-                         <p className="text-xs text-gray-500 mt-1">Última sincronização: {lastWooSync.toLocaleString()}</p>
+                    <h3 className="text-lg font-semibold text-fuchsia-300">Produtos (via Sativar - Seishat)</h3>
+                    {lastSativarSeishatSync && !sativarSeishatError && (
+                         <p className="text-xs text-gray-500 mt-1">Última sincronização: {lastSativarSeishatSync.toLocaleString()}</p>
                     )}
                 </div>
                 <button
-                    onClick={syncWithWooCommerce}
-                    disabled={isWooLoading}
+                    onClick={syncWithSativarSeishat}
+                    disabled={isSativarSeishatLoading}
                     className="flex items-center justify-center gap-2 px-3 py-2 bg-fuchsia-700 text-sm text-white font-semibold rounded-lg shadow-md hover:bg-fuchsia-600 transition-colors disabled:opacity-50 disabled:cursor-wait"
                 >
-                    <RefreshCwIcon className={`w-4 h-4 ${isWooLoading ? 'animate-spin' : ''}`} />
-                    {isWooLoading ? 'Sincronizando...' : 'Sincronizar Agora'}
+                    <RefreshCwIcon className={`w-4 h-4 ${isSativarSeishatLoading ? 'animate-spin' : ''}`} />
+                    {isSativarSeishatLoading ? 'Sincronizando...' : 'Sincronizar Agora'}
                 </button>
             </div>
             {renderContent()}
@@ -335,9 +335,9 @@ export const ProductsPage: React.FC = () => {
                     <h2 className="text-2xl font-bold text-white">Produtos</h2>
                 </div>
                 <p className="text-gray-400 mb-6">
-                    Gerencie os produtos que a Ísis usará para montar os orçamentos. A prioridade será dada aos produtos do WooCommerce.
+                    Gerencie os produtos que a Ísis usará para montar os orçamentos. A prioridade será dada aos produtos do Sativar - Seishat.
                 </p>
-                <WooCommerceProducts />
+                <SativarSeishatProducts />
             </div>
 
             <div className="bg-[#202124] rounded-xl border border-gray-700 shadow-2xl p-6 sm:p-8">
@@ -346,7 +346,7 @@ export const ProductsPage: React.FC = () => {
                         <div>
                             <h3 className="text-lg font-semibold text-fuchsia-300">Produtos Manuais (Fallback)</h3>
                              <p className="text-sm text-gray-400 -mt-1">
-                                Estes produtos são usados apenas se a conexão com o WooCommerce falhar.
+                                Estes produtos são usados apenas se a conexão com o Sativar - Seishat falhar.
                             </p>
                         </div>
                         <button type="button" onClick={handleAddProduct} className="flex items-center gap-2 px-3 py-2 bg-green-600 text-sm text-white font-semibold rounded-lg shadow-md hover:bg-green-700 transition-colors">
@@ -413,7 +413,7 @@ export const ProductsPage: React.FC = () => {
                                                 <PackageIcon className="mx-auto h-12 w-12 text-gray-500" />
                                                 <h3 className="mt-4 text-lg font-semibold text-gray-300">Nenhum produto manual cadastrado</h3>
                                                 <p className="mt-1 text-sm text-gray-400">
-                                                    Adicione produtos aqui caso a conexão com o WooCommerce falhe.
+                                                    Adicione produtos aqui caso a conexão com o Sativar - Seishat falhe.
                                                 </p>
                                             </div>
                                         </td>

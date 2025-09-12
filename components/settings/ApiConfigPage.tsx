@@ -1,8 +1,6 @@
-
-
 import React, { useState, useEffect } from 'react';
 import { useSettings } from '../../hooks/useSettings.ts';
-import type { WpConfig, SativarUser, WooProduct } from '../../types.ts';
+import type { WpConfig, SativarUser, SativarSeishatProduct } from '../../types.ts';
 import { checkApiStatus, getSativarUsers, getProducts, type ApiStatus } from '../../services/wpApiService.ts';
 import { Loader } from '../Loader.tsx';
 import { CheckCircleIcon, AlertCircleIcon, ServerIcon, EyeIcon, EyeOffIcon, StoreIcon, UsersIcon, SearchIcon, AlertTriangleIcon } from '../icons.tsx';
@@ -76,7 +74,7 @@ const UserResultsTable: React.FC<{ users: SativarUser[] }> = ({ users }) => (
     </table>
 );
 
-const ProductResultsTable: React.FC<{ products: WooProduct[] }> = ({ products }) => (
+const ProductResultsTable: React.FC<{ products: SativarSeishatProduct[] }> = ({ products }) => (
     <table className="w-full text-sm text-left">
         <thead className="text-xs text-gray-400 uppercase bg-[#202124] sticky top-0">
             <tr>
@@ -109,7 +107,7 @@ const ApiSearchComponent: React.FC = () => {
     const { wpConfig } = useSettings();
     const [searchType, setSearchType] = useState<'users' | 'products'>('users');
     const [searchTerm, setSearchTerm] = useState('');
-    const [results, setResults] = useState<(SativarUser | WooProduct)[]>([]);
+    const [results, setResults] = useState<(SativarUser | SativarSeishatProduct)[]>([]);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [searchPerformed, setSearchPerformed] = useState(false);
@@ -230,7 +228,7 @@ const ApiSearchComponent: React.FC = () => {
                     {searchType === 'users' ? (
                         <UserResultsTable users={paginatedResults as SativarUser[]} />
                     ) : (
-                        <ProductResultsTable products={paginatedResults as WooProduct[]} />
+                        <ProductResultsTable products={paginatedResults as SativarSeishatProduct[]} />
                     )}
                 </div>
                 <PaginationControls />
@@ -304,7 +302,7 @@ export const ApiConfigPage: React.FC = () => {
   const [formState, setFormState] = useState<WpConfig>(wpConfig);
   const [isTesting, setIsTesting] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [apiStatus, setApiStatus] = useState<ApiStatus>({ wooCommerce: 'untested', sativarUsers: 'untested' });
+  const [apiStatus, setApiStatus] = useState<ApiStatus>({ sativarSeishat: 'untested', sativarUsers: 'untested' });
   const [errors, setErrors] = useState({
     url: '',
     consumerKey: '',
@@ -379,18 +377,18 @@ export const ApiConfigPage: React.FC = () => {
     const status = await checkApiStatus(formState);
     setApiStatus(status);
     
-    const wcOK = status.wooCommerce === 'success';
+    const sativarSeishatOK = status.sativarSeishat === 'success';
     const sativarOK = status.sativarUsers === 'success';
 
-    if (wcOK || sativarOK) { // Save if at least one works
+    if (sativarSeishatOK || sativarOK) { // Save if at least one works
         await saveWpConfig(formState);
         let message = "Configurações salvas. ";
-        if (wcOK && sativarOK) {
+        if (sativarSeishatOK && sativarOK) {
             message += "Ambos os endpoints estão funcionando!";
-        } else if (wcOK) {
-            message += "WooCommerce conectado, mas o endpoint de Usuários (SATIVAR) falhou. Verifique a Senha de Aplicativo.";
+        } else if (sativarSeishatOK) {
+            message += "Sativar - Seishat conectado, mas o endpoint de Usuários (SATIVAR) falhou. Verifique a Senha de Aplicativo.";
         } else { // only sativarOK is true
-            message += "Usuários (SATIVAR) conectado, mas o endpoint do WooCommerce falhou. Verifique as chaves Consumer.";
+            message += "Usuários (SATIVAR) conectado, mas o endpoint do Sativar - Seishat falhou. Verifique as chaves Consumer.";
         }
         modal.alert({ title: 'Configurações Salvas', message });
     } else {
@@ -410,7 +408,7 @@ export const ApiConfigPage: React.FC = () => {
             <h2 className="text-2xl font-bold text-white">Configuração da API</h2>
           </div>
           <p className="mt-2 text-gray-400 mb-8">
-            Insira os dados de conexão da sua API Sativar_WP_API/WooCommerce para integrar o sistema.
+            Insira os dados de conexão da sua API Sativar_WP_API/Sativar - Seishat para integrar o sistema.
           </p>
 
           <form onSubmit={handleSave} className="space-y-6">
@@ -421,14 +419,14 @@ export const ApiConfigPage: React.FC = () => {
             </div>
 
             <div className="space-y-6 p-4 bg-[#303134]/50 border border-gray-700/50 rounded-lg">
-                <h3 className="text-md font-semibold text-gray-300">Credenciais WooCommerce API</h3>
+                <h3 className="text-md font-semibold text-gray-300">Credenciais Sativar - Seishat API</h3>
                 <div>
-                  <label htmlFor="consumerKey" className="block text-sm font-medium text-gray-300 mb-2">WooCommerce Consumer Key</label>
+                  <label htmlFor="consumerKey" className="block text-sm font-medium text-gray-300 mb-2">Sativar - Seishat Consumer Key</label>
                   <input id="consumerKey" name="consumerKey" value={formState.consumerKey || ''} onChange={handleInputChange} placeholder="ck_xxxxxxxxxxxx" className={`w-full bg-[#303134] border text-gray-300 rounded-lg p-3 text-sm focus:ring-2 outline-none transition shadow-inner ${errors.consumerKey ? 'border-red-500 focus:ring-red-500' : 'border-gray-600/50 focus:ring-fuchsia-500 focus:border-fuchsia-500'}`} required />
                   {errors.consumerKey && <p className="text-red-400 text-xs mt-1">{errors.consumerKey}</p>}
                 </div>
                 <div>
-                  <label htmlFor="consumerSecret" className="block text-sm font-medium text-gray-300 mb-2">WooCommerce Consumer Secret</label>
+                  <label htmlFor="consumerSecret" className="block text-sm font-medium text-gray-300 mb-2">Sativar - Seishat Consumer Secret</label>
                    <PasswordInput id="consumerSecret" name="consumerSecret" value={formState.consumerSecret || ''} placeholder="cs_xxxxxxxxxxxx" onChange={handleInputChange} hasError={!!errors.consumerSecret} />
                    {errors.consumerSecret && <p className="text-red-400 text-xs mt-1">{errors.consumerSecret}</p>}
                 </div>
@@ -436,9 +434,9 @@ export const ApiConfigPage: React.FC = () => {
             
             <div className="space-y-6 p-4 bg-[#303134]/50 border border-gray-700/50 rounded-lg">
                 <h3 className="text-md font-semibold text-gray-300">Credenciais SATIVAR API (Senha de Aplicativo)</h3>
-                <p className="text-xs text-gray-400 -mt-4">Usado para endpoints customizados, como a busca de usuários. Gere em "Usuários &gt; Perfil &gt; Senhas de Aplicativo" no seu painel WordPress.</p>
+                <p className="text-xs text-gray-400 -mt-4">Usado para endpoints customizados, como a busca de usuários. Gere em "Usuários &gt; Perfil &gt; Senhas de Aplicativo" no seu painel Sativar - Seishat.</p>
                 <div>
-                  <label htmlFor="username" className="block text-sm font-medium text-gray-300 mb-2">Usuário WordPress (Admin)</label>
+                  <label htmlFor="username" className="block text-sm font-medium text-gray-300 mb-2">Usuário Sativar - Seishat (Admin)</label>
                   <input id="username" name="username" value={formState.username || ''} onChange={handleInputChange} placeholder="admin" className={`w-full bg-[#303134] border text-gray-300 rounded-lg p-3 text-sm focus:ring-2 outline-none transition shadow-inner ${errors.username ? 'border-red-500 focus:ring-red-500' : 'border-gray-600/50 focus:ring-fuchsia-500 focus:border-fuchsia-500'}`} />
                   {errors.username && <p className="text-red-400 text-xs mt-1">{errors.username}</p>}
                 </div>
@@ -451,7 +449,7 @@ export const ApiConfigPage: React.FC = () => {
 
             <div className="space-y-3 pt-4">
                 <h3 className="text-lg font-semibold text-fuchsia-300">Status dos Serviços</h3>
-                <StatusIndicator status={isTesting || isSaving ? 'testing' : apiStatus.wooCommerce} label="Endpoint de Produtos (WooCommerce)" icon={<StoreIcon className="w-5 h-5"/>} />
+                <StatusIndicator status={isTesting || isSaving ? 'testing' : apiStatus.sativarSeishat} label="Endpoint de Produtos (Sativar - Seishat)" icon={<StoreIcon className="w-5 h-5"/>} />
                 <StatusIndicator status={isTesting || isSaving ? 'testing' : apiStatus.sativarUsers} label="Endpoint de Usuários (SATIVAR)" icon={<UsersIcon className="w-5 h-5" />} />
             </div>
 

@@ -1,11 +1,11 @@
 import React, { useState, useMemo } from 'react';
 import { useSettings } from '../hooks/useSettings.ts';
-import type { WooProduct } from '../types.ts';
+import type { SativarSeishatProduct } from '../types.ts';
 import { getProducts } from '../services/wpApiService.ts';
 import { Loader } from './Loader.tsx';
 import { SearchIcon, PackageIcon, AlertTriangleIcon } from './icons.tsx';
 
-const ProductRow: React.FC<{ product: WooProduct }> = ({ product }) => (
+const ProductRow: React.FC<{ product: SativarSeishatProduct }> = ({ product }) => (
     <tr className="border-b border-gray-700/50 hover:bg-[#303134]/50 transition-colors">
         <td className="px-4 py-3 font-medium text-white">
             <div className="flex items-center gap-3">
@@ -22,9 +22,9 @@ const ProductRow: React.FC<{ product: WooProduct }> = ({ product }) => (
 );
 
 export const ProductSearch: React.FC = () => {
-    const { wpConfig, wooProducts: initialProducts } = useSettings();
+    const { wpConfig, sativarSeishatProducts: initialProducts } = useSettings();
     const [searchTerm, setSearchTerm] = useState('');
-    const [results, setResults] = useState<WooProduct[]>(initialProducts);
+    const [results, setResults] = useState<SativarSeishatProduct[]>(initialProducts);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [searchPerformed, setSearchPerformed] = useState(false);
@@ -34,7 +34,7 @@ export const ProductSearch: React.FC = () => {
 
     const handleSearch = async () => {
         if (!wpConfig.url || !wpConfig.consumerKey) {
-            setError('A API do WooCommerce não está configurada. Verifique as Configurações.');
+            setError('A API do Sativar - Seishat não está configurada. Verifique as Configurações.');
             return;
         }
         setIsLoading(true);
@@ -130,7 +130,7 @@ export const ProductSearch: React.FC = () => {
 
     return (
         <div className="mt-2 w-full space-y-4 text-sm bg-gradient-to-b from-[#252629] to-[#202124] rounded-xl border border-gray-700 p-4 shadow-lg">
-            <h3 className="text-base font-semibold text-fuchsia-300">Consulta de Produtos WooCommerce</h3>
+            <h3 className="text-base font-semibold text-fuchsia-300">Consulta de Produtos Sativar - Seishat</h3>
             <div className="flex items-center gap-2">
                 <div className="relative flex-grow">
                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">

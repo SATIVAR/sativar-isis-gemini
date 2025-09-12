@@ -1,6 +1,5 @@
-
 import React, { createContext, useState, useContext, useEffect, useMemo, useCallback } from 'react';
-import type { Settings, WpConfig, WooProduct, WooCategory, Product } from '../types.ts';
+import type { Settings, WpConfig, SativarSeishatProduct, SativarSeishatCategory, Product } from '../types.ts';
 import { checkApiStatus, getProducts, getCategories } from '../services/wpApiService.ts';
 import { apiClient } from '../services/database/apiClient.ts';
 import { useConnection } from './useConnection.ts';
@@ -24,12 +23,12 @@ interface SettingsContextType {
   formState: Settings;
   setFormState: React.Dispatch<React.SetStateAction<Settings>>;
   hasUnsavedChanges: boolean;
-  wooProducts: WooProduct[];
-  wooCategories: WooCategory[];
-  isWooLoading: boolean;
-  wooError: string | null;
-  lastWooSync: Date | null;
-  syncWithWooCommerce: () => Promise<void>;
+  sativarSeishatProducts: SativarSeishatProduct[];
+  sativarSeishatCategories: SativarSeishatCategory[];
+  isSativarSeishatLoading: boolean;
+  sativarSeishatError: string | null;
+  lastSativarSeishatSync: Date | null;
+  syncWithSativarSeishat: () => Promise<void>;
   validateSettings: (data: Settings) => boolean;
   errors: Partial<Record<keyof Settings, string>>;
   isInitialSyncing: boolean;
@@ -226,11 +225,11 @@ const parseProductAttributes = (name: string) => {
 
 /**
  * Generates the product table in Markdown format for the system prompt.
- * @param products - An array of products (either from WooCommerce or local settings).
- * @param isFromWooCommerce - A boolean indicating the source of the products.
+ * @param products - An array of products (either from Sativar - Seishat or local settings).
+ * @param isFromSativarSeishat - A boolean indicating the source of the products.
  * @returns A formatted string containing the product table and a source comment.
  */
-const generateProductTable = (products: (WooProduct | Product)[], isFromWooCommerce: boolean): string => {
+const generateProductTable = (products: (SativarSeishatProduct | Product)[], isFromSativarSeishat: boolean): string => {
   const stripHtml = (html: string) => (html ? html.replace(/<[^>]*>?/gm, '') : '');
 
   const tableHeader = `| Nome do Produto | Preço (R$) | Componentes Chave | Concentração | Volume | Descrição Breve |
@@ -244,8 +243,8 @@ const generateProductTable = (products: (WooProduct | Product)[], isFromWooComme
       }).join('\n')
     : '| Nenhum produto cadastrado | - | - | - | - | - |';
     
-  const sourceComment = isFromWooCommerce
-    ? '# Fonte dos Produtos: WooCommerce API (em tempo real)'
+  const sourceComment = isFromSativarSeishat
+    ? '# Fonte dos Produtos: Sativar - Seishat API (em tempo real)'
     : '# Fonte dos Produtos: Lista de Fallback Manual (API indisponível ou sem produtos)';
 
   return `
@@ -296,12 +295,12 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [isLoaded, setIsLoaded] = useState(false);
   const [errors, setErrors] = useState<Partial<Record<keyof Settings, string>>>({});
   
-  // WooCommerce State
-  const [wooProducts, setWooProducts] = useState<WooProduct[]>([]);
-  const [wooCategories, setWooCategories] = useState<WooCategory[]>([]);
-  const [isWooLoading, setIsWooLoading] = useState(false);
-  const [wooError, setWooError] = useState<string | null>(null);
-  const [lastWooSync, setLastWooSync] = useState<Date | null>(null);
+  // Sativar - Seishat State
+  const [sativarSeishatProducts, setSativarSeishatProducts] = useState<SativarSeishatProduct[]>([]);
+  const [sativarSeishatCategories, setSativarSeishatCategories] = useState<SativarSeishatCategory[]>([]);
+  const [isSativarSeishatLoading, setIsSativarSeishatLoading] = useState(false);
+  const [sativarSeishatError, setSativarSeishatError] = useState<string | null>(null);
+  const [lastSativarSeishatSync, setLastSativarSeishatSync] = useState<Date | null>(null);
   
   // Sync State
   const [isSyncing, setIsSyncing] = useState(false);
@@ -379,30 +378,30 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             const syncPending = localStorage.getItem(SETTINGS_SYNC_PENDING_KEY) === 'true';
             setSettingsSyncQueueCount(syncPending ? 1 : 0);
 
-            // 2. Sync with WooCommerce if configured
+            // 2. Sync with Sativar - Seishat if configured
             if (finalWpConfig.url && finalWpConfig.consumerKey) {
                 setInitialSyncMessage('Sincronizando produtos e categorias...');
-                setIsWooLoading(true);
+                setIsSativarSeishatLoading(true);
                 try {
                     const [products, categories] = await Promise.all([
                         getProducts(finalWpConfig),
                         getCategories(finalWpConfig),
                     ]);
-                    setWooProducts(products);
-                    setWooCategories(categories);
-                    setLastWooSync(new Date());
-                    setWooError(null);
+                    setSativarSeishatProducts(products);
+                    setSativarSeishatCategories(categories);
+                    setLastSativarSeishatSync(new Date());
+                    setSativarSeishatError(null);
                     setInitialSyncMessage('Sincronização concluída com sucesso!');
                 } catch (err) {
                     const errorMessage = err instanceof Error ? err.message : "Erro desconhecido.";
-                    setWooError(errorMessage);
+                    setSativarSeishatError(errorMessage);
                     setInitialSyncMessage('Falha na sincronização. Usando produtos de fallback.');
-                    console.error("Initial WooCommerce sync failed:", err);
+                    console.error("Initial Sativar - Seishat sync failed:", err);
                 } finally {
-                    setIsWooLoading(false);
+                    setIsSativarSeishatLoading(false);
                 }
             } else {
-                setInitialSyncMessage('API do WooCommerce não configurada. Usando produtos de fallback.');
+                setInitialSyncMessage('API do Sativar - Seishat não configurada. Usando produtos de fallback.');
             }
 
             // 3. Finalize
@@ -489,7 +488,7 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     try {
       const status = await checkApiStatus(configToTest);
       // FIX: Corrected typo from `sativarClients` to `sativarUsers` to match the `ApiStatus` type definition.
-      const isSuccess = status.wooCommerce === 'success' && status.sativarUsers === 'success';
+      const isSuccess = status.sativarSeishat === 'success' && status.sativarUsers === 'success';
       if (isSuccess) {
           setWpConnectionStatus('success');
       } else {
@@ -503,28 +502,28 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
   }, []);
   
-  const syncWithWooCommerce = useCallback(async () => {
+  const syncWithSativarSeishat = useCallback(async () => {
     if (!wpConfig.url || !wpConfig.consumerKey) {
-        setWooError("API do WordPress não configurada. Por favor, preencha os dados na página 'Configuração da API'.");
+        setSativarSeishatError("API do Sativar - Seishat não configurada. Por favor, preencha os dados na página 'Configuração da API'.");
         return;
     }
-    setIsWooLoading(true);
-    setWooError(null);
+    setIsSativarSeishatLoading(true);
+    setSativarSeishatError(null);
     try {
         const [products, categories] = await Promise.all([
             getProducts(wpConfig),
             getCategories(wpConfig),
         ]);
-        setWooProducts(products);
-        setWooCategories(categories);
-        setLastWooSync(new Date());
+        setSativarSeishatProducts(products);
+        setSativarSeishatCategories(categories);
+        setLastSativarSeishatSync(new Date());
     } catch (err) {
-        console.error("Failed to sync with WooCommerce", err);
-        setWooError(err instanceof Error ? err.message : "Ocorreu um erro desconhecido ao sincronizar com o WooCommerce. Verifique as configurações da API e sua conexão.");
-        setWooProducts([]);
-        setWooCategories([]);
+        console.error("Failed to sync with Sativar - Seishat", err);
+        setSativarSeishatError(err instanceof Error ? err.message : "Ocorreu um erro desconhecido ao sincronizar com o Sativar - Seishat. Verifique as configurações da API e sua conexão.");
+        setSativarSeishatProducts([]);
+        setSativarSeishatCategories([]);
     } finally {
-        setIsWooLoading(false);
+        setIsSativarSeishatLoading(false);
     }
   }, [wpConfig]);
   
@@ -535,8 +534,8 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const hasUnsavedChanges = useMemo(() => JSON.stringify(formState) !== JSON.stringify(settings), [formState, settings]);
 
   const systemPrompt = useMemo(() => {
-    const isFromWooCommerce = wooProducts.length > 0;
-    const productSource = isFromWooCommerce ? wooProducts : settings.products;
+    const isFromSativarSeishat = sativarSeishatProducts.length > 0;
+    const productSource = isFromSativarSeishat ? sativarSeishatProducts : settings.products;
 
     // 1. Assemble all template parts
     const templates = [
@@ -545,7 +544,7 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       PROMPT_PARTS.PERSONA,
       PROMPT_PARTS.KNOWLEDGE_BASE,
       getJsonOutputInstructionsTemplate(),
-      generateProductTable(productSource, isFromWooCommerce),
+      generateProductTable(productSource, isFromSativarSeishat),
     ];
 
     let combinedPrompt = templates.join('\n\n');
@@ -562,7 +561,7 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
     
     return combinedPrompt;
-  }, [settings, wooProducts]);
+  }, [settings, sativarSeishatProducts]);
 
   const value = useMemo(() => ({ 
       settings, 
@@ -580,17 +579,17 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       formState,
       setFormState,
       hasUnsavedChanges,
-      wooProducts,
-      wooCategories,
-      isWooLoading,
-      wooError,
-      lastWooSync,
-      syncWithWooCommerce,
+      sativarSeishatProducts,
+      sativarSeishatCategories,
+      isSativarSeishatLoading,
+      sativarSeishatError,
+      lastSativarSeishatSync,
+      syncWithSativarSeishat,
       validateSettings,
       errors,
       isInitialSyncing,
       initialSyncMessage,
-  }), [settings, isLoaded, saveSettings, wpConfig, wpConnectionStatus, saveWpConfig, testWpConnection, systemPrompt, isOnline, isSyncing, settingsSyncQueueCount, forceSyncSettings, formState, hasUnsavedChanges, wooProducts, wooCategories, isWooLoading, wooError, lastWooSync, syncWithWooCommerce, validateSettings, errors, isInitialSyncing, initialSyncMessage]);
+  }), [settings, isLoaded, saveSettings, wpConfig, wpConnectionStatus, saveWpConfig, testWpConnection, systemPrompt, isOnline, isSyncing, settingsSyncQueueCount, forceSyncSettings, formState, hasUnsavedChanges, sativarSeishatProducts, sativarSeishatCategories, isSativarSeishatLoading, sativarSeishatError, lastSativarSeishatSync, syncWithSativarSeishat, validateSettings, errors, isInitialSyncing, initialSyncMessage]);
 
   return React.createElement(SettingsContext.Provider, { value }, children);
 };

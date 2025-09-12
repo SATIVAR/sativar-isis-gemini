@@ -88,7 +88,7 @@ const AppContent: React.FC = () => {
     return (
         <div className="flex h-screen flex-col bg-[#131314] font-sans text-gray-200">
             <Header setCurrentPage={setCurrentPage} currentPage={currentPage} />
-            <main className="flex-grow overflow-y-auto">
+            <main className="flex-grow overflow-y-auto overflow-x-hidden">
                 {currentPage === 'chat' && (
                 <QuoteGenerator />
                 )}

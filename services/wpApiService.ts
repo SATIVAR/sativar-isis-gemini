@@ -1,6 +1,4 @@
-
-
-import type { WpConfig, WooProduct, WooCategory, SativarUser } from '../types.ts';
+import type { WpConfig, SativarSeishatProduct, SativarSeishatCategory, SativarUser } from '../types.ts';
 
 interface ApiRequestOptions extends RequestInit {
   auth: WpConfig;
@@ -96,9 +94,9 @@ async function apiRequest<T>(endpoint: string, options: ApiRequestOptions): Prom
     const basicAuth = btoa(`${auth.username}:${auth.applicationPassword}`);
     (finalFetchOptions.headers as Record<string, string>)['Authorization'] = `Basic ${basicAuth}`;
   } else {
-    // For all other endpoints (assume WooCommerce), use Consumer Key/Secret
+    // For all other endpoints (assume Sativar - Seishat), use Consumer Key/Secret
     if (!auth.consumerKey || !auth.consumerSecret) {
-        throw new Error('WooCommerce Consumer Key e Secret são obrigatórios.');
+        throw new Error('Sativar - Seishat Consumer Key e Secret são obrigatórios.');
     }
     finalParams.append('consumer_key', auth.consumerKey);
     finalParams.append('consumer_secret', auth.consumerSecret);
@@ -118,31 +116,31 @@ async function apiRequest<T>(endpoint: string, options: ApiRequestOptions): Prom
 }
 
 export interface ApiStatus {
-  wooCommerce: 'success' | 'error' | 'untested';
+  sativarSeishat: 'success' | 'error' | 'untested';
   sativarUsers: 'success' | 'error' | 'untested';
 }
 
 export async function checkApiStatus(auth: WpConfig): Promise<ApiStatus> {
   const status: ApiStatus = {
-    wooCommerce: 'untested',
+    sativarSeishat: 'untested',
     sativarUsers: 'untested',
   };
 
   if (!auth.url) {
-    return { wooCommerce: 'error', sativarUsers: 'error' };
+    return { sativarSeishat: 'error', sativarUsers: 'error' };
   }
 
-  // Test WooCommerce Endpoint
+  // Test Sativar - Seishat Endpoint
   if (auth.consumerKey && auth.consumerSecret) {
       try {
         await apiRequest('/wp-json/wc/v3/products', { auth, method: 'GET', params: { per_page: '1' } });
-        status.wooCommerce = 'success';
+        status.sativarSeishat = 'success';
       } catch (e) {
-        console.error("WooCommerce API check failed:", e);
-        status.wooCommerce = 'error';
+        console.error("Sativar - Seishat API check failed:", e);
+        status.sativarSeishat = 'error';
       }
   } else {
-      status.wooCommerce = 'error';
+      status.sativarSeishat = 'error';
   }
 
   // Test Sativar Users Endpoint
@@ -162,7 +160,7 @@ export async function checkApiStatus(auth: WpConfig): Promise<ApiStatus> {
   return status;
 }
 
-export async function getProducts(auth: WpConfig, search: string = ''): Promise<WooProduct[]> {
+export async function getProducts(auth: WpConfig, search: string = ''): Promise<SativarSeishatProduct[]> {
     const params: Record<string, string> = {
         per_page: '100', // Fetch up to 100 products
         status: 'publish', // Fetch only published products
@@ -173,7 +171,7 @@ export async function getProducts(auth: WpConfig, search: string = ''): Promise<
     return apiRequest('/wp-json/wc/v3/products', { auth, method: 'GET', params });
 }
 
-export async function getCategories(auth: WpConfig): Promise<WooCategory[]> {
+export async function getCategories(auth: WpConfig): Promise<SativarSeishatCategory[]> {
     const params: Record<string, string> = {
         per_page: '100', // Fetch up to 100 categories
     };
