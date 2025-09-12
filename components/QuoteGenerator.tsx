@@ -1,4 +1,3 @@
-
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { useSettings } from '../hooks/useSettings.ts';
 import { processPrescription, pingAI, isApiKeyConfigured, generateHighlight, generateConversationTitle } from '../services/geminiService.ts';
@@ -10,6 +9,7 @@ import { ChatHistoryTabs } from './ChatHistoryTabs.tsx';
 import { Loader } from './Loader.tsx';
 import { useAuth } from '../hooks/useAuth.ts';
 import { AdminLogin } from './AdminLogin.tsx';
+import { AdminRegistration } from './AdminRegistration.tsx';
 
 const FilePreviewModal: React.FC<{
     file: { url: string; type: string; name: string };
@@ -263,6 +263,14 @@ export const QuoteGenerator: React.FC = () => {
         return (
             <div className="flex h-full items-center justify-center">
                 <Loader />
+            </div>
+        );
+    }
+
+    if (!auth.isAdminSetup) {
+        return (
+            <div className="flex h-full items-center justify-center p-4">
+                <AdminRegistration onRegistrationSuccess={auth.checkSetup} />
             </div>
         );
     }
