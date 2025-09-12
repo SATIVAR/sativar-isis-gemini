@@ -61,10 +61,10 @@ const TabItem: React.FC<{
             </button>
             <button 
                 onClick={handleDelete}
-                className="absolute right-1 top-1 p-1 rounded-full bg-[#202124] opacity-0 group-hover:opacity-100 text-gray-500 hover:text-red-400 hover:bg-gray-800 transition-all focus:opacity-100 z-10"
+                className="absolute right-1 top-1 p-0.5 rounded-full bg-[#202124] opacity-0 group-hover:opacity-100 text-gray-500 hover:text-red-400 hover:bg-gray-800 transition-all focus:opacity-100 z-10"
                 aria-label={`Apagar conversa ${conversation.title}`}
             >
-                <Trash2Icon className="w-4 h-4" />
+                <Trash2Icon className="w-3.5 h-3.5" />
             </button>
         </div>
     );

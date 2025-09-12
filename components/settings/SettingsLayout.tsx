@@ -5,6 +5,7 @@ import { SettingsSidebar, type SettingsPageName } from './SettingsSidebar.tsx';
 import { AssociationPage } from './AssociationPage.tsx';
 import { ApiConfigPage } from './ApiConfigPage.tsx';
 import { ProductsPage } from './ProductsPage.tsx';
+import { PriceTablePage } from './PriceTablePage.tsx';
 import { AdvancedPage } from './ClientsPage.tsx';
 import { PromptPage } from './PromptPage.tsx';
 import { ApiHistoryPage } from './ApiHistoryPage.tsx';
@@ -89,6 +90,8 @@ export const SettingsLayout: React.FC<SettingsLayoutProps> = ({ onLogout }) => {
         return <ApiConfigPage />;
       case 'products':
         return <ProductsPage />;
+      case 'priceTable':
+        return <PriceTablePage />;
       case 'notifications':
         return <NotificationsPage />;
       case 'advanced':

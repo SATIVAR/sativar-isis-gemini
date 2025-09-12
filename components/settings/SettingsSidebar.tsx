@@ -1,9 +1,9 @@
 
 
 import React from 'react';
-import { DatabaseIcon, ServerIcon, StoreIcon, FileCodeIcon, LogOutIcon, UsersIcon, ClockIcon, BellIcon } from '../icons.tsx';
+import { DatabaseIcon, ServerIcon, StoreIcon, FileCodeIcon, LogOutIcon, UsersIcon, ClockIcon, BellIcon, BarChart2Icon } from '../icons.tsx';
 
-export type SettingsPageName = 'association' | 'api' | 'products' | 'notifications' | 'advanced' | 'prompt' | 'apiHistory';
+export type SettingsPageName = 'association' | 'api' | 'products' | 'priceTable' | 'notifications' | 'advanced' | 'prompt' | 'apiHistory';
 
 interface NavItemProps {
   pageName: SettingsPageName;
@@ -39,6 +39,7 @@ export const SettingsSidebar: React.FC<SettingsSidebarProps> = ({ currentPage, s
     { page: 'association', label: 'Associação', icon: <UsersIcon className="w-5 h-5" /> },
     { page: 'api', label: 'Configuração da API', icon: <ServerIcon className="w-5 h-5" /> },
     { page: 'products', label: 'Produtos', icon: <StoreIcon className="w-5 h-5" /> },
+    { page: 'priceTable', label: 'Tabela de Preços', icon: <BarChart2Icon className="w-5 h-5" /> },
     { page: 'notifications', label: 'Notificações', icon: <BellIcon className="w-5 h-5" /> },
     { page: 'advanced', label: 'Avançado', icon: <DatabaseIcon className="w-5 h-5" /> },
     { page: 'apiHistory', label: 'Log de Chamadas', icon: <ClockIcon className="w-5 h-5" /> },
