@@ -7,6 +7,7 @@ import { useSettings } from '../hooks/useSettings.ts';
 import { RemindersList } from './Reminders.tsx';
 import { Logo } from './Logo.tsx';
 import { useConnection } from '../hooks/useConnection.ts';
+import { useAuth } from '../hooks/useAuth.ts';
 
 interface HeaderProps {
     setCurrentPage: (page: Page) => void;
@@ -18,6 +19,7 @@ export const Header: React.FC<HeaderProps> = ({ setCurrentPage, currentPage }) =
     const { reminders, hasOverdueReminders } = useReminders();
     const { settings } = useSettings();
     const { isOnline } = useConnection();
+    const auth = useAuth();
 
     const pendingCount = reminders.filter(r => !r.isCompleted).length;
     
@@ -73,31 +75,33 @@ export const Header: React.FC<HeaderProps> = ({ setCurrentPage, currentPage }) =
                         )}
                     </div>
                 </div>
-                <nav className="flex items-center gap-2">
-                    <div className="relative">
-                        <button 
-                            onClick={() => setIsRemindersOpen(prev => !prev)}
-                            className={`rounded-full p-2 transition-colors hover:bg-gray-700 ${hasOverdueReminders ? 'pulse-alert' : ''}`}
-                            aria-label="Toggle reminders"
-                        >
-                            <BellIcon className="h-6 w-6 text-gray-400" />
-                            {pendingCount > 0 && (
-                                <span className="absolute top-1 right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-600 text-xs font-bold text-white">
-                                    {pendingCount}
-                                </span>
-                            )}
-                        </button>
-                        {isRemindersOpen && <RemindersList onClose={() => setIsRemindersOpen(false)} />}
-                    </div>
+                {auth.isAuthenticated && (
+                    <nav className="flex items-center gap-2">
+                        <div className="relative">
+                            <button 
+                                onClick={() => setIsRemindersOpen(prev => !prev)}
+                                className={`rounded-full p-2 transition-colors hover:bg-gray-700 ${hasOverdueReminders ? 'pulse-alert' : ''}`}
+                                aria-label="Toggle reminders"
+                            >
+                                <BellIcon className="h-6 w-6 text-gray-400" />
+                                {pendingCount > 0 && (
+                                    <span className="absolute top-1 right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-600 text-xs font-bold text-white">
+                                        {pendingCount}
+                                    </span>
+                                )}
+                            </button>
+                            {isRemindersOpen && <RemindersList onClose={() => setIsRemindersOpen(false)} />}
+                        </div>
 
-                    <button 
-                        onClick={handleSettingsClick}
-                        className="rounded-full p-2 transition-colors hover:bg-gray-700"
-                        aria-label="Toggle settings"
-                    >
-                        <SettingsIcon className="h-6 w-6 text-gray-400" />
-                    </button>
-                </nav>
+                        <button 
+                            onClick={handleSettingsClick}
+                            className="rounded-full p-2 transition-colors hover:bg-gray-700"
+                            aria-label="Toggle settings"
+                        >
+                            <SettingsIcon className="h-6 w-6 text-gray-400" />
+                        </button>
+                    </nav>
+                )}
             </header>
         </>
     );

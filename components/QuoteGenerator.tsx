@@ -8,6 +8,8 @@ import { Chat } from './Chat.tsx';
 import { useChatHistory } from '../hooks/useChatHistory.ts';
 import { ChatHistoryTabs } from './ChatHistoryTabs.tsx';
 import { Loader } from './Loader.tsx';
+import { useAuth } from '../hooks/useAuth.ts';
+import { AdminLogin } from './AdminLogin.tsx';
 
 const FilePreviewModal: React.FC<{
     file: { url: string; type: string; name: string };
@@ -41,6 +43,7 @@ const FilePreviewModal: React.FC<{
 
 
 export const QuoteGenerator: React.FC = () => {
+    const auth = useAuth();
     const { isLoaded, sativarSeishatProducts, systemPrompt, wpConfig, settings } = useSettings();
     const {
         messages, setMessages, addMessage,
@@ -255,6 +258,22 @@ export const QuoteGenerator: React.FC = () => {
     const handleOpenFilePreview = (file: { url: string; type: string; name: string }) => {
         setPreviewFile(file);
     };
+
+    if (auth.isLoading) {
+        return (
+            <div className="flex h-full items-center justify-center">
+                <Loader />
+            </div>
+        );
+    }
+
+    if (!auth.isAuthenticated) {
+        return (
+            <div className="flex h-full items-center justify-center p-4">
+                <AdminLogin />
+            </div>
+        );
+    }
 
     const isChatClosed = activeConversation?.is_closed === true;
     const isChatDisabled = showSettingsWarning || apiKeyMissing || wpConfigMissing || isChatClosed;
