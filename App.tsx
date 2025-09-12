@@ -1,4 +1,5 @@
 
+
 import React, { useState } from 'react';
 import { Header } from './components/Header.tsx';
 import { SettingsLayout } from './components/settings/SettingsLayout.tsx';
@@ -14,6 +15,7 @@ import { ChatHistoryProvider } from './hooks/useChatHistory.ts';
 import { ModalProvider, useModal } from './hooks/useModal.ts';
 import { Modal } from './components/Modal.tsx';
 import { AlertTriangleIcon, CheckCircleIcon } from './components/icons.tsx';
+import { AuthProvider } from './hooks/useAuth.ts';
 
 export type Page = 'chat' | 'settings';
 
@@ -163,11 +165,13 @@ function App() {
           <ApiHistoryProvider>
             <NotificationProvider>
               <ModalProvider>
-                <ChatHistoryProvider>
-                  <NotificationTrigger />
-                  <AppContent />
-                  <ModalRenderer />
-                </ChatHistoryProvider>
+                <AuthProvider>
+                  <ChatHistoryProvider>
+                    <NotificationTrigger />
+                    <AppContent />
+                    <ModalRenderer />
+                  </ChatHistoryProvider>
+                </AuthProvider>
               </ModalProvider>
             </NotificationProvider>
           </ApiHistoryProvider>

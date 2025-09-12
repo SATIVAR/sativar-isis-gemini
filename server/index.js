@@ -6,6 +6,7 @@ const apiRoutes = require('./routes');
 const chalk = require('chalk');
 const { testPoolConnection } = require('./db');
 const { testChatDbConnection } = require('./chatDb');
+const { testUserDbConnection } = require('./userDb');
 const { runMigrations } = require('./migration');
 require('dotenv').config();
 
@@ -24,7 +25,11 @@ const startServer = async () => {
         await testChatDbConnection();
         console.log(chalk.cyan.bold('✅ Successfully connected to the CHAT database.'));
         
-        // 2. Run database migrations for both DBs
+        console.log(chalk.yellow('Connecting to the USER database...'));
+        await testUserDbConnection();
+        console.log(chalk.yellow.bold('✅ Successfully connected to the USER database.'));
+        
+        // 2. Run database migrations for all DBs
         console.log(chalk.blue('Running database migrations...'));
         await runMigrations();
         

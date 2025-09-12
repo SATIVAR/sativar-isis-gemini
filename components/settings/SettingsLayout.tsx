@@ -15,10 +15,8 @@ import { AdminRegistration } from '../AdminRegistration.tsx';
 import { Loader } from '../Loader.tsx';
 import { useSettings } from '../../hooks/useSettings.ts';
 import { CheckCircleIcon, AlertTriangleIcon, CheckIcon } from '../icons.tsx';
-
-const ADMIN_STORAGE_KEY = 'sativar_isis_admin_credentials';
-const SESSION_STORAGE_KEY = 'sativar_isis_admin_auth';
-
+import { useAuth } from '../../hooks/useAuth.ts';
+import { UsersPage } from './UsersPage.tsx';
 
 interface SettingsLayoutProps {
   onLogout: () => void;
@@ -27,41 +25,29 @@ interface SettingsLayoutProps {
 export const SettingsLayout: React.FC<SettingsLayoutProps> = ({ onLogout }) => {
   const [currentPage, setCurrentPage] = useState<SettingsPageName>('association');
   
-  const [hasAdminAccount, setHasAdminAccount] = useState<boolean | null>(null);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [showSavedToast, setShowSavedToast] = useState(false);
   const [showErrorToast, setShowErrorToast] = useState(false);
 
   const { formState, saveSettings, hasUnsavedChanges, validateSettings } = useSettings();
+  const auth = useAuth();
 
   useEffect(() => {
-    try {
-        const adminCreds = localStorage.getItem(ADMIN_STORAGE_KEY);
-        setHasAdminAccount(!!adminCreds);
-        const sessionAuth = sessionStorage.getItem(SESSION_STORAGE_KEY);
-        if (adminCreds && sessionAuth === 'true') {
-            setIsAuthenticated(true);
-        }
-    } catch (e) {
-        console.error("Could not access storage", e);
-        setHasAdminAccount(false);
-    }
-  }, []);
-
-  const handleLoginSuccess = () => {
-    sessionStorage.setItem(SESSION_STORAGE_KEY, 'true');
-    setIsAuthenticated(true);
-  };
-
-  const handleRegistrationSuccess = () => {
-    // After registration, force a reload or just switch the view to Login
-    setHasAdminAccount(true);
-  };
+    auth.checkSetup();
+  }, [auth.checkSetup]);
   
+  // Effect to reset to a valid page if a non-admin user somehow lands on an admin page
+  useEffect(() => {
+    if (auth.user?.role === 'user') {
+        const allowedPagesForUser: SettingsPageName[] = ['association', 'products', 'priceTable', 'notifications'];
+        if (!allowedPagesForUser.includes(currentPage)) {
+            setCurrentPage('association');
+        }
+    }
+  }, [currentPage, auth.user?.role]);
+
   const handleInternalLogout = () => {
-    sessionStorage.removeItem(SESSION_STORAGE_KEY);
-    setIsAuthenticated(false);
+    auth.logout();
     onLogout();
   }
 
@@ -86,6 +72,8 @@ export const SettingsLayout: React.FC<SettingsLayoutProps> = ({ onLogout }) => {
     switch (currentPage) {
       case 'association':
         return <AssociationPage />;
+      case 'users':
+        return <UsersPage />;
       case 'api':
         return <ApiConfigPage />;
       case 'products':
@@ -105,7 +93,7 @@ export const SettingsLayout: React.FC<SettingsLayoutProps> = ({ onLogout }) => {
     }
   };
   
-  if (hasAdminAccount === null) {
+  if (auth.isLoading) {
       return (
         <div className="flex items-center justify-center h-full">
             <Loader />
@@ -113,11 +101,12 @@ export const SettingsLayout: React.FC<SettingsLayoutProps> = ({ onLogout }) => {
       );
   }
 
-  if (!isAuthenticated) {
-    if (!hasAdminAccount) {
-        return <AdminRegistration onRegistrationSuccess={handleRegistrationSuccess} />
-    }
-    return <AdminLogin onLoginSuccess={handleLoginSuccess} />
+  if (!auth.isAdminSetup) {
+    return <AdminRegistration onRegistrationSuccess={auth.checkSetup} />
+  }
+
+  if (!auth.isAuthenticated) {
+    return <AdminLogin />
   }
 
 
@@ -127,6 +116,7 @@ export const SettingsLayout: React.FC<SettingsLayoutProps> = ({ onLogout }) => {
         currentPage={currentPage} 
         setCurrentPage={setCurrentPage}
         onLogout={handleInternalLogout}
+        userRole={auth.user.role}
       />
       <div className="flex-grow overflow-y-auto">
         {renderPage()}

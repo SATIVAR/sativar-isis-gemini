@@ -3,6 +3,7 @@
 const express = require('express');
 const { query } = require('./db');
 const { chatQuery, getChatDb } = require('./chatDb');
+const { userQuery } = require('./userDb');
 const router = express.Router();
 const chalk = require('chalk');
 
@@ -311,5 +312,128 @@ router.delete('/chats/:id', async (req, res, next) => {
   }
 });
 
+// --- Auth & User Management Routes ---
+
+// GET /api/auth/setup-status - Check if an admin account exists
+router.get('/auth/setup-status', async (req, res, next) => {
+  try {
+    const rows = await userQuery("SELECT 1 FROM users WHERE role = 'admin' LIMIT 1");
+    res.json({ isAdminSetup: rows.length > 0 });
+  } catch (err) {
+    console.error(chalk.red(`[${req.method} ${req.originalUrl}] Error checking admin setup:`), err.message);
+    next(err);
+  }
+});
+
+// POST /api/auth/register-admin - Create the first admin user
+router.post('/auth/register-admin', async (req, res, next) => {
+  try {
+    const existingAdmin = await userQuery("SELECT 1 FROM users WHERE role = 'admin' LIMIT 1");
+    if (existingAdmin.length > 0) {
+      return res.status(409).json({ error: 'An admin user already exists.' });
+    }
+    const { name, whatsapp, password } = req.body;
+    if (!name || !password) {
+        return res.status(400).json({ error: 'Name and password are required.' });
+    }
+    const newUserId = crypto.randomUUID();
+    await userQuery('INSERT INTO users (id, name, whatsapp, role, password) VALUES (?, ?, ?, ?, ?)', [newUserId, name, whatsapp, 'admin', password]);
+    res.status(201).json({ id: newUserId, name, role: 'admin' });
+  } catch (err) {
+    console.error(chalk.red(`[${req.method} ${req.originalUrl}] Error registering admin:`), err.message);
+    next(err);
+  }
+});
+
+// POST /api/auth/login - Log a user in
+router.post('/auth/login', async (req, res, next) => {
+  try {
+    const { username, password } = req.body;
+    const users = await userQuery('SELECT id, name, whatsapp, role, password FROM users WHERE name = ?', [username]);
+    if (users.length === 0 || users[0].password !== password) {
+      return res.status(401).json({ error: 'Credenciais inválidas. Por favor, tente novamente.' });
+    }
+    const { password: _, ...userToReturn } = users[0];
+    res.json(userToReturn);
+  } catch (err) {
+    console.error(chalk.red(`[${req.method} ${req.originalUrl}] Error during login:`), err.message);
+    next(err);
+  }
+});
+
+// GET /api/users - Get all users
+router.get('/users', async (req, res, next) => {
+  try {
+    const users = await userQuery('SELECT id, name, whatsapp, role FROM users ORDER BY name ASC');
+    res.json(users);
+  } catch (err) {
+    console.error(chalk.red(`[${req.method} ${req.originalUrl}] Error fetching users:`), err.message);
+    next(err);
+  }
+});
+
+// POST /api/users - Create a new user
+router.post('/users', async (req, res, next) => {
+  try {
+    const { name, whatsapp, role, password } = req.body;
+    if (!name || !role || !password) {
+      return res.status(400).json({ error: 'Name, role, and password are required.' });
+    }
+    if (role === 'admin') {
+        const existingAdmin = await userQuery("SELECT 1 FROM users WHERE role = 'admin' LIMIT 1");
+        if (existingAdmin.length > 0) {
+            return res.status(409).json({ error: 'An admin user already exists. Cannot create another.' });
+        }
+    }
+    const newUserId = crypto.randomUUID();
+    await userQuery('INSERT INTO users (id, name, whatsapp, role, password) VALUES (?, ?, ?, ?, ?)', [newUserId, name, whatsapp, role, password]);
+    res.status(201).json({ id: newUserId, name, whatsapp, role });
+  } catch (err) {
+    if (err.code === 'SQLITE_CONSTRAINT_UNIQUE') {
+        return res.status(409).json({ error: 'A user with this name already exists.'});
+    }
+    console.error(chalk.red(`[${req.method} ${req.originalUrl}] Error creating user:`), err.message);
+    next(err);
+  }
+});
+
+// PUT /api/users/:id - Update a user
+router.put('/users/:id', async (req, res, next) => {
+  const { id } = req.params;
+  const { name, whatsapp, role, password } = req.body;
+  if (!name || !role) {
+    return res.status(400).json({ error: 'Name and role are required.' });
+  }
+  try {
+    if (password) {
+      await userQuery('UPDATE users SET name = ?, whatsapp = ?, role = ?, password = ? WHERE id = ?', [name, whatsapp, role, password, id]);
+    } else {
+      await userQuery('UPDATE users SET name = ?, whatsapp = ?, role = ? WHERE id = ?', [name, whatsapp, role, id]);
+    }
+    res.status(200).json({ id, name, whatsapp, role });
+  } catch (err) {
+    if (err.code === 'SQLITE_CONSTRAINT_UNIQUE') {
+        return res.status(409).json({ error: 'A user with this name already exists.'});
+    }
+    console.error(chalk.red(`[${req.method} ${req.originalUrl}] Error updating user:`), err.message);
+    next(err);
+  }
+});
+
+// DELETE /api/users/:id - Delete a user
+router.delete('/users/:id', async (req, res, next) => {
+    const { id } = req.params;
+    try {
+        const userToDelete = await userQuery('SELECT role FROM users WHERE id = ?', [id]);
+        if (userToDelete.length > 0 && userToDelete[0].role === 'admin') {
+            return res.status(403).json({ error: 'The admin user cannot be deleted.' });
+        }
+        await userQuery('DELETE FROM users WHERE id = ?', [id]);
+        res.status(204).send();
+    } catch (err) {
+        console.error(chalk.red(`[${req.method} ${req.originalUrl}] Error deleting user:`), err.message);
+        next(err);
+    }
+});
 
 module.exports = router;

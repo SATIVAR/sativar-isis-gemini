@@ -188,6 +188,17 @@ export interface Conversation {
   is_closed: boolean;
 }
 
+// From hooks/useAuth.ts
+export type UserRole = 'admin' | 'user';
+
+export interface User {
+    id: string;
+    name: string;
+    whatsapp?: string;
+    role: UserRole;
+    // Password should not be part of the client-side type
+}
+
 
 // FIX: Add Vite client types to fix import.meta.env errors across the application.
 // This avoids the need for triple-slash directives in multiple files and provides type safety.

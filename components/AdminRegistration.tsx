@@ -1,13 +1,13 @@
 
+
 import React, { useState } from 'react';
 import { EyeIcon, EyeOffIcon } from './icons.tsx';
 import { useModal } from '../hooks/useModal.ts';
+import { useAuth } from '../hooks/useAuth.ts';
 
 interface AdminRegistrationProps {
   onRegistrationSuccess: () => void;
 }
-
-const ADMIN_STORAGE_KEY = 'sativar_isis_admin_credentials';
 
 export const AdminRegistration: React.FC<AdminRegistrationProps> = ({ onRegistrationSuccess }) => {
   const [username, setUsername] = useState('');
@@ -17,8 +17,9 @@ export const AdminRegistration: React.FC<AdminRegistrationProps> = ({ onRegistra
   const [isPasswordVisible, setIsPasswordVisible] = useState(false);
   const [isConfirmVisible, setIsConfirmVisible] = useState(false);
   const modal = useModal();
+  const auth = useAuth();
 
-  const handleRegister = (e: React.FormEvent) => {
+  const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     if (password !== confirmPassword) {
       setError('As senhas não coincidem.');
@@ -30,8 +31,7 @@ export const AdminRegistration: React.FC<AdminRegistrationProps> = ({ onRegistra
     }
 
     try {
-        const adminCredentials = { username, password };
-        localStorage.setItem(ADMIN_STORAGE_KEY, JSON.stringify(adminCredentials));
+        await auth.registerAdmin(username, password);
         setError('');
         modal.alert({
             title: 'Sucesso!',
@@ -39,7 +39,8 @@ export const AdminRegistration: React.FC<AdminRegistrationProps> = ({ onRegistra
         });
         onRegistrationSuccess();
     } catch (err) {
-        setError('Não foi possível salvar as credenciais. Verifique as permissões do navegador.');
+        const errorMessage = err instanceof Error ? err.message : 'Ocorreu um erro desconhecido.';
+        setError(`Não foi possível salvar as credenciais: ${errorMessage}`);
     }
   };
 
@@ -52,7 +53,7 @@ export const AdminRegistration: React.FC<AdminRegistrationProps> = ({ onRegistra
         <form onSubmit={handleRegister} className="space-y-6">
           <div>
             <label htmlFor="username" className="block text-sm font-medium text-gray-300 mb-2">
-              Usuário
+              Usuário (Nome de Login)
             </label>
             <input
               type="text"
@@ -61,6 +62,7 @@ export const AdminRegistration: React.FC<AdminRegistrationProps> = ({ onRegistra
               onChange={(e) => setUsername(e.target.value)}
               className="w-full bg-[#303134] border border-gray-600/50 text-white rounded-lg px-3 py-2 focus:ring-2 focus:ring-fuchsia-500 focus:border-fuchsia-500 outline-none transition"
               required
+              autoComplete="username"
             />
           </div>
           <div>
@@ -75,6 +77,7 @@ export const AdminRegistration: React.FC<AdminRegistrationProps> = ({ onRegistra
                   onChange={(e) => setPassword(e.target.value)}
                   className="w-full bg-[#303134] border border-gray-600/50 text-white rounded-lg px-3 py-2 focus:ring-2 focus:ring-fuchsia-500 focus:border-fuchsia-500 outline-none transition pr-10"
                   required
+                  autoComplete="new-password"
                 />
                 <button
                     type="button"
@@ -98,6 +101,7 @@ export const AdminRegistration: React.FC<AdminRegistrationProps> = ({ onRegistra
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   className="w-full bg-[#303134] border border-gray-600/50 text-white rounded-lg px-3 py-2 focus:ring-2 focus:ring-fuchsia-500 focus:border-fuchsia-500 outline-none transition pr-10"
                   required
+                  autoComplete="new-password"
                 />
                 <button
                     type="button"

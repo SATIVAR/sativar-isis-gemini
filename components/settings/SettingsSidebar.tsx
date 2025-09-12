@@ -2,8 +2,9 @@
 
 import React from 'react';
 import { DatabaseIcon, ServerIcon, StoreIcon, FileCodeIcon, LogOutIcon, UsersIcon, ClockIcon, BellIcon, BarChart2Icon } from '../icons.tsx';
+import type { UserRole } from '../../types.ts';
 
-export type SettingsPageName = 'association' | 'api' | 'products' | 'priceTable' | 'notifications' | 'advanced' | 'prompt' | 'apiHistory';
+export type SettingsPageName = 'association' | 'users' | 'api' | 'products' | 'priceTable' | 'notifications' | 'advanced' | 'prompt' | 'apiHistory';
 
 interface NavItemProps {
   pageName: SettingsPageName;
@@ -32,26 +33,30 @@ interface SettingsSidebarProps {
   currentPage: SettingsPageName;
   setCurrentPage: (page: SettingsPageName) => void;
   onLogout: () => void;
+  userRole: UserRole;
 }
 
-export const SettingsSidebar: React.FC<SettingsSidebarProps> = ({ currentPage, setCurrentPage, onLogout }) => {
-  const navItems: Array<{ page: SettingsPageName; label: string; icon: React.ReactNode; }> = [
-    { page: 'association', label: 'Associação', icon: <UsersIcon className="w-5 h-5" /> },
-    { page: 'api', label: 'Configuração da API', icon: <ServerIcon className="w-5 h-5" /> },
-    { page: 'products', label: 'Produtos', icon: <StoreIcon className="w-5 h-5" /> },
-    { page: 'priceTable', label: 'Tabela de Preços', icon: <BarChart2Icon className="w-5 h-5" /> },
-    { page: 'notifications', label: 'Notificações', icon: <BellIcon className="w-5 h-5" /> },
-    { page: 'advanced', label: 'Avançado', icon: <DatabaseIcon className="w-5 h-5" /> },
-    { page: 'apiHistory', label: 'Log de Chamadas', icon: <ClockIcon className="w-5 h-5" /> },
-    { page: 'prompt', label: 'Prompt do Sistema', icon: <FileCodeIcon className="w-5 h-5" /> },
+export const SettingsSidebar: React.FC<SettingsSidebarProps> = ({ currentPage, setCurrentPage, onLogout, userRole }) => {
+  const navItems: Array<{ page: SettingsPageName; label: string; icon: React.ReactNode; roles: UserRole[] }> = [
+    { page: 'association', label: 'Associação', icon: <UsersIcon className="w-5 h-5" />, roles: ['admin', 'user'] },
+    { page: 'users', label: 'Usuários do Sistema', icon: <UsersIcon className="w-5 h-5" />, roles: ['admin'] },
+    { page: 'api', label: 'Configuração da API', icon: <ServerIcon className="w-5 h-5" />, roles: ['admin'] },
+    { page: 'products', label: 'Produtos', icon: <StoreIcon className="w-5 h-5" />, roles: ['admin', 'user'] },
+    { page: 'priceTable', label: 'Tabela de Preços', icon: <BarChart2Icon className="w-5 h-5" />, roles: ['admin', 'user'] },
+    { page: 'notifications', label: 'Notificações', icon: <BellIcon className="w-5 h-5" />, roles: ['admin', 'user'] },
+    { page: 'advanced', label: 'Avançado', icon: <DatabaseIcon className="w-5 h-5" />, roles: ['admin'] },
+    { page: 'apiHistory', label: 'Log de Chamadas', icon: <ClockIcon className="w-5 h-5" />, roles: ['admin'] },
+    { page: 'prompt', label: 'Prompt do Sistema', icon: <FileCodeIcon className="w-5 h-5" />, roles: ['admin'] },
   ];
+
+  const visibleNavItems = navItems.filter(item => item.roles.includes(userRole));
 
   return (
     <aside className="w-full md:w-64 flex-shrink-0 bg-[#202124] rounded-xl border border-gray-700 p-4 flex flex-col justify-between">
         <div>
             <h2 className="text-lg font-bold text-white px-2 mb-4">Painel de Controle</h2>
             <nav className="space-y-1">
-            {navItems.map(item => (
+            {visibleNavItems.map(item => (
                 <NavItem
                 key={item.page}
                 pageName={item.page}

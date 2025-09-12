@@ -1,6 +1,7 @@
 // server/migration.js
 const { getDb } = require('./db');
 const { getChatDb } = require('./chatDb');
+const { getUserDb } = require('./userDb');
 const chalk = require('chalk');
 
 const MAIN_DB_MIGRATION_SQL = `
@@ -88,6 +89,30 @@ CREATE INDEX IF NOT EXISTS idx_messages_conversation_id ON messages(conversation
 CREATE INDEX IF NOT EXISTS idx_conversations_updated_at ON conversations(updated_at);
 `;
 
+const USER_DB_MIGRATION_SQL = `
+PRAGMA foreign_keys = ON;
+
+CREATE TABLE IF NOT EXISTS users (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL UNIQUE,
+  whatsapp TEXT,
+  role TEXT NOT NULL CHECK(role IN ('admin', 'user')),
+  password TEXT NOT NULL,
+  created_at TEXT DEFAULT (datetime('now', 'localtime')),
+  updated_at TEXT DEFAULT (datetime('now', 'localtime'))
+);
+
+CREATE TRIGGER IF NOT EXISTS users_update_trigger
+AFTER UPDATE ON users
+FOR EACH ROW
+BEGIN
+  UPDATE users SET updated_at = datetime('now', 'localtime') WHERE id = OLD.id;
+END;
+
+CREATE INDEX IF NOT EXISTS idx_users_name ON users(name);
+CREATE INDEX IF NOT EXISTS idx_users_role ON users(role);
+`;
+
 
 const runMigrations = async () => {
   try {
@@ -100,6 +125,11 @@ const runMigrations = async () => {
     console.log(chalk.cyan('[Migration] Running CHAT database migrations for SQLite...'));
     chatDb.exec(CHAT_DB_MIGRATION_SQL);
     console.log(chalk.cyan('✅ CHAT Database migration completed successfully.'));
+
+    const userDb = getUserDb();
+    console.log(chalk.yellow('[Migration] Running USER database migrations for SQLite...'));
+    userDb.exec(USER_DB_MIGRATION_SQL);
+    console.log(chalk.yellow('✅ USER Database migration completed successfully.'));
 
   } catch (error) {
     console.error(chalk.red('❌ An error occurred during database migration.'));
