@@ -490,7 +490,7 @@ export const RemindersList: React.FC<{ onClose: () => void }> = ({ onClose }) =>
             {editingReminder && <ReminderModal reminder={editingReminder} onClose={() => setEditingReminder(null)} />}
             {isAddModalOpen && <ReminderModal onClose={() => setIsAddModalOpen(false)} />}
             <div 
-                className="fixed inset-0 z-50 overflow-y-auto bg-[#131314] md:absolute md:inset-auto md:right-0 md:top-14 md:mt-2 md:w-[420px] md:max-h-[80vh] md:rounded-xl md:border md:border-gray-700 md:shadow-2xl md:bg-[#202124] md:z-20"
+                className="fixed inset-0 z-40 overflow-y-auto bg-[#131314] md:absolute md:inset-auto md:right-0 md:top-14 md:mt-2 md:w-[420px] md:max-h-[80vh] md:rounded-xl md:border md:border-gray-700 md:shadow-2xl md:bg-[#202124] md:z-20"
                 role="dialog"
             >
                 <div className="p-4 border-b border-gray-700 flex justify-between items-center sticky top-0 bg-[#202124]/80 backdrop-blur-sm z-10">
