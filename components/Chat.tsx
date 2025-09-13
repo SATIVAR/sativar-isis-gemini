@@ -478,57 +478,30 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({ message, onAction, proces
     );
 };
 
-const ChatInput: React.FC<{
-    onSend: (data: { text: string; file: File | null }) => void;
+interface ChatInputProps {
+    text: string;
+    onTextChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+    file: File | null;
+    onFileChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+    onFileRemove: () => void;
+    onSend: () => void;
     isLoading: boolean;
     disabled: boolean;
     disabledReason: string;
     loadingAction: 'file' | 'text' | null;
-}> = ({ onSend, isLoading, disabled, disabledReason, loadingAction }) => {
-    const [text, setText] = useState('');
-    const [file, setFile] = useState<File | null>(null);
+}
+
+
+const ChatInput: React.FC<ChatInputProps> = ({ 
+    text, onTextChange, file, onFileChange, onFileRemove, onSend, 
+    isLoading, disabled, disabledReason, loadingAction 
+}) => {
     const fileInputRef = useRef<HTMLInputElement>(null);
-
-    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (e.target.files && e.target.files.length > 0) {
-            setFile(e.target.files[0]);
-            // Allow sending a file without text
-            if (text.trim() === '') {
-                setText(e.target.files[0].name);
-            }
-        }
-    };
-
-    const handleSend = () => {
-        if (disabled || isLoading || (!file && !text.trim())) return;
-
-        // If the text is just the filename, we only send the file.
-        const textToSend = file && text === file.name ? '' : text;
-
-        onSend({ text: textToSend, file });
-        setText('');
-        setFile(null);
-        if (fileInputRef.current) {
-            fileInputRef.current.value = "";
-        }
-    };
 
     const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
         if (e.key === 'Enter' && !e.shiftKey) {
             e.preventDefault();
-            handleSend();
-        }
-    };
-
-    const handleRemoveFile = () => {
-        setFile(null);
-        // If the text input only contains the filename, clear it.
-        // Otherwise, keep the user-typed text.
-        if (file && text === file.name) {
-            setText('');
-        }
-        if (fileInputRef.current) {
-            fileInputRef.current.value = "";
+            onSend();
         }
     };
     
@@ -536,7 +509,7 @@ const ChatInput: React.FC<{
         ? (loadingAction === 'file' ? 'Analisando receita...' : 'Processando sua solicitação...')
         : disabled
             ? disabledReason
-            : (file ? file.name : "Digite uma mensagem ou anexe uma receita...");
+            : (file ? file.name : "Cole uma imagem ou digite uma mensagem...");
 
     return (
         <div className="mx-auto w-full max-w-4xl">
@@ -559,13 +532,13 @@ const ChatInput: React.FC<{
                     type="file"
                     className="hidden"
                     accept="image/*,application/pdf"
-                    onChange={handleFileChange}
+                    onChange={onFileChange}
                     disabled={isLoading || disabled}
                 />
                 <input
                     type="text"
                     value={text}
-                    onChange={(e) => setText(e.target.value)}
+                    onChange={onTextChange}
                     onKeyDown={handleKeyDown}
                     placeholder={placeholder}
                     className="flex-grow bg-transparent px-2 text-sm text-gray-200 placeholder-gray-400 focus:outline-none"
@@ -573,7 +546,7 @@ const ChatInput: React.FC<{
                 />
                  {file && !isLoading && (
                     <button
-                        onClick={handleRemoveFile}
+                        onClick={onFileRemove}
                         className="p-1 rounded-full text-gray-400 hover:bg-gray-700 hover:text-white transition-colors"
                         aria-label="Remover arquivo anexo"
                         title="Remover arquivo"
@@ -582,7 +555,7 @@ const ChatInput: React.FC<{
                     </button>
                 )}
                 <button
-                    onClick={handleSend}
+                    onClick={onSend}
                     disabled={(!file && !text.trim()) || isLoading || disabled}
                     className="rounded-full p-2 transition-colors bg-gray-700 hover:bg-brand-primary disabled:bg-gray-600 disabled:cursor-not-allowed"
                     aria-label="Send message"
@@ -618,20 +591,79 @@ export const Chat: React.FC<ChatProps> = ({
     onOpenFilePreview,
 }) => {
     const chatEndRef = useRef<HTMLDivElement | null>(null);
+    const [text, setText] = useState('');
+    const [file, setFile] = useState<File | null>(null);
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => {
-        // A zero-delay timeout pushes the scroll operation to the end of the event queue,
-        // ensuring it runs after the browser has finished rendering the new message.
-        // This makes the scroll more reliable, especially for large messages like quotes.
         const timer = setTimeout(() => {
             chatEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
         }, 0);
         return () => clearTimeout(timer);
     }, [messages]);
 
+    const handleTextChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        setText(e.target.value);
+    };
+
+    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (e.target.files && e.target.files.length > 0) {
+            const selectedFile = e.target.files[0];
+            setFile(selectedFile);
+            if (text.trim() === '') {
+                setText(selectedFile.name);
+            }
+        }
+    };
+    
+    const handleRemoveFile = () => {
+        if (file && text === file.name) {
+            setText('');
+        }
+        setFile(null);
+        if (fileInputRef.current) {
+            fileInputRef.current.value = "";
+        }
+    };
+
+    const handleSendInternal = () => {
+        if ((!file && !text.trim()) || isLoading || disabled) return;
+        const textToSend = file && text === file.name ? '' : text;
+        onSend({ text: textToSend, file });
+        setText('');
+        setFile(null);
+        if (fileInputRef.current) {
+            fileInputRef.current.value = "";
+        }
+    };
+    
+    const handlePaste = (event: React.ClipboardEvent<HTMLDivElement>) => {
+        if (disabled || isLoading) return;
+
+        const items = event.clipboardData.items;
+        for (let i = 0; i < items.length; i++) {
+            if (items[i].kind === 'file' && items[i].type.startsWith('image/')) {
+                const imageFile = items[i].getAsFile();
+                if (imageFile) {
+                    const timestamp = new Date().toISOString().replace(/[-:.]/g, '');
+                    const fileExtension = imageFile.type.split('/')[1] || 'png';
+                    const newFileName = `Pasted_Image_${timestamp}.${fileExtension}`;
+                    const renamedFile = new File([imageFile], newFileName, { type: imageFile.type });
+
+                    setFile(renamedFile);
+                    if (text.trim() === '') {
+                        setText(renamedFile.name);
+                    }
+                    event.preventDefault();
+                    return;
+                }
+            }
+        }
+    };
+
     return (
         <>
-            <div className="flex-grow space-y-6 overflow-y-auto p-4 md:p-6">
+            <div className="flex-grow space-y-6 overflow-y-auto p-4 md:p-6" onPaste={handlePaste}>
                  {messages.map((msg) => (
                     <MessageBubble 
                         key={msg.id} 
@@ -647,8 +679,13 @@ export const Chat: React.FC<ChatProps> = ({
             
             <div className="flex-shrink-0 border-t border-gray-700/50 bg-[#131314] p-4">
                 <ChatInput 
-                    onSend={onSend} 
-                    isLoading={isLoading} 
+                    text={text}
+                    onTextChange={handleTextChange}
+                    file={file}
+                    onFileChange={handleFileChange}
+                    onFileRemove={handleRemoveFile}
+                    onSend={handleSendInternal}
+                    isLoading={isLoading}
                     disabled={disabled} 
                     disabledReason={disabledReason}
                     loadingAction={loadingAction}

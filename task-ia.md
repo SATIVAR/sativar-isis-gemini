@@ -1,40 +1,18 @@
-Baseado no seu stack tecnológico (React, Node.js, Express) e na arquitetura já existente do SATIVAR - Isis, aqui está uma explicação técnica e conceitual de como implementar a funcionalidade de preservação de histórico para 5 janelas de chat usando um segundo banco de dados SQLite.
-Estratégia Técnica para Persistência de Histórico de Chat com SQLite
-A sua abordagem de utilizar um banco de dados SQLite separado para o histórico de chats é excelente, pois isola os dados transacionais (conversas) dos dados de configuração da aplicação. Isso melhora a organização, a performance e a manutenibilidade do sistema.
-A implementação pode ser dividida em duas áreas principais: Backend (Node.js/Express) e Frontend (React.js).
-1. Arquitetura do Backend (Node.js / Express)
-O backend será responsável por toda a lógica de gerenciamento dos bancos de dados e da regra de negócio para a preservação dos chats.
-a) Gerenciamento de Conexão com o Segundo Banco de Dados:
-No seu arquivo de inicialização do servidor (index.js, conforme o log), você já possui uma rotina que se conecta ao banco sativar_isis.db. Essa lógica será replicada para o novo banco de dados.
-Criação de uma Nova Instância: Você criará uma segunda instância de conexão SQLite que apontará para um novo arquivo, por exemplo, sativar_isis_chats.db. Ambas as conexões coexistirão e serão gerenciadas de forma independente no servidor. A conexão principal cuidará das configurações (como visto nas telas de "Configurações Avançadas" e "Configuração da Associação"), enquanto a nova conexão será dedicada exclusivamente às operações de chat.
-Modelo de Dados (Schema): O novo banco sativar_isis_chats.db precisará de uma estrutura mínima para armazenar as conversas. Duas tabelas são essenciais:
-Tabela conversations: Para armazenar cada sessão de chat individual. As colunas principais seriam:
-id: Identificador único da conversa.
-title: Um título para a conversa (ex: "Análise Receita - Paciente X").
-created_at: Data e hora de criação, crucial para identificar qual é a conversa mais antiga.
-Tabela messages: Para armazenar cada mensagem dentro de uma conversa.
-id: Identificador único da mensagem.
-conversation_id: Chave estrangeira que referencia a tabela conversations.
-sender: Identifica quem enviou a mensagem ('user' ou 'isis').
-content: O texto da mensagem.
-timestamp: Data e hora de envio da mensagem.
-b) Implementação da Lógica de Rotação de Chats (FIFO - First-In, First-Out):
-Este é o núcleo da regra de negócio para manter apenas 5 históricos.
-Gatilho da Lógica: A verificação deve ocorrer no momento em que uma nova conversa é iniciada pelo usuário.
-Fluxo de Execução:
-Quando a API recebe uma requisição para iniciar uma nova conversa, o backend primeiro executa uma consulta na tabela conversations para contar o número total de registros.
-Se a contagem for 5, o sistema identificará a conversa mais antiga consultando o registro com o valor mais antigo na coluna created_at.
-Antes de criar a nova conversa, o backend executará um comando DELETE para remover a conversa mais antiga e todas as suas mensagens associadas (utilizando ON DELETE CASCADE na definição da chave estrangeira para eficiência).
-Finalmente, a nova conversa é inserida na tabela conversations, garantindo que o limite de 5 históricos seja sempre mantido.
-2. Integração com o Frontend (React.js)
-O frontend será a interface onde o usuário interage com esses históricos persistentes.
-API Endpoints: O backend precisará expor novos endpoints para o frontend consumir, como:
-GET /api/chats: Para buscar a lista das até 5 conversas existentes e popular a interface.
-GET /api/chats/:id: Para buscar todas as mensagens de uma conversa específica quando o usuário a seleciona.
-POST /api/chats: Para iniciar uma nova conversa (o que dispara a lógica de rotação no backend).
-POST /api/chats/:id/messages: Para adicionar uma nova mensagem a uma conversa existente.
-Gerenciamento de Estado: O React precisará gerenciar o estado das conversas. Ao iniciar o aplicativo, uma chamada à API (GET /api/chats) trará os históricos disponíveis. Eles poderiam ser exibidos em uma barra lateral ou um menu, permitindo ao usuário selecionar e retomar interações passadas.
-Componentização da Interface:
-Um componente ChatList poderia exibir os títulos das conversas salvas.
-O componente principal ChatWindow exibiria as mensagens da conversa atualmente selecionada. Ele seria populado dinamicamente com os dados recebidos da API ao se clicar em um item do ChatList.
-Essa estrutura garante que a lógica pesada de manipulação de dados fique no servidor, enquanto o React se concentra em apresentar os dados de forma reativa e eficiente para o usuário, aproveitando a arquitetura já estabelecida da SATIVAR - Isis.
+Para simular a funcionalidade de colar imagens da área de transferência em um aplicativo de chat desenvolvido com React.js e TypeScript, é necessário interagir com as APIs do navegador que gerenciam a área de transferência e manipulam arquivos. A experiência do usuário, tanto no desktop (usando Ctrl+V) quanto no mobile (usando a opção "colar"), pode ser unificada através de um tratamento de eventos específico no seu componente de chat.
+Mecanismo de Captura e Processamento da Imagem
+O processo se baseia em capturar o evento de "colar" que ocorre no seu aplicativo. Quando um usuário cola um conteúdo, o navegador dispara um evento que pode ser interceptado pelo JavaScript.[1] Este evento carrega os dados que estão na área de transferência, permitindo que a aplicação os inspecione e processe.[2]
+Em um ambiente React, você associaria um manipulador de eventos onPaste a um elemento específico, como a caixa de entrada de texto do chat ou até mesmo um contêiner que envolve a área de conversa para criar uma "zona de colagem".[1]
+Interagindo com a API da Área de Transferência (Clipboard API)
+Quando o evento onPaste é acionado, ele provê acesso a um objeto clipboardData que contém os itens da área de transferência.[2] Este objeto é a chave para acessar a imagem. A propriedade files do clipboardData é uma lista de arquivos que foram colados.[2]
+A sua aplicação precisa então iterar por esta lista de arquivos e verificar o tipo de cada um (MIME type). Por exemplo, você pode querer permitir apenas tipos como image/png, image/jpeg, etc.
+Uma vez que um arquivo de imagem é identificado, ele está disponível como um objeto do tipo File, que é uma extensão do tipo Blob. Este objeto Blob representa os dados brutos da imagem em um formato que pode ser manipulado pelo JavaScript.
+Exibindo a Imagem no Chat
+Para exibir a imagem na interface do chat antes do envio (como uma pré-visualização), é necessário converter o Blob da imagem em um formato que possa ser usado como src de uma tag <img>. Isso é feito através do método URL.createObjectURL(), que gera uma URL temporária para o objeto Blob.[3] Esta URL é única e existe apenas durante a sessão da página no navegador.
+Armazenamento no LocalStorage em Dispositivos Móveis
+A experiência no mobile, embora o gesto seja diferente (toque longo e a opção de colar), o mecanismo subjacente do navegador para o evento de "colar" é o mesmo. O mesmo manipulador de eventos onPaste irá capturar a imagem.
+Para armazenar a imagem no localStorage, você precisa converter o Blob da imagem para um formato de texto, pois o localStorage só armazena strings. A abordagem padrão é usar a API FileReader para ler o conteúdo do Blob como uma string Base64. O método readAsDataURL() do FileReader é ideal para isso.
+Após a conversão, a string Base64 resultante (que representa a imagem) pode ser salva no localStorage associada a uma chave. É importante notar que o localStorage tem um limite de armazenamento (geralmente em torno de 5MB), então esta abordagem é mais adequada para imagens de tamanho pequeno a médio.
+Considerações Técnicas Adicionais
+Permissões da API de Área de Transferência: Navegadores modernos podem solicitar permissão do usuário para acessar o conteúdo da área de transferência por motivos de segurança, especialmente ao ler dados programaticamente sem um evento de "colar" direto.[3]
+Compatibilidade de Navegadores: Embora a funcionalidade principal seja bem suportada, a implementação exata da API de Área de Transferência pode ter pequenas variações entre os navegadores. É crucial testar o comportamento em diferentes ambientes.
+Experiência do Usuário: É importante fornecer feedback visual ao usuário, como um indicador de carregamento enquanto a imagem está sendo processada e exibida, e uma maneira de remover a imagem antes de enviar a mensagem.
