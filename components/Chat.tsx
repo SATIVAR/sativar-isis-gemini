@@ -1,10 +1,81 @@
-import React, { useState, useRef, useEffect } from 'react';
+// FIX: Import useState and useEffect from React to resolve multiple hook-related errors.
+import React, { useRef, useState, useEffect } from 'react';
+import { PlusIcon, SendIcon, XCircleIcon } from './icons.tsx';
+import { Loader } from './Loader.tsx';
+
+interface ChatInputProps {
+    text: string;
+    onTextChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+    onAttachClick: () => void;
+    onSend: () => void;
+    isLoading: boolean;
+    disabled: boolean;
+    disabledReason: string;
+    loadingAction: 'file' | 'text' | null;
+}
+
+
+const ChatInput: React.FC<ChatInputProps> = ({ 
+    text, onTextChange, onAttachClick, onSend, 
+    isLoading, disabled, disabledReason, loadingAction 
+}) => {
+    const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            onSend();
+        }
+    };
+    
+    const placeholder = isLoading
+        ? (loadingAction === 'file' ? 'Analisando receita...' : 'Processando sua solicitação...')
+        : disabled
+            ? disabledReason
+            : "Cole uma imagem ou digite uma mensagem...";
+
+    return (
+        <div className="mx-auto w-full max-w-4xl">
+            <div className="flex items-center gap-2 rounded-xl bg-[#303134] p-2">
+                <button
+                    onClick={onAttachClick}
+                    className="flex h-10 w-10 items-center justify-center rounded-full p-2 transition-colors hover:bg-gray-700 disabled:cursor-not-allowed disabled:opacity-50"
+                    disabled={isLoading || disabled}
+                    aria-label="Anexar arquivo"
+                    title={disabled ? disabledReason : "Anexar arquivo"}
+                >
+                    {isLoading && loadingAction === 'file' ? (
+                        <Loader />
+                    ) : (
+                        <PlusIcon className="h-6 w-6 text-gray-400" />
+                    )}
+                </button>
+                <input
+                    type="text"
+                    value={text}
+                    onChange={onTextChange}
+                    onKeyDown={handleKeyDown}
+                    placeholder={placeholder}
+                    className="flex-grow bg-transparent px-2 text-sm text-gray-200 placeholder-gray-400 focus:outline-none"
+                    disabled={isLoading || disabled}
+                />
+                <button
+                    onClick={onSend}
+                    disabled={!text.trim() || isLoading || disabled}
+                    className="rounded-full p-2 transition-colors bg-gray-700 hover:bg-brand-primary disabled:bg-gray-600 disabled:cursor-not-allowed"
+                    aria-label="Enviar mensagem"
+                >
+                    <SendIcon className="h-5 w-5 text-white" />
+                </button>
+            </div>
+        </div>
+    );
+};
+
+// Keep original code below for context
 import { jsPDF } from 'jspdf';
 import { useSettings } from '../hooks/useSettings.ts';
 import { useReminders } from '../hooks/useReminders.ts';
-import type { ChatMessage, QuoteResult, MessageContent, SativarUser } from '../types.ts';
-import { AlertTriangleIcon, ClipboardCheckIcon, ClipboardIcon, DownloadIcon, PlusIcon, SendIcon, UserIcon, BellIcon, RefreshCwIcon, CheckIcon, CalendarIcon, XCircleIcon } from './icons.tsx';
-import { Loader } from './Loader.tsx';
+import type { ChatMessage, QuoteResult, MessageContent } from '../types.ts';
+import { AlertTriangleIcon, ClipboardCheckIcon, ClipboardIcon, DownloadIcon, UserIcon, BellIcon, CalendarIcon } from './icons.tsx';
 import { ReminderModal } from './Reminders.tsx';
 import { TypingIndicator } from './TypingIndicator.tsx';
 import { ProductSearch } from './ProductSearch.tsx';
@@ -330,12 +401,11 @@ interface MessageBubbleProps {
     message: ChatMessage;
     onAction: (messageId: string, payload: string) => void;
     processingAction: { messageId: string; payload: string; text?: string } | null;
-    loadingAction: 'file' | 'text' | null;
     onOpenFilePreview: (file: { url: string; type: string; name: string }) => void;
 }
 
 
-const MessageBubble: React.FC<MessageBubbleProps> = ({ message, onAction, processingAction, loadingAction, onOpenFilePreview }) => {
+const MessageBubble: React.FC<MessageBubbleProps> = ({ message, onAction, processingAction, onOpenFilePreview }) => {
     const [copied, setCopied] = useState(false);
 
     const handleCopy = (textToCopy: string) => {
@@ -457,12 +527,7 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({ message, onAction, proces
                         </button>
                     )}
                     {isUserActionCompleteText ? (
-                        <div className="flex items-end gap-1.5">
-                            <div className={canBeCopied ? 'pr-8' : ''}>
-                               {renderContent(message.content)}
-                            </div>
-                            <CheckIcon className="w-4 h-4 text-white/70 flex-shrink-0 mb-0.5"><title>Ação concluída</title></CheckIcon>
-                        </div>
+                         <p className="whitespace-pre-wrap pr-4">{renderContent(message.content)}</p>
                     ) : (
                         <div className={canBeCopied ? 'pr-8' : ''}>
                             {renderContent(message.content)}
@@ -478,94 +543,6 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({ message, onAction, proces
     );
 };
 
-interface ChatInputProps {
-    text: string;
-    onTextChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
-    file: File | null;
-    onFileChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
-    onFileRemove: () => void;
-    onSend: () => void;
-    isLoading: boolean;
-    disabled: boolean;
-    disabledReason: string;
-    loadingAction: 'file' | 'text' | null;
-}
-
-
-const ChatInput: React.FC<ChatInputProps> = ({ 
-    text, onTextChange, file, onFileChange, onFileRemove, onSend, 
-    isLoading, disabled, disabledReason, loadingAction 
-}) => {
-    const fileInputRef = useRef<HTMLInputElement>(null);
-
-    const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-        if (e.key === 'Enter' && !e.shiftKey) {
-            e.preventDefault();
-            onSend();
-        }
-    };
-    
-    const placeholder = isLoading
-        ? (loadingAction === 'file' ? 'Analisando receita...' : 'Processando sua solicitação...')
-        : disabled
-            ? disabledReason
-            : (file ? file.name : "Cole uma imagem ou digite uma mensagem...");
-
-    return (
-        <div className="mx-auto w-full max-w-4xl">
-            <div className="flex items-center gap-2 rounded-xl bg-[#303134] p-2">
-                <button
-                    onClick={() => fileInputRef.current?.click()}
-                    className="flex h-10 w-10 items-center justify-center rounded-full p-2 transition-colors hover:bg-gray-700 disabled:cursor-not-allowed disabled:opacity-50"
-                    disabled={isLoading || disabled}
-                    aria-label="Attach file"
-                    title={disabled ? disabledReason : "Anexar arquivo"}
-                >
-                    {isLoading && loadingAction === 'file' ? (
-                        <Loader />
-                    ) : (
-                        <PlusIcon className="h-6 w-6 text-gray-400" />
-                    )}
-                </button>
-                <input
-                    ref={fileInputRef}
-                    type="file"
-                    className="hidden"
-                    accept="image/*,application/pdf"
-                    onChange={onFileChange}
-                    disabled={isLoading || disabled}
-                />
-                <input
-                    type="text"
-                    value={text}
-                    onChange={onTextChange}
-                    onKeyDown={handleKeyDown}
-                    placeholder={placeholder}
-                    className="flex-grow bg-transparent px-2 text-sm text-gray-200 placeholder-gray-400 focus:outline-none"
-                    disabled={isLoading || disabled}
-                />
-                 {file && !isLoading && (
-                    <button
-                        onClick={onFileRemove}
-                        className="p-1 rounded-full text-gray-400 hover:bg-gray-700 hover:text-white transition-colors"
-                        aria-label="Remover arquivo anexo"
-                        title="Remover arquivo"
-                    >
-                        <XCircleIcon className="w-5 h-5" />
-                    </button>
-                )}
-                <button
-                    onClick={onSend}
-                    disabled={(!file && !text.trim()) || isLoading || disabled}
-                    className="rounded-full p-2 transition-colors bg-gray-700 hover:bg-brand-primary disabled:bg-gray-600 disabled:cursor-not-allowed"
-                    aria-label="Send message"
-                >
-                    <SendIcon className="h-5 w-5 text-white" />
-                </button>
-            </div>
-        </div>
-    );
-};
 
 interface ChatProps {
     messages: ChatMessage[];
@@ -592,7 +569,6 @@ export const Chat: React.FC<ChatProps> = ({
 }) => {
     const chatEndRef = useRef<HTMLDivElement | null>(null);
     const [text, setText] = useState('');
-    const [file, setFile] = useState<File | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => {
@@ -609,32 +585,16 @@ export const Chat: React.FC<ChatProps> = ({
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files.length > 0) {
             const selectedFile = e.target.files[0];
-            setFile(selectedFile);
-            if (text.trim() === '') {
-                setText(selectedFile.name);
-            }
+            onSend({ text: '', file: selectedFile });
         }
-    };
-    
-    const handleRemoveFile = () => {
-        if (file && text === file.name) {
-            setText('');
-        }
-        setFile(null);
-        if (fileInputRef.current) {
-            fileInputRef.current.value = "";
-        }
+        // Reset the input value to allow selecting the same file again
+        if (e.target) e.target.value = '';
     };
 
     const handleSendInternal = () => {
-        if ((!file && !text.trim()) || isLoading || disabled) return;
-        const textToSend = file && text === file.name ? '' : text;
-        onSend({ text: textToSend, file });
+        if (!text.trim() || isLoading || disabled) return;
+        onSend({ text, file: null });
         setText('');
-        setFile(null);
-        if (fileInputRef.current) {
-            fileInputRef.current.value = "";
-        }
     };
     
     const handlePaste = (event: React.ClipboardEvent<HTMLDivElement>) => {
@@ -650,27 +610,35 @@ export const Chat: React.FC<ChatProps> = ({
                     const newFileName = `Pasted_Image_${timestamp}.${fileExtension}`;
                     const renamedFile = new File([imageFile], newFileName, { type: imageFile.type });
 
-                    setFile(renamedFile);
-                    if (text.trim() === '') {
-                        setText(renamedFile.name);
-                    }
+                    onSend({ text: '', file: renamedFile });
                     event.preventDefault();
                     return;
                 }
             }
         }
     };
+    
+    const handleAttachClick = () => {
+        fileInputRef.current?.click();
+    };
 
     return (
         <>
             <div className="flex-grow space-y-6 overflow-y-auto p-4 md:p-6" onPaste={handlePaste}>
+                 <input
+                    ref={fileInputRef}
+                    type="file"
+                    className="hidden"
+                    accept="image/*,application/pdf"
+                    onChange={handleFileChange}
+                    disabled={isLoading || disabled}
+                />
                  {messages.map((msg) => (
                     <MessageBubble 
                         key={msg.id} 
                         message={msg} 
                         onAction={onAction} 
                         processingAction={processingAction} 
-                        loadingAction={loadingAction}
                         onOpenFilePreview={onOpenFilePreview}
                     />
                 ))}
@@ -681,9 +649,7 @@ export const Chat: React.FC<ChatProps> = ({
                 <ChatInput 
                     text={text}
                     onTextChange={handleTextChange}
-                    file={file}
-                    onFileChange={handleFileChange}
-                    onFileRemove={handleRemoveFile}
+                    onAttachClick={handleAttachClick}
                     onSend={handleSendInternal}
                     isLoading={isLoading}
                     disabled={disabled} 

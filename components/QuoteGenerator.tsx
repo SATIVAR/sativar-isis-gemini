@@ -1,8 +1,8 @@
-import React, { useState, useCallback, useEffect, useRef } from 'react';
+import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { useSettings } from '../hooks/useSettings.ts';
 import { processPrescription, pingAI, isApiKeyConfigured, generateHighlight, generateConversationTitle } from '../services/geminiService.ts';
 import type { ChatMessage } from '../types.ts';
-import { AlertTriangleIcon, XCircleIcon, ServerIcon } from './icons.tsx';
+import { AlertTriangleIcon, XCircleIcon, ServerIcon, CheckIcon } from './icons.tsx';
 import { Chat } from './Chat.tsx';
 import { useChatHistory } from '../hooks/useChatHistory.ts';
 import { ChatHistoryTabs } from './ChatHistoryTabs.tsx';
@@ -11,31 +11,70 @@ import { useAuth } from '../hooks/useAuth.ts';
 import { AdminLogin } from './AdminLogin.tsx';
 import { AdminRegistration } from './AdminRegistration.tsx';
 
-const FilePreviewModal: React.FC<{
-    file: { url: string; type: string; name: string };
+interface FilePreviewModalProps {
+    file: File | { url: string; type: string; name: string };
     onClose: () => void;
-}> = ({ file, onClose }) => {
+    onConfirm?: () => void;
+    isConfirmation?: boolean;
+}
+
+
+const FilePreviewModal: React.FC<FilePreviewModalProps> = ({ file, onClose, onConfirm, isConfirmation }) => {
+     // Create a consistent file detail object, managing object URLs internally
+    const fileDetails = useMemo(() => {
+        if (file instanceof File) {
+            return {
+                url: URL.createObjectURL(file),
+                type: file.type,
+                name: file.name,
+                isObjectURL: true
+            };
+        }
+        // For files already in chat history, the URL might be an object URL or a permanent one
+        return { ...file, isObjectURL: file.url.startsWith('blob:') };
+    }, [file]);
+
+    // Effect to clean up the object URL when the component unmounts
+    useEffect(() => {
+        return () => {
+            if (fileDetails.isObjectURL) {
+                URL.revokeObjectURL(fileDetails.url);
+            }
+        };
+    }, [fileDetails]);
+
     return (
         <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4" onClick={onClose} role="dialog" aria-modal="true" aria-labelledby="file-preview-title">
             <div className="bg-[#202124] rounded-xl border border-gray-700 w-full max-w-4xl h-[90vh] flex flex-col shadow-2xl" onClick={e => e.stopPropagation()}>
                 <div className="flex-shrink-0 p-3 border-b border-gray-700 flex justify-between items-center">
-                    <p id="file-preview-title" className="text-white font-semibold truncate">{file.name}</p>
+                    <p id="file-preview-title" className="text-white font-semibold truncate">{fileDetails.name}</p>
                     <button onClick={onClose} className="p-1 rounded-full text-gray-400 hover:bg-gray-700 hover:text-white" aria-label="Fechar visualização">
                         <XCircleIcon className="w-6 h-6"/>
                     </button>
                 </div>
                 <div className="flex-grow p-2 overflow-auto flex items-center justify-center">
-                    {file.type.startsWith('image/') ? (
-                        <img src={file.url} alt={`Visualização de ${file.name}`} className="max-w-full max-h-full object-contain" />
-                    ) : file.type === 'application/pdf' ? (
-                        <iframe src={file.url} className="w-full h-full border-0" title={file.name} />
+                    {fileDetails.type.startsWith('image/') ? (
+                        <img src={fileDetails.url} alt={`Visualização de ${fileDetails.name}`} className="max-w-full max-h-full object-contain" />
+                    ) : fileDetails.type === 'application/pdf' ? (
+                        <iframe src={fileDetails.url} className="w-full h-full border-0" title={fileDetails.name} />
                     ) : (
                         <div className="text-center text-gray-400 p-10">
                             <p>Visualização não disponível para este tipo de arquivo.</p>
-                            <a href={file.url} download={file.name} className="mt-4 inline-block text-fuchsia-400 underline">Baixar arquivo</a>
+                            <a href={fileDetails.url} download={fileDetails.name} className="mt-4 inline-block text-fuchsia-400 underline">Baixar arquivo</a>
                         </div>
                     )}
                 </div>
+                {isConfirmation && (
+                    <div className="flex-shrink-0 p-4 border-t border-gray-700/50 flex justify-end gap-3 bg-[#303134]/30 rounded-b-xl">
+                        <button onClick={onClose} className="px-5 py-2 bg-gray-700 text-sm text-gray-300 font-medium rounded-lg hover:bg-gray-600 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-900 focus:ring-gray-500">
+                            Cancelar
+                        </button>
+                        <button onClick={onConfirm} className="flex items-center gap-2 px-5 py-2 bg-green-600 text-white font-semibold text-sm rounded-lg shadow-md hover:bg-green-700 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-900 focus:ring-green-500">
+                            <CheckIcon className="w-5 h-5" />
+                            Confirmar e Analisar
+                        </button>
+                    </div>
+                )}
             </div>
         </div>
     );
@@ -62,7 +101,11 @@ export const QuoteGenerator: React.FC<QuoteGeneratorProps> = ({ isMobileHistoryO
     const [showSettingsWarning, setShowSettingsWarning] = useState(false);
     const [wpConfigMissing, setWpConfigMissing] = useState(false);
     const [processingAction, setProcessingAction] = useState<{ messageId: string; payload: string; text?: string } | null>(null);
+    
+    // State for file previews
     const [previewFile, setPreviewFile] = useState<{ url: string; type: string; name: string } | null>(null);
+    const [pendingAnalysisFile, setPendingAnalysisFile] = useState<File | null>(null);
+    
     const objectUrls = useRef<string[]>([]);
     
     const apiKeyMissing = !isApiKeyConfigured();
@@ -192,7 +235,7 @@ export const QuoteGenerator: React.FC<QuoteGeneratorProps> = ({ isMobileHistoryO
 
     }, [messages, settings, addMessage, setMessages]);
 
-    const handleSendFile = useCallback(async (file: File) => {
+    const runFileAnalysis = useCallback(async (file: File) => {
         if (showSettingsWarning || apiKeyMissing || wpConfigMissing) return;
 
         const fileURL = URL.createObjectURL(file);
@@ -253,11 +296,19 @@ export const QuoteGenerator: React.FC<QuoteGeneratorProps> = ({ isMobileHistoryO
     
     const handleSend = useCallback(async ({ text, file }: { text: string; file: File | null }) => {
         if (file) {
-            await handleSendFile(file);
+            // Instead of analyzing immediately, set the file to be confirmed via modal.
+            setPendingAnalysisFile(file);
         } else if (text.trim()) {
             await handleSendText(text);
         }
-    }, [handleSendFile, handleSendText]);
+    }, [handleSendText]);
+
+    const handleConfirmAndAnalyze = async () => {
+        if (pendingAnalysisFile) {
+            await runFileAnalysis(pendingAnalysisFile);
+        }
+        setPendingAnalysisFile(null); // Close the modal
+    };
     
     const handleOpenFilePreview = (file: { url: string; type: string; name: string }) => {
         setPreviewFile(file);
@@ -308,8 +359,21 @@ export const QuoteGenerator: React.FC<QuoteGeneratorProps> = ({ isMobileHistoryO
 
     return (
         <div className="flex h-full flex-row overflow-hidden">
+            {/* Modal for viewing files already in chat history */}
             {previewFile && (
-                <FilePreviewModal file={previewFile} onClose={() => setPreviewFile(null)} />
+                <FilePreviewModal 
+                    file={previewFile} 
+                    onClose={() => setPreviewFile(null)} 
+                />
+            )}
+            {/* Modal for confirming new file before analysis */}
+            {pendingAnalysisFile && (
+                <FilePreviewModal 
+                    file={pendingAnalysisFile}
+                    onClose={() => setPendingAnalysisFile(null)}
+                    onConfirm={handleConfirmAndAnalyze}
+                    isConfirmation={true}
+                />
             )}
             {isMobileHistoryOpen && (
                 <div className="min-[461px]:hidden fixed inset-0 z-30" role="dialog" aria-modal="true">
