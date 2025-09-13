@@ -1,7 +1,8 @@
 
+
 import React, { useState } from 'react';
 import type { Page } from '../App.tsx';
-import { SettingsIcon, BellIcon } from './icons.tsx';
+import { SettingsIcon, BellIcon, MenuIcon } from './icons.tsx';
 import { useReminders } from '../hooks/useReminders.ts';
 import { useSettings } from '../hooks/useSettings.ts';
 import { RemindersList } from './Reminders.tsx';
@@ -12,9 +13,10 @@ import { useAuth } from '../hooks/useAuth.ts';
 interface HeaderProps {
     setCurrentPage: (page: Page) => void;
     currentPage: Page;
+    onToggleMobileHistory?: () => void;
 }
 
-export const Header: React.FC<HeaderProps> = ({ setCurrentPage, currentPage }) => {
+export const Header: React.FC<HeaderProps> = ({ setCurrentPage, currentPage, onToggleMobileHistory }) => {
     const [isRemindersOpen, setIsRemindersOpen] = useState(false);
     const { reminders, hasOverdueReminders } = useReminders();
     const { settings } = useSettings();
@@ -55,7 +57,16 @@ export const Header: React.FC<HeaderProps> = ({ setCurrentPage, currentPage }) =
                 }
             `}</style>
             <header className="flex flex-shrink-0 items-center justify-between border-b border-gray-700/50 bg-[#131314] p-4">
-                <div className="flex items-center gap-4">
+                <div className="flex items-center gap-2 md:gap-4">
+                     {currentPage === 'chat' && (
+                        <button
+                            onClick={onToggleMobileHistory}
+                            className="rounded-full p-2 transition-colors hover:bg-gray-700 md:hidden"
+                            aria-label="Mostrar histórico de conversas"
+                        >
+                            <MenuIcon className="h-6 w-6 text-gray-400" />
+                        </button>
+                     )}
                      <Logo className="h-10 w-10" />
                     <div>
                         <div className="flex items-baseline gap-2">

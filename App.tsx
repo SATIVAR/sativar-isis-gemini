@@ -78,6 +78,7 @@ const LoadingScreen: React.FC<{ message: string }> = ({ message }) => {
 const AppContent: React.FC = () => {
     const { isInitialSyncing, initialSyncMessage } = useSettings();
     const [currentPage, setCurrentPage] = useState<Page>('chat');
+    const [isMobileHistoryOpen, setIsMobileHistoryOpen] = useState(false);
 
     const handleLogout = () => {
         setCurrentPage('chat'); // Redirect to chat page on logout
@@ -89,10 +90,17 @@ const AppContent: React.FC = () => {
 
     return (
         <div className="flex h-screen flex-col bg-[#131314] font-sans text-gray-200">
-            <Header setCurrentPage={setCurrentPage} currentPage={currentPage} />
-            <main className="flex-grow overflow-y-auto overflow-x-hidden">
+            <Header 
+                setCurrentPage={setCurrentPage} 
+                currentPage={currentPage} 
+                onToggleMobileHistory={() => setIsMobileHistoryOpen(p => !p)} 
+            />
+            <main className="flex-grow overflow-hidden">
                 {currentPage === 'chat' && (
-                <QuoteGenerator />
+                    <QuoteGenerator 
+                        isMobileHistoryOpen={isMobileHistoryOpen}
+                        setIsMobileHistoryOpen={setIsMobileHistoryOpen}
+                    />
                 )}
                 {currentPage === 'settings' && 
                 <div className="p-4 md:p-8 h-full">
