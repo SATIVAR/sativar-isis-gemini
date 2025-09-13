@@ -312,7 +312,7 @@ export const QuoteGenerator: React.FC<QuoteGeneratorProps> = ({ isMobileHistoryO
                 <FilePreviewModal file={previewFile} onClose={() => setPreviewFile(null)} />
             )}
             {isMobileHistoryOpen && (
-                <div className="md:hidden fixed inset-0 z-30" role="dialog" aria-modal="true">
+                <div className="min-[461px]:hidden fixed inset-0 z-30" role="dialog" aria-modal="true">
                     <div className="absolute inset-0 bg-black/60" onClick={() => setIsMobileHistoryOpen(false)} aria-hidden="true"></div>
                     <div className="absolute top-0 right-0 h-full bg-[#131314] w-72 shadow-xl flex flex-col animate-slide-in-right">
                          <style>{`@keyframes slide-in-right { from { transform: translateX(100%); } to { transform: translateX(0); } } .animate-slide-in-right { animation: slide-in-right 0.3s ease-out forwards; }`}</style>
@@ -375,7 +375,7 @@ export const QuoteGenerator: React.FC<QuoteGeneratorProps> = ({ isMobileHistoryO
                     />
                 )}
             </div>
-            <div className="hidden md:flex h-full">
+            <div className="hidden min-[461px]:flex h-full">
                 <ChatHistoryTabs
                     conversations={conversations}
                     activeConversationId={activeConversationId}

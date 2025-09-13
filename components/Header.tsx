@@ -81,7 +81,7 @@ export const Header: React.FC<HeaderProps> = ({ setCurrentPage, currentPage, onT
                         {currentPage === 'chat' && (
                             <button
                                 onClick={onToggleMobileHistory}
-                                className="rounded-full p-2 transition-colors hover:bg-gray-700 md:hidden"
+                                className="rounded-full p-2 transition-colors hover:bg-gray-700 min-[461px]:hidden"
                                 aria-label="Nova análise ou ver histórico"
                             >
                                 <PlusIcon className="h-6 w-6 text-gray-400" />
