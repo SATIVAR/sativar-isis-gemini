@@ -22,21 +22,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isAdminSetup, setIsAdminSetup] = useState<boolean>(true);
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
-  useEffect(() => {
-    // Check session storage on initial load
-    try {
-      const storedUser = sessionStorage.getItem(SESSION_STORAGE_KEY);
-      if (storedUser) {
-        setUser(JSON.parse(storedUser));
-      }
-    } catch (error) {
-      console.error("Failed to parse user from session storage", error);
-      sessionStorage.removeItem(SESSION_STORAGE_KEY);
-    }
-    // Check admin setup status after checking local session
-    checkSetup();
-  }, []);
-
   const checkSetup = useCallback(async () => {
     setIsLoading(true);
     try {
@@ -50,6 +35,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setIsLoading(false);
     }
   }, []);
+
+  useEffect(() => {
+    // Check session storage on initial load
+    try {
+      const storedUser = sessionStorage.getItem(SESSION_STORAGE_KEY);
+      if (storedUser) {
+        setUser(JSON.parse(storedUser));
+      }
+    } catch (error) {
+      console.error("Failed to parse user from session storage", error);
+      sessionStorage.removeItem(SESSION_STORAGE_KEY);
+    }
+    // Check admin setup status after checking local session
+    checkSetup();
+  }, [checkSetup]);
   
   const login = useCallback(async (username: string, password: string) => {
     try {
