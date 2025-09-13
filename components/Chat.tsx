@@ -9,6 +9,7 @@ import { ReminderModal } from './Reminders.tsx';
 import { TypingIndicator } from './TypingIndicator.tsx';
 import { ProductSearch } from './ProductSearch.tsx';
 import { UserSearch } from './UserSearch.tsx';
+import { Modal } from './Modal.tsx';
 
 const AIAvatar: React.FC = () => (
     <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-fuchsia-900 self-end">
@@ -92,26 +93,12 @@ const ScheduleModal: React.FC<{
     const minDateTime = now.toISOString().slice(0, 16);
 
     return (
-        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4" onClick={onClose}>
-            <div className="bg-[#303134] rounded-xl border border-gray-700 p-6 w-full max-w-md shadow-2xl" onClick={e => e.stopPropagation()}>
-                <h3 className="text-xl font-bold mb-2 text-white">Agendar Consulta</h3>
-                <p className="text-sm text-gray-400 mb-6">Para: {patientName}</p>
-                <div className="space-y-4">
-                    <div>
-                        <label htmlFor="scheduleDate" className="block text-sm font-medium text-gray-300 mb-2">Data e Hora da Consulta</label>
-                        <input
-                            type="datetime-local"
-                            id="scheduleDate"
-                            value={scheduleDate}
-                            min={minDateTime}
-                            onChange={e => setScheduleDate(e.target.value)}
-                            className="w-full bg-[#202124] border border-gray-600/50 text-white rounded-lg px-3 py-2 focus:ring-2 focus:ring-fuchsia-500 outline-none transition"
-                            required
-                        />
-                    </div>
-                    {error && <p className="text-sm text-red-400">{error}</p>}
-                </div>
-                 <div className="flex justify-end gap-3 mt-8">
+        <Modal
+            title="Agendar Consulta"
+            onClose={onClose}
+            icon={<CalendarIcon className="w-6 h-6 text-fuchsia-400" />}
+            footer={
+                <>
                     <button type="button" onClick={onClose} className="px-5 py-2 bg-gray-700 text-sm text-gray-300 font-medium rounded-lg hover:bg-gray-600 transition-colors">Cancelar</button>
                     <button
                         type="button"
@@ -121,9 +108,26 @@ const ScheduleModal: React.FC<{
                     >
                         {isSaving ? <Loader /> : 'Salvar Agendamento'}
                     </button>
+                </>
+            }
+        >
+            <div className="space-y-4">
+                <p className="text-sm text-gray-400 -mt-2">Para: {patientName}</p>
+                <div>
+                    <label htmlFor="scheduleDate" className="block text-sm font-medium text-gray-300 mb-2">Data e Hora da Consulta</label>
+                    <input
+                        type="datetime-local"
+                        id="scheduleDate"
+                        value={scheduleDate}
+                        min={minDateTime}
+                        onChange={e => setScheduleDate(e.target.value)}
+                        className="w-full bg-[#202124] border border-gray-600/50 text-white rounded-lg px-3 py-2 focus:ring-2 focus:ring-fuchsia-500 outline-none transition"
+                        required
+                    />
                 </div>
+                {error && <p className="text-sm text-red-400">{error}</p>}
             </div>
-        </div>
+        </Modal>
     );
 };
 

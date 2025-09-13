@@ -1,4 +1,3 @@
-
 import React, { ReactNode, useEffect } from 'react';
 import { XCircleIcon } from './icons.tsx';
 
@@ -8,9 +7,10 @@ interface ModalProps {
   onClose: () => void;
   footer?: ReactNode;
   icon?: ReactNode;
+  size?: 'md' | 'lg';
 }
 
-export const Modal: React.FC<ModalProps> = ({ title, children, onClose, footer, icon }) => {
+export const Modal: React.FC<ModalProps> = ({ title, children, onClose, footer, icon, size = 'md' }) => {
   // Add keyboard support for closing the modal
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -25,6 +25,8 @@ export const Modal: React.FC<ModalProps> = ({ title, children, onClose, footer, 
     };
   }, [onClose]);
   
+  const sizeClass = size === 'lg' ? 'max-w-lg' : 'max-w-md';
+
   return (
     <div 
       className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4 animate-fade-in" 
@@ -46,7 +48,7 @@ export const Modal: React.FC<ModalProps> = ({ title, children, onClose, footer, 
             .animate-scale-up { animation: scale-up 0.2s ease-out forwards; }
         `}</style>
       <div 
-        className="bg-[#202124] rounded-xl border border-gray-700 w-full max-w-md shadow-2xl animate-scale-up flex flex-col" 
+        className={`bg-[#202124] rounded-xl border border-gray-700 w-full ${sizeClass} shadow-2xl animate-scale-up flex flex-col`} 
         onClick={e => e.stopPropagation()}
       >
         <header className="flex-shrink-0 p-4 border-b border-gray-700 flex justify-between items-center">

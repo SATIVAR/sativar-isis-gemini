@@ -1,10 +1,10 @@
-
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useReminders } from '../hooks/useReminders.ts';
 import type { Reminder, Task } from '../types.ts';
 import { BellIcon, CalendarIcon, CheckIcon, EditIcon, RepeatIcon, Trash2Icon, XCircleIcon, UserIcon, PackageIcon, FileTextIcon, PlusCircleIcon, ChevronDownIcon } from './icons.tsx';
 import { Loader } from './Loader.tsx';
 import { useModal } from '../hooks/useModal.ts';
+import { Modal } from './Modal.tsx';
 
 interface ReminderModalProps {
     onClose: () => void;
@@ -144,17 +144,6 @@ export const ReminderModal: React.FC<ReminderModalProps> = ({ onClose, reminder,
         }
     }, [hasUnsavedChanges, modal, handleSubmit, onClose]);
     
-    useEffect(() => {
-        const handleKeyDown = (event: KeyboardEvent) => {
-          if (event.key === 'Escape') {
-            event.preventDefault();
-            handleCloseAttempt();
-          }
-        };
-        window.addEventListener('keydown', handleKeyDown);
-        return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [handleCloseAttempt]);
-    
     const now = new Date();
     now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
     const minDateTime = now.toISOString().slice(0, 16);
@@ -166,136 +155,139 @@ export const ReminderModal: React.FC<ReminderModalProps> = ({ onClose, reminder,
     ];
 
     return (
-        <div className="fixed inset-0 bg-black/60 z-[60] flex items-center justify-center p-4" onClick={handleCloseAttempt}>
-            <div className="bg-[#303134] rounded-xl border border-gray-700 p-6 w-full max-w-lg shadow-2xl" onClick={e => e.stopPropagation()}>
-                <form onSubmit={handleSubmit}>
-                    <h3 className="text-xl font-bold mb-6 text-white">{reminder ? 'Editar Tarefa' : 'Criar Nova Tarefa'}</h3>
-                    <div className="space-y-4">
-                        <div>
-                            <label htmlFor="title" className="block text-sm font-medium text-gray-300 mb-2">Título</label>
-                            <input id="title" value={title} onChange={e => setTitle(e.target.value)} className="w-full bg-[#202124] border border-gray-600/50 text-white rounded-lg px-3 py-2 focus:ring-2 focus:ring-fuchsia-500 outline-none transition" required />
-                        </div>
-                        <div>
-                            <label htmlFor="dueDate" className="block text-sm font-medium text-gray-300 mb-2">Data e Hora</label>
-                            <input type="datetime-local" id="dueDate" value={dueDate} min={minDateTime} onChange={e => setDueDate(e.target.value)} className="w-full bg-[#202124] border border-gray-600/50 text-white rounded-lg px-3 py-2 focus:ring-2 focus:ring-fuchsia-500 outline-none transition" required />
-                        </div>
+        <Modal
+            title={reminder ? 'Editar Tarefa' : 'Criar Nova Tarefa'}
+            onClose={handleCloseAttempt}
+            size="lg"
+            icon={<BellIcon className="w-6 h-6 text-fuchsia-400" />}
+            footer={
+                <>
+                    <button type="button" onClick={handleCloseAttempt} className="px-5 py-2 bg-gray-700 text-sm text-gray-300 font-medium rounded-lg hover:bg-gray-600 transition-colors">Cancelar</button>
+                    <button 
+                        type="submit" 
+                        form="reminder-form"
+                        disabled={isSaving}
+                        className="flex items-center justify-center min-w-[160px] px-5 py-2 bg-green-600 text-white font-semibold rounded-lg shadow-md hover:bg-green-700 transition-colors disabled:opacity-70 disabled:cursor-wait"
+                    >
+                        {isSaving ? <Loader /> : (reminder ? 'Salvar Alterações' : 'Criar Tarefa')}
+                    </button>
+                </>
+            }
+        >
+             <form id="reminder-form" onSubmit={handleSubmit} className="space-y-4">
+                <div>
+                    <label htmlFor="title" className="block text-sm font-medium text-gray-300 mb-2">Título</label>
+                    <input id="title" value={title} onChange={e => setTitle(e.target.value)} className="w-full bg-[#202124] border border-gray-600/50 text-white rounded-lg px-3 py-2 focus:ring-2 focus:ring-fuchsia-500 outline-none transition" required />
+                </div>
+                <div>
+                    <label htmlFor="dueDate" className="block text-sm font-medium text-gray-300 mb-2">Data e Hora</label>
+                    <input type="datetime-local" id="dueDate" value={dueDate} min={minDateTime} onChange={e => setDueDate(e.target.value)} className="w-full bg-[#202124] border border-gray-600/50 text-white rounded-lg px-3 py-2 focus:ring-2 focus:ring-fuchsia-500 outline-none transition" required />
+                </div>
 
-                        <div>
-                            <label className="block text-sm font-medium text-gray-300 mb-2">Prioridade</label>
-                            <div className="flex gap-2">
-                                {priorityOptions.map(opt => (
+                <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-2">Prioridade</label>
+                    <div className="flex gap-2">
+                        {priorityOptions.map(opt => (
+                            <button
+                                type="button"
+                                key={opt.id}
+                                onClick={() => setPriority(opt.id)}
+                                className={`flex-1 text-center px-4 py-2 rounded-lg text-sm font-medium transition-all border-2 ${
+                                    priority === opt.id
+                                        ? `${opt.color.replace('bg-', 'border-')} text-white`
+                                        : 'border-transparent bg-[#202124] text-gray-400 hover:bg-gray-600'
+                                }`}
+                            >
+                                {opt.label}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+
+                 <div>
+                    <label htmlFor="tasks" className="block text-sm font-medium text-gray-300 mb-2">Subtarefas</label>
+                    <div className="space-y-2">
+                        {tasks.map((task) => {
+                            const CurrentIcon = task.icon ? IconMap[task.icon] : PlusCircleIcon;
+                            return (
+                                <div key={task.id} className="flex items-center gap-2 group">
+                                    <div className="relative">
+                                        <button
+                                            type="button"
+                                            onClick={() => setActiveIconPicker(activeIconPicker === task.id ? null : task.id)}
+                                            className="p-2 rounded-full hover:bg-gray-600 transition-colors"
+                                            aria-label="Alterar ícone da subtarefa"
+                                        >
+                                            <CurrentIcon className="w-5 h-5 text-gray-400" />
+                                        </button>
+                                        {activeIconPicker === task.id && (
+                                            <div className="absolute z-10 bottom-full mb-2 w-max p-2 bg-[#202124] border border-gray-600 rounded-lg shadow-lg flex gap-2">
+                                                {availableIcons.map(({ name, Component, title: iconTitle }) => (
+                                                    <button
+                                                        key={name}
+                                                        type="button"
+                                                        onClick={() => handleSetTaskIcon(task.id, name)}
+                                                        className="p-2 rounded-full hover:bg-fuchsia-800"
+                                                        title={iconTitle}
+                                                    >
+                                                        <Component className="w-5 h-5 text-gray-300" />
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+                                    <input
+                                        type="text"
+                                        value={task.text}
+                                        onChange={(e) => handleTaskTextChange(task.id, e.target.value)}
+                                        className="flex-grow bg-[#202124] border border-gray-600/50 text-white rounded-lg px-3 py-1.5 text-sm focus:ring-1 focus:ring-fuchsia-500 outline-none transition"
+                                    />
                                     <button
                                         type="button"
-                                        key={opt.id}
-                                        onClick={() => setPriority(opt.id)}
-                                        className={`flex-1 text-center px-4 py-2 rounded-lg text-sm font-medium transition-all border-2 ${
-                                            priority === opt.id
-                                                ? `${opt.color.replace('bg-', 'border-')} text-white`
-                                                : 'border-transparent bg-[#202124] text-gray-400 hover:bg-gray-600'
-                                        }`}
+                                        onClick={() => handleDeleteTask(task.id)}
+                                        className="p-1 rounded-full text-gray-500 hover:text-red-400 hover:bg-gray-600 opacity-50 group-hover:opacity-100 transition-all"
+                                        aria-label="Excluir subtarefa"
                                     >
-                                        {opt.label}
+                                        <Trash2Icon className="w-4 h-4" />
                                     </button>
-                                ))}
-                            </div>
-                        </div>
-
-                         <div>
-                            <label htmlFor="tasks" className="block text-sm font-medium text-gray-300 mb-2">Subtarefas</label>
-                            <div className="space-y-2">
-                                {tasks.map((task) => {
-                                    const CurrentIcon = task.icon ? IconMap[task.icon] : PlusCircleIcon;
-                                    return (
-                                        <div key={task.id} className="flex items-center gap-2 group">
-                                            <div className="relative">
-                                                <button
-                                                    type="button"
-                                                    onClick={() => setActiveIconPicker(activeIconPicker === task.id ? null : task.id)}
-                                                    className="p-2 rounded-full hover:bg-gray-600 transition-colors"
-                                                    aria-label="Alterar ícone da subtarefa"
-                                                >
-                                                    <CurrentIcon className="w-5 h-5 text-gray-400" />
-                                                </button>
-                                                {activeIconPicker === task.id && (
-                                                    <div className="absolute z-10 bottom-full mb-2 w-max p-2 bg-[#202124] border border-gray-600 rounded-lg shadow-lg flex gap-2">
-                                                        {availableIcons.map(({ name, Component, title: iconTitle }) => (
-                                                            <button
-                                                                key={name}
-                                                                type="button"
-                                                                onClick={() => handleSetTaskIcon(task.id, name)}
-                                                                className="p-2 rounded-full hover:bg-fuchsia-800"
-                                                                title={iconTitle}
-                                                            >
-                                                                <Component className="w-5 h-5 text-gray-300" />
-                                                            </button>
-                                                        ))}
-                                                    </div>
-                                                )}
-                                            </div>
-                                            <input
-                                                type="text"
-                                                value={task.text}
-                                                onChange={(e) => handleTaskTextChange(task.id, e.target.value)}
-                                                className="flex-grow bg-[#202124] border border-gray-600/50 text-white rounded-lg px-3 py-1.5 text-sm focus:ring-1 focus:ring-fuchsia-500 outline-none transition"
-                                            />
-                                            <button
-                                                type="button"
-                                                onClick={() => handleDeleteTask(task.id)}
-                                                className="p-1 rounded-full text-gray-500 hover:text-red-400 hover:bg-gray-600 opacity-50 group-hover:opacity-100 transition-all"
-                                                aria-label="Excluir subtarefa"
-                                            >
-                                                <Trash2Icon className="w-4 h-4" />
-                                            </button>
-                                        </div>
-                                    )
-                                })}
-                            </div>
-                            <div className="flex items-center gap-2 mt-3">
-                                <input
-                                    type="text"
-                                    value={newTaskText}
-                                    onChange={(e) => setNewTaskText(e.target.value)}
-                                    onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddTask(); }}}
-                                    placeholder="Adicionar nova subtarefa..."
-                                    className="w-full bg-[#202124] border border-gray-600/50 text-white rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-fuchsia-500 outline-none transition"
-                                />
-                                <button
-                                    type="button"
-                                    onClick={handleAddTask}
-                                    className="px-4 py-2 bg-gray-700 text-sm text-gray-300 font-medium rounded-lg hover:bg-gray-600 transition-colors flex-shrink-0"
-                                >
-                                    Adicionar
-                                </button>
-                            </div>
-                        </div>
-
-                        <div>
-                            <label htmlFor="notes" className="block text-sm font-medium text-gray-300 mb-2">Notas Adicionais</label>
-                            <textarea id="notes" value={notes} onChange={e => setNotes(e.target.value)} rows={2} className="w-full bg-[#202124] border border-gray-600/50 text-white rounded-lg px-3 py-2 focus:ring-2 focus:ring-fuchsia-500 outline-none transition" />
-                        </div>
-                         <div>
-                            <label className="block text-sm font-medium text-gray-300 mb-2">Recorrência</label>
-                            <select value={recurrence} onChange={e => setRecurrence(e.target.value as Reminder['recurrence'])} className="w-full bg-[#202124] border border-gray-600/50 text-white rounded-lg px-3 py-2 focus:ring-2 focus:ring-fuchsia-500 outline-none transition">
-                                <option value="none">Não repetir</option>
-                                <option value="daily">Diariamente</option>
-                                <option value="weekly">Semanalmente</option>
-                                <option value="monthly">Mensalmente</option>
-                            </select>
-                        </div>
+                                </div>
+                            )
+                        })}
                     </div>
-                    <div className="flex justify-end gap-3 mt-8">
-                        <button type="button" onClick={handleCloseAttempt} className="px-5 py-2 bg-gray-700 text-sm text-gray-300 font-medium rounded-lg hover:bg-gray-600 transition-colors">Cancelar</button>
-                        <button 
-                            type="submit" 
-                            disabled={isSaving}
-                            className="flex items-center justify-center min-w-[160px] px-5 py-2 bg-green-600 text-white font-semibold rounded-lg shadow-md hover:bg-green-700 transition-colors disabled:opacity-70 disabled:cursor-wait"
+                    <div className="flex items-center gap-2 mt-3">
+                        <input
+                            type="text"
+                            value={newTaskText}
+                            onChange={(e) => setNewTaskText(e.target.value)}
+                            onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddTask(); }}}
+                            placeholder="Adicionar nova subtarefa..."
+                            className="w-full bg-[#202124] border border-gray-600/50 text-white rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-fuchsia-500 outline-none transition"
+                        />
+                        <button
+                            type="button"
+                            onClick={handleAddTask}
+                            className="px-4 py-2 bg-gray-700 text-sm text-gray-300 font-medium rounded-lg hover:bg-gray-600 transition-colors flex-shrink-0"
                         >
-                            {isSaving ? <Loader /> : (reminder ? 'Salvar Alterações' : 'Criar Tarefa')}
+                            Adicionar
                         </button>
                     </div>
-                </form>
-            </div>
-        </div>
+                </div>
+
+                <div>
+                    <label htmlFor="notes" className="block text-sm font-medium text-gray-300 mb-2">Notas Adicionais</label>
+                    <textarea id="notes" value={notes} onChange={e => setNotes(e.target.value)} rows={2} className="w-full bg-[#202124] border border-gray-600/50 text-white rounded-lg px-3 py-2 focus:ring-2 focus:ring-fuchsia-500 outline-none transition" />
+                </div>
+                 <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-2">Recorrência</label>
+                    <select value={recurrence} onChange={e => setRecurrence(e.target.value as Reminder['recurrence'])} className="w-full bg-[#202124] border border-gray-600/50 text-white rounded-lg px-3 py-2 focus:ring-2 focus:ring-fuchsia-500 outline-none transition">
+                        <option value="none">Não repetir</option>
+                        <option value="daily">Diariamente</option>
+                        <option value="weekly">Semanalmente</option>
+                        <option value="monthly">Mensalmente</option>
+                    </select>
+                </div>
+            </form>
+        </Modal>
     );
 };
 
