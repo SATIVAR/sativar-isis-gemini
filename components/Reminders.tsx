@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useReminders } from '../hooks/useReminders.ts';
 import type { Reminder, Task } from '../types.ts';
@@ -466,6 +467,11 @@ export const RemindersList: React.FC<{ onClose: () => void }> = ({ onClose }) =>
 
     return (
         <>
+            <div
+                className="fixed inset-0 z-10 hidden md:block"
+                onClick={onClose}
+                aria-hidden="true"
+            />
             <style>{`
                 @keyframes highlight-green {
                     0% { background-color: rgba(74, 222, 128, 0.3); } /* green-400 with opacity */
@@ -492,8 +498,11 @@ export const RemindersList: React.FC<{ onClose: () => void }> = ({ onClose }) =>
             `}</style>
             {editingReminder && <ReminderModal reminder={editingReminder} onClose={() => setEditingReminder(null)} />}
             {isAddModalOpen && <ReminderModal onClose={() => setIsAddModalOpen(false)} />}
-            <div className="absolute right-0 top-14 mt-2 w-80 max-h-[80vh] overflow-y-auto bg-[#202124] rounded-xl border border-gray-700 shadow-2xl z-20" role="dialog">
-                <div className="p-4 border-b border-gray-700 flex justify-between items-center sticky top-0 bg-[#202124]/80 backdrop-blur-sm">
+            <div 
+                className="fixed inset-0 z-50 overflow-y-auto bg-[#131314] md:absolute md:inset-auto md:right-0 md:top-14 md:mt-2 md:w-[420px] md:max-h-[80vh] md:rounded-xl md:border md:border-gray-700 md:shadow-2xl md:bg-[#202124] md:z-20"
+                role="dialog"
+            >
+                <div className="p-4 border-b border-gray-700 flex justify-between items-center sticky top-0 bg-[#202124]/80 backdrop-blur-sm z-10">
                     <h3 className="text-lg font-bold text-white">Tarefas e Lembretes</h3>
                     <div className="flex items-center gap-2">
                         <button
