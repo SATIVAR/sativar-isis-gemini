@@ -63,13 +63,12 @@ export const Header: React.FC<HeaderProps> = ({ setCurrentPage, currentPage, onT
                             <h1 className="text-xl font-semibold text-gray-200 hover:text-white transition-colors" onClick={handleHomeClick} style={{ cursor: 'pointer' }}>
                                 SATIVAR - Isis
                             </h1>
-                            <span className="select-none bg-green-900/50 text-green-300 text-xs font-mono px-2 py-0.5 rounded-full border border-green-700/50">
+                            <span
+                                className={`select-none text-xs font-mono px-2 py-0.5 rounded-full transition-colors cursor-help ${isOnline ? 'bg-green-600 text-white' : 'bg-red-600 text-white'}`}
+                                title={isOnline ? 'v0.30 - Conectado ao servidor' : 'v0.30 - Operando em modo offline. As alterações serão salvas localmente.'}
+                            >
                                 v0.30
                             </span>
-                            <div 
-                                className={`w-2.5 h-2.5 rounded-full transition-colors ${isOnline ? 'bg-green-500' : 'bg-red-500'}`}
-                                title={isOnline ? 'Conectado ao servidor' : 'Operando em modo offline. As alterações serão salvas localmente.'}
-                            ></div>
                         </div>
                         {settings.associationName && (
                             <p className="text-sm text-gray-400 -mt-1">{settings.associationName}</p>

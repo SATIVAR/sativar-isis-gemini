@@ -137,14 +137,14 @@ export const RemindersProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       }
       
       // OPTIMIZATION: Clean up old, completed reminders from the cache.
-      // Reminders completed more than 30 days ago are considered "old".
-      const thirtyDaysAgo = new Date();
-      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+      // Reminders completed more than 15 days ago are considered "old".
+      const fifteenDaysAgo = new Date();
+      fifteenDaysAgo.setDate(fifteenDaysAgo.getDate() - 15);
       
       const uncleanedSize = initialReminders.length;
       const cleanedReminders = initialReminders.filter(r => {
           if (r.isCompleted) {
-              return new Date(r.dueDate) >= thirtyDaysAgo;
+              return new Date(r.dueDate) >= fifteenDaysAgo;
           }
           return true; // Keep all pending reminders
       });
