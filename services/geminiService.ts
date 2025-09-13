@@ -2,17 +2,7 @@ import { GoogleGenAI, Type } from "@google/genai";
 import type { QuoteResult } from "../types.ts";
 import { addApiCall } from "./apiHistoryService.ts";
 
-const API_CALL_COUNTER_KEY = 'sativar_isis_api_call_count';
 const API_KEY_MISSING_ERROR = "A chave da API do Gemini não foi configurada. Um administrador precisa definir a variável de ambiente VITE_GEMINI_API_KEY.";
-
-const incrementApiCallCount = () => {
-    try {
-        const currentCount = parseInt(localStorage.getItem(API_CALL_COUNTER_KEY) || '0', 10);
-        localStorage.setItem(API_CALL_COUNTER_KEY, (currentCount + 1).toString());
-    } catch (e) {
-        console.error("Could not update API call count in localStorage", e);
-    }
-};
 
 const getApiKey = (): string | undefined => {
     // In a Vite project, client-side environment variables must be prefixed with VITE_
@@ -132,7 +122,7 @@ const handleGeminiError = (error: unknown): Error => {
     return new Error("Ocorreu um erro desconhecido ao se comunicar com a IA. Verifique o console para mais detalhes.");
 };
 
-export const processPrescription = async (file: File, systemPrompt: string): Promise<QuoteResult> => {
+export const processPrescription = async (file: File, systemPrompt: string): Promise<{ result: QuoteResult; tokenCount: number; }> => {
     const apiKey = getApiKey();
     if (!apiKey) {
         throw new Error(API_KEY_MISSING_ERROR);
@@ -156,8 +146,8 @@ export const processPrescription = async (file: File, systemPrompt: string): Pro
             }
         });
 
-        incrementApiCallCount();
-        addApiCall({ type: 'prescription_analysis', status: 'success', details: file.name });
+        const tokenCount = response.usageMetadata?.totalTokenCount || 0;
+        addApiCall({ type: 'prescription_analysis', status: 'success', details: file.name, tokenCount });
 
         const responseText = response.text;
         if (!responseText) {
@@ -167,10 +157,11 @@ export const processPrescription = async (file: File, systemPrompt: string): Pro
         try {
             const parsedResult = JSON.parse(responseText);
             // Add the client-side generated ID
-            return { 
+            const result: QuoteResult = { 
                 ...parsedResult,
                 id: crypto.randomUUID(),
             };
+            return { result, tokenCount };
         } catch (jsonError) {
              console.error("Failed to parse JSON response from Gemini:", responseText);
              throw new Error("A resposta da IA não estava no formato JSON esperado.");
@@ -182,7 +173,7 @@ export const processPrescription = async (file: File, systemPrompt: string): Pro
     }
 };
 
-export const pingAI = async (userMessage: string, settingsIncomplete: boolean): Promise<string> => {
+export const pingAI = async (userMessage: string, settingsIncomplete: boolean): Promise<{ text: string; tokenCount: number }> => {
     const apiKey = getApiKey();
     if (!apiKey) {
         throw new Error(API_KEY_MISSING_ERROR);
@@ -203,16 +194,16 @@ export const pingAI = async (userMessage: string, settingsIncomplete: boolean): 
             }
         });
         
-        incrementApiCallCount();
+        const tokenCount = response.usageMetadata?.totalTokenCount || 0;
         const details = userMessage.length > 75 ? `${userMessage.substring(0, 75)}...` : userMessage;
-        addApiCall({ type: 'text_query', status: 'success', details });
+        addApiCall({ type: 'text_query', status: 'success', details, tokenCount });
 
         const responseText = response.text;
         if (!responseText) {
             throw new Error("A IA não retornou uma resposta de texto.");
         }
         
-        return responseText;
+        return { text: responseText, tokenCount };
 
     } catch (error) {
         const details = userMessage.length > 75 ? `${userMessage.substring(0, 75)}...` : userMessage;
@@ -221,11 +212,11 @@ export const pingAI = async (userMessage: string, settingsIncomplete: boolean): 
     }
 };
 
-export const generateConversationTitle = async (conversationSummary: string): Promise<string> => {
+export const generateConversationTitle = async (conversationSummary: string): Promise<{ text: string, tokenCount: number }> => {
     const apiKey = getApiKey();
     if (!apiKey) {
         console.warn("API Key missing, cannot generate dynamic title.");
-        return "Análise de Receita"; 
+        return { text: "Análise de Receita", tokenCount: 0 };
     }
     const ai = new GoogleGenAI({ apiKey });
 
@@ -243,8 +234,8 @@ export const generateConversationTitle = async (conversationSummary: string): Pr
             }
         });
         
-        incrementApiCallCount();
-        addApiCall({ type: 'text_query', status: 'success', details: 'Generate conversation title' });
+        const tokenCount = response.usageMetadata?.totalTokenCount || 0;
+        addApiCall({ type: 'text_query', status: 'success', details: 'Generate conversation title', tokenCount });
 
         const responseText = response.text?.trim();
         if (!responseText) {
@@ -252,17 +243,18 @@ export const generateConversationTitle = async (conversationSummary: string): Pr
         }
         
         // Basic sanitization, remove quotes
-        return responseText.replace(/["'“”]/g, '');
+        const text = responseText.replace(/["'“”]/g, '');
+        return { text, tokenCount };
 
     } catch (error) {
         addApiCall({ type: 'text_query', status: 'error', details: 'Generate conversation title', error: error instanceof Error ? error.message : String(error) });
         // Don't throw, just log and return a fallback
         console.error("Failed to generate dynamic title:", error);
-        return "Análise de Receita";
+        return { text: "Análise de Receita", tokenCount: 0 };
     }
 };
 
-export const generateHighlight = async (recentQuoteSummary?: string): Promise<string> => {
+export const generateHighlight = async (recentQuoteSummary?: string): Promise<{ text: string; tokenCount: number }> => {
     const apiKey = getApiKey();
     if (!apiKey) {
         throw new Error(API_KEY_MISSING_ERROR);
@@ -284,16 +276,16 @@ export const generateHighlight = async (recentQuoteSummary?: string): Promise<st
             }
         });
         
-        incrementApiCallCount();
+        const tokenCount = response.usageMetadata?.totalTokenCount || 0;
         const details = recentQuoteSummary ? 'Highlight from quote' : 'Highlight with fact';
-        addApiCall({ type: 'text_query', status: 'success', details });
+        addApiCall({ type: 'text_query', status: 'success', details, tokenCount });
 
         const responseText = response.text;
         if (!responseText) {
             throw new Error("A IA não retornou uma resposta de texto.");
         }
         
-        return responseText;
+        return { text: responseText, tokenCount };
 
     } catch (error) {
         const details = recentQuoteSummary ? 'Highlight from quote' : 'Highlight with fact';

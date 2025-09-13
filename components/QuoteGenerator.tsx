@@ -10,6 +10,7 @@ import { Loader } from './Loader.tsx';
 import { useAuth } from '../hooks/useAuth.ts';
 import { AdminLogin } from './AdminLogin.tsx';
 import { AdminRegistration } from './AdminRegistration.tsx';
+import { useTokenUsage } from '../hooks/useTokenUsage.ts';
 
 interface FilePreviewModalProps {
     file: File | { url: string; type: string; name: string };
@@ -18,6 +19,17 @@ interface FilePreviewModalProps {
     isConfirmation?: boolean;
 }
 
+const thinkingPhrases = [
+    'Recebendo arquivo...',
+    'Analisando o documento...',
+    'Extraindo informações importantes...',
+    'Identificando produtos e dosagens...',
+    'Verificando a validade da receita...',
+    'Consultando o catálogo de produtos...',
+    'Calculando os valores do orçamento...',
+    'Formatando a resposta para você...',
+    'Quase pronto, finalizando a análise!',
+];
 
 const FilePreviewModal: React.FC<FilePreviewModalProps> = ({ file, onClose, onConfirm, isConfirmation }) => {
     const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -104,6 +116,7 @@ export const QuoteGenerator: React.FC<QuoteGeneratorProps> = ({ isMobileHistoryO
         selectConversation, startNewConversation, deleteConversation,
         isLoading: isHistoryLoading, isChatEmpty, updateConversationTitle
     } = useChatHistory();
+    const { addTokens } = useTokenUsage();
 
     const [isSending, setIsSending] = useState(false);
     const [loadingAction, setLoadingAction] = useState<'file' | 'text' | null>(null);
@@ -116,6 +129,7 @@ export const QuoteGenerator: React.FC<QuoteGeneratorProps> = ({ isMobileHistoryO
     const [pendingAnalysisFile, setPendingAnalysisFile] = useState<File | null>(null);
     
     const objectUrls = useRef<string[]>([]);
+    const loadingIntervalRef = useRef<number | null>(null);
     
     const apiKeyMissing = !isApiKeyConfigured();
 
@@ -124,6 +138,9 @@ export const QuoteGenerator: React.FC<QuoteGeneratorProps> = ({ isMobileHistoryO
         return () => {
             objectUrls.current.forEach(url => URL.revokeObjectURL(url));
             objectUrls.current = [];
+            if (loadingIntervalRef.current) {
+                clearInterval(loadingIntervalRef.current);
+            }
         };
     }, [activeConversationId]);
 
@@ -169,8 +186,9 @@ export const QuoteGenerator: React.FC<QuoteGeneratorProps> = ({ isMobileHistoryO
                 const lastQuoteMessage = [...messages].reverse().find(m => m.content.type === 'quote');
                 const recentQuoteSummary = lastQuoteMessage?.content.type === 'quote' ? lastQuoteMessage.content.result.internalSummary : undefined;
                 
-                const result = await generateHighlight(recentQuoteSummary);
-                const aiMessage: ChatMessage = { id: `ai-highlight-${Date.now()}`, sender: 'ai', content: { type: 'text', text: result }, timestamp: new Date().toISOString() };
+                const { text, tokenCount } = await generateHighlight(recentQuoteSummary);
+                addTokens(tokenCount);
+                const aiMessage: ChatMessage = { id: `ai-highlight-${Date.now()}`, sender: 'ai', content: { type: 'text', text }, timestamp: new Date().toISOString() };
                 setMessages(prev => [...prev.slice(0, -1), aiMessage]);
                 await addMessage(aiMessage);
             } catch (err) {
@@ -242,7 +260,7 @@ export const QuoteGenerator: React.FC<QuoteGeneratorProps> = ({ isMobileHistoryO
         
         setProcessingAction(null);
 
-    }, [messages, settings, addMessage, setMessages]);
+    }, [messages, settings, addMessage, setMessages, addTokens]);
 
     const runFileAnalysis = useCallback(async (file: File) => {
         if (showSettingsWarning || apiKeyMissing || wpConfigMissing) return;
@@ -251,17 +269,34 @@ export const QuoteGenerator: React.FC<QuoteGeneratorProps> = ({ isMobileHistoryO
         objectUrls.current.push(fileURL);
 
         const userMessage: ChatMessage = { id: `user-${Date.now()}`, sender: 'user', content: { type: 'file_request', fileName: file.name, fileURL: fileURL, fileType: file.type }, timestamp: new Date().toISOString() };
-        const loadingMessage: ChatMessage = { id: `ai-loading-${Date.now()}`, sender: 'ai', content: { type: 'loading' }, timestamp: new Date().toISOString() };
+        const loadingMessageId = `ai-loading-${Date.now()}`;
+        const loadingMessage: ChatMessage = { id: loadingMessageId, sender: 'ai', content: { type: 'loading', text: thinkingPhrases[0] }, timestamp: new Date().toISOString() };
 
         setMessages(prev => [...prev, userMessage, loadingMessage]);
         await addMessage(userMessage);
 
         setIsSending(true);
         setLoadingAction('file');
+        
+        let phraseIndex = 1;
+        if (loadingIntervalRef.current) clearInterval(loadingIntervalRef.current);
+        loadingIntervalRef.current = window.setInterval(() => {
+            setMessages(prev => prev.map(msg => {
+                if (msg.id === loadingMessageId && msg.content.type === 'loading') {
+                    const newText = thinkingPhrases[phraseIndex % thinkingPhrases.length];
+                    return { ...msg, content: { ...msg.content, text: newText } };
+                }
+                return msg;
+            }));
+            phraseIndex++;
+        }, 2000);
+
         try {
-            const result = await processPrescription(file, systemPrompt);
+            const { result, tokenCount } = await processPrescription(file, systemPrompt);
+            addTokens(tokenCount);
             if(activeConversationId) {
-                const dynamicTitle = await generateConversationTitle(result.internalSummary || `Análise para ${result.patientName || 'Paciente'}`);
+                const { text: dynamicTitle, tokenCount: titleTokenCount } = await generateConversationTitle(result.internalSummary || `Análise para ${result.patientName || 'Paciente'}`);
+                addTokens(titleTokenCount);
                 updateConversationTitle(activeConversationId, dynamicTitle);
             }
             const resultMessage: ChatMessage = { id: `ai-result-${Date.now()}`, sender: 'ai', content: { type: 'quote', result }, timestamp: new Date().toISOString() };
@@ -272,10 +307,14 @@ export const QuoteGenerator: React.FC<QuoteGeneratorProps> = ({ isMobileHistoryO
             setMessages(prev => [...prev.slice(0, -1), errorMessage]);
             await addMessage(errorMessage);
         } finally {
+            if (loadingIntervalRef.current) {
+                clearInterval(loadingIntervalRef.current);
+                loadingIntervalRef.current = null;
+            }
             setIsSending(false);
             setLoadingAction(null);
         }
-    }, [systemPrompt, showSettingsWarning, apiKeyMissing, wpConfigMissing, setMessages, addMessage, activeConversationId, updateConversationTitle]);
+    }, [systemPrompt, showSettingsWarning, apiKeyMissing, wpConfigMissing, setMessages, addMessage, activeConversationId, updateConversationTitle, addTokens]);
 
     const handleSendText = useCallback(async (text: string) => {
         if (apiKeyMissing) return;
@@ -289,7 +328,8 @@ export const QuoteGenerator: React.FC<QuoteGeneratorProps> = ({ isMobileHistoryO
         setIsSending(true);
         setLoadingAction('text');
         try {
-            const result = await pingAI(text, showSettingsWarning);
+            const { text: result, tokenCount } = await pingAI(text, showSettingsWarning);
+            addTokens(tokenCount);
             const aiMessage: ChatMessage = { id: `ai-text-${Date.now()}`, sender: 'ai', content: { type: 'text', text: result }, timestamp: new Date().toISOString() };
             setMessages(prev => [...prev.slice(0, -1), aiMessage]);
             await addMessage(aiMessage);
@@ -301,7 +341,7 @@ export const QuoteGenerator: React.FC<QuoteGeneratorProps> = ({ isMobileHistoryO
             setIsSending(false);
             setLoadingAction(null);
         }
-    }, [showSettingsWarning, apiKeyMissing, setMessages, addMessage]);
+    }, [showSettingsWarning, apiKeyMissing, setMessages, addMessage, addTokens]);
     
     const handleSend = useCallback(async ({ text, file }: { text: string; file: File | null }) => {
         if (file) {

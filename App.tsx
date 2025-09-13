@@ -1,5 +1,6 @@
 
 
+
 import React, { useState } from 'react';
 import { Header } from './components/Header.tsx';
 import { SettingsLayout } from './components/settings/SettingsLayout.tsx';
@@ -16,6 +17,7 @@ import { ModalProvider, useModal } from './hooks/useModal.ts';
 import { Modal } from './components/Modal.tsx';
 import { AlertTriangleIcon, CheckCircleIcon } from './components/icons.tsx';
 import { AuthProvider } from './hooks/useAuth.ts';
+import { TokenUsageProvider } from './hooks/useTokenUsage.ts';
 
 export type Page = 'chat' | 'settings';
 
@@ -174,11 +176,13 @@ function App() {
             <NotificationProvider>
               <ModalProvider>
                 <AuthProvider>
-                  <ChatHistoryProvider>
-                    <NotificationTrigger />
-                    <AppContent />
-                    <ModalRenderer />
-                  </ChatHistoryProvider>
+                  <TokenUsageProvider>
+                    <ChatHistoryProvider>
+                      <NotificationTrigger />
+                      <AppContent />
+                      <ModalRenderer />
+                    </ChatHistoryProvider>
+                  </TokenUsageProvider>
                 </AuthProvider>
               </ModalProvider>
             </NotificationProvider>

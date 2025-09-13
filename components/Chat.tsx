@@ -432,9 +432,8 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({ message, onAction, proces
                       </button>
                     </p>
                 );
-            case 'loading': {
-                return <TypingIndicator />;
-            }
+            case 'loading':
+                return <TypingIndicator text={content.text} />;
             case 'quote':
                 return <QuoteResultDisplay 
                     result={content.result} 

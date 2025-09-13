@@ -5,6 +5,7 @@ export interface ApiCall {
     status: 'success' | 'error';
     details: string; // Filename for prescription, snippet for text query
     error?: string; // Error message if status is 'error'
+    tokenCount?: number;
 }
 
 export const API_HISTORY_STORAGE_KEY = 'sativar_isis_api_history';

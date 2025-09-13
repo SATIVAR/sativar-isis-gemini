@@ -37,6 +37,7 @@ export interface FileRequestContent {
 
 export interface LoadingContent {
     type: 'loading';
+    text?: string;
 }
 
 export interface QuoteContent {
