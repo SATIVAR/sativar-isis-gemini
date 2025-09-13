@@ -507,6 +507,12 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({ message, onAction, proces
         minute: '2-digit'
     });
 
+    const formatDuration = (ms?: number) => {
+        if (typeof ms !== 'number' || ms < 0) return null;
+        if (ms < 1000) return `${ms}ms`;
+        return `${(ms / 1000).toFixed(2)}s`;
+    };
+
     return (
         <div className={`flex items-start gap-3 ${!isAI ? 'justify-end' : ''}`}>
             {isAI && <AIAvatar />}
@@ -533,9 +539,21 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({ message, onAction, proces
                         </div>
                     )}
                 </div>
-                <time dateTime={message.timestamp} className="text-xs text-gray-500 px-2">
-                    {formattedTime}
-                </time>
+                 <div className="flex items-center gap-2 px-2">
+                    <time dateTime={message.timestamp} className="text-xs text-gray-500">
+                        {formattedTime}
+                    </time>
+                    {isAI && message.tokenCount != null && (
+                        <span className="text-xs text-fuchsia-400/80 font-mono" title={`${message.tokenCount} tokens consumidos`}>
+                           &#x26A1;{message.tokenCount}
+                        </span>
+                    )}
+                    {isAI && message.duration != null && (
+                         <span className="text-xs text-gray-500 font-mono" title={`Tempo de processamento: ${formatDuration(message.duration)}`}>
+                            ({formatDuration(message.duration)})
+                        </span>
+                    )}
+                </div>
             </div>
             {!isAI && <UserAvatar />}
         </div>
@@ -568,7 +586,7 @@ export const Chat: React.FC<ChatProps> = ({
 }) => {
     const chatEndRef = useRef<HTMLDivElement | null>(null);
     const [text, setText] = useState('');
-    const fileInputRef = useRef<HTMLInputElement>(null);
+    const fileInputRef = useRef<HTMLInputElement | null>(null);
 
     useEffect(() => {
         const timer = setTimeout(() => {

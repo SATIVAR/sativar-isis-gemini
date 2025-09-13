@@ -73,6 +73,8 @@ CREATE TABLE IF NOT EXISTS messages (
   content TEXT NOT NULL, -- Stored as stringified JSON
   timestamp TEXT NOT NULL, -- ISO String
   is_action_complete INTEGER DEFAULT 0, -- 0 for false, 1 for true
+  token_count INTEGER,
+  duration INTEGER, -- in milliseconds
   FOREIGN KEY (conversation_id) REFERENCES conversations (id) ON DELETE CASCADE
 );
 

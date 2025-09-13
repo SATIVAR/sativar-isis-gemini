@@ -182,17 +182,20 @@ export const QuoteGenerator: React.FC<QuoteGeneratorProps> = ({ isMobileHistoryO
             
             setIsSending(true);
             setLoadingAction('text');
+            const startTime = Date.now();
             try {
                 const lastQuoteMessage = [...messages].reverse().find(m => m.content.type === 'quote');
                 const recentQuoteSummary = lastQuoteMessage?.content.type === 'quote' ? lastQuoteMessage.content.result.internalSummary : undefined;
                 
                 const { text, tokenCount } = await generateHighlight(recentQuoteSummary);
+                const duration = Date.now() - startTime;
                 addTokens(tokenCount);
-                const aiMessage: ChatMessage = { id: `ai-highlight-${Date.now()}`, sender: 'ai', content: { type: 'text', text }, timestamp: new Date().toISOString() };
+                const aiMessage: ChatMessage = { id: `ai-highlight-${Date.now()}`, sender: 'ai', content: { type: 'text', text }, timestamp: new Date().toISOString(), tokenCount, duration };
                 setMessages(prev => [...prev.slice(0, -1), aiMessage]);
                 await addMessage(aiMessage);
             } catch (err) {
-                const errorMessage: ChatMessage = { id: `ai-error-${Date.now()}`, sender: 'ai', content: { type: 'error', message: err instanceof Error ? err.message : 'Ocorreu um erro desconhecido.' }, timestamp: new Date().toISOString() };
+                const duration = Date.now() - startTime;
+                const errorMessage: ChatMessage = { id: `ai-error-${Date.now()}`, sender: 'ai', content: { type: 'error', message: err instanceof Error ? err.message : 'Ocorreu um erro desconhecido.' }, timestamp: new Date().toISOString(), duration };
                 setMessages(prev => [...prev.slice(0, -1), errorMessage]);
                 await addMessage(errorMessage);
             } finally {
@@ -291,19 +294,22 @@ export const QuoteGenerator: React.FC<QuoteGeneratorProps> = ({ isMobileHistoryO
             phraseIndex++;
         }, 2000);
 
+        const startTime = Date.now();
         try {
             const { result, tokenCount } = await processPrescription(file, systemPrompt);
+            const duration = Date.now() - startTime;
             addTokens(tokenCount);
             if(activeConversationId) {
                 const { text: dynamicTitle, tokenCount: titleTokenCount } = await generateConversationTitle(result.internalSummary || `Análise para ${result.patientName || 'Paciente'}`);
                 addTokens(titleTokenCount);
                 updateConversationTitle(activeConversationId, dynamicTitle);
             }
-            const resultMessage: ChatMessage = { id: `ai-result-${Date.now()}`, sender: 'ai', content: { type: 'quote', result }, timestamp: new Date().toISOString() };
+            const resultMessage: ChatMessage = { id: `ai-result-${Date.now()}`, sender: 'ai', content: { type: 'quote', result }, timestamp: new Date().toISOString(), tokenCount, duration };
             setMessages(prev => [...prev.slice(0, -1), resultMessage]);
             await addMessage(resultMessage);
         } catch (err) {
-            const errorMessage: ChatMessage = { id: `ai-error-${Date.now()}`, sender: 'ai', content: { type: 'error', message: err instanceof Error ? err.message : 'Ocorreu um erro desconhecido.' }, timestamp: new Date().toISOString() };
+            const duration = Date.now() - startTime;
+            const errorMessage: ChatMessage = { id: `ai-error-${Date.now()}`, sender: 'ai', content: { type: 'error', message: err instanceof Error ? err.message : 'Ocorreu um erro desconhecido.' }, timestamp: new Date().toISOString(), duration };
             setMessages(prev => [...prev.slice(0, -1), errorMessage]);
             await addMessage(errorMessage);
         } finally {
@@ -327,14 +333,17 @@ export const QuoteGenerator: React.FC<QuoteGeneratorProps> = ({ isMobileHistoryO
         
         setIsSending(true);
         setLoadingAction('text');
+        const startTime = Date.now();
         try {
             const { text: result, tokenCount } = await pingAI(text, showSettingsWarning);
+            const duration = Date.now() - startTime;
             addTokens(tokenCount);
-            const aiMessage: ChatMessage = { id: `ai-text-${Date.now()}`, sender: 'ai', content: { type: 'text', text: result }, timestamp: new Date().toISOString() };
+            const aiMessage: ChatMessage = { id: `ai-text-${Date.now()}`, sender: 'ai', content: { type: 'text', text: result }, timestamp: new Date().toISOString(), tokenCount, duration };
             setMessages(prev => [...prev.slice(0, -1), aiMessage]);
             await addMessage(aiMessage);
         } catch (err) {
-            const errorMessage: ChatMessage = { id: `ai-error-${Date.now()}`, sender: 'ai', content: { type: 'error', message: err instanceof Error ? err.message : 'Ocorreu um erro desconhecido.' }, timestamp: new Date().toISOString() };
+            const duration = Date.now() - startTime;
+            const errorMessage: ChatMessage = { id: `ai-error-${Date.now()}`, sender: 'ai', content: { type: 'error', message: err instanceof Error ? err.message : 'Ocorreu um erro desconhecido.' }, timestamp: new Date().toISOString(), duration };
             setMessages(prev => [...prev.slice(0, -1), errorMessage]);
             await addMessage(errorMessage);
         } finally {

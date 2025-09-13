@@ -77,6 +77,8 @@ export interface ChatMessage {
     content: MessageContent;
     isActionComplete?: boolean;
     timestamp: string;
+    tokenCount?: number;
+    duration?: number; // in milliseconds
 }
 
 

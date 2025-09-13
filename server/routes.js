@@ -167,19 +167,19 @@ router.get('/chats/:id', async (req, res, next) => {
     try {
         const rows = await chatQuery('SELECT * FROM messages WHERE conversation_id = ? ORDER BY timestamp ASC', [id]);
         
+        // Only parse the JSON content, pass other fields through as-is from the DB.
+        // The client-side hook will handle mapping snake_case to camelCase.
         const messages = rows.map(msg => {
             try {
                 return {
                     ...msg,
                     content: JSON.parse(msg.content),
-                    is_action_complete: msg.is_action_complete === 1,
                 };
             } catch (e) {
                 console.error(`Failed to parse message content for msg ID ${msg.id}`);
                 return {
                     ...msg,
                     content: { type: 'error', message: 'Failed to load message content.' },
-                    is_action_complete: msg.is_action_complete === 1,
                 }
             }
         });
@@ -245,15 +245,15 @@ router.post('/chats', async (req, res, next) => {
 // POST /api/chats/:id/messages - Add a message to a conversation
 router.post('/chats/:id/messages', async (req, res, next) => {
     const { id: conversation_id } = req.params;
-    const { id, sender, content, isActionComplete } = req.body;
+    const { id, sender, content, isActionComplete, tokenCount, duration } = req.body;
     
     // The timestamp is crucial for ordering, let the server generate it for consistency
     const timestamp = new Date().toISOString();
 
     try {
         const insertQuery = `
-            INSERT INTO messages (id, conversation_id, sender, content, timestamp, is_action_complete)
-            VALUES (?, ?, ?, ?, ?, ?)
+            INSERT INTO messages (id, conversation_id, sender, content, timestamp, is_action_complete, token_count, duration)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         `;
         const params = [
             id,
@@ -261,7 +261,9 @@ router.post('/chats/:id/messages', async (req, res, next) => {
             sender,
             JSON.stringify(content),
             timestamp,
-            isActionComplete ? 1 : 0
+            isActionComplete ? 1 : 0,
+            tokenCount,
+            duration
         ];
         
         await chatQuery(insertQuery, params);

@@ -1,4 +1,5 @@
 
+
 import React, { createContext, useState, useContext, useEffect, useCallback, useMemo } from 'react';
 import { apiClient } from '../services/database/apiClient.ts';
 import type { ChatMessage, Conversation } from '../types.ts';
@@ -44,12 +45,14 @@ export const ChatHistoryProvider: React.FC<{ children: React.ReactNode }> = ({ c
         
         try {
             const fetchedMessages = await apiClient.get<any[]>(`/chats/${conversationId}`);
-            const parsedMessages = fetchedMessages.map(msg => ({
+            const parsedMessages: ChatMessage[] = fetchedMessages.map(msg => ({
                 id: msg.id,
                 sender: msg.sender,
-                content: typeof msg.content === 'string' ? JSON.parse(msg.content) : msg.content,
+                content: msg.content, // Content is already parsed by the server
                 isActionComplete: msg.is_action_complete === 1,
-                timestamp: msg.timestamp
+                timestamp: msg.timestamp,
+                tokenCount: msg.token_count,
+                duration: msg.duration,
             }));
             setMessages(parsedMessages);
             setActiveConversationId(conversationId);
