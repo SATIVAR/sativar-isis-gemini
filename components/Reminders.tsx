@@ -1,5 +1,4 @@
 
-
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useReminders } from '../hooks/useReminders.ts';
 import type { Reminder, Task } from '../types.ts';
@@ -167,7 +166,7 @@ export const ReminderModal: React.FC<ReminderModalProps> = ({ onClose, reminder,
     ];
 
     return (
-        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4" onClick={handleCloseAttempt}>
+        <div className="fixed inset-0 bg-black/60 z-[60] flex items-center justify-center p-4" onClick={handleCloseAttempt}>
             <div className="bg-[#303134] rounded-xl border border-gray-700 p-6 w-full max-w-lg shadow-2xl" onClick={e => e.stopPropagation()}>
                 <form onSubmit={handleSubmit}>
                     <h3 className="text-xl font-bold mb-6 text-white">{reminder ? 'Editar Tarefa' : 'Criar Nova Tarefa'}</h3>
