@@ -1,7 +1,19 @@
-// FIX: Import useState and useEffect from React to resolve multiple hook-related errors.
 import React, { useRef, useState, useEffect } from 'react';
-import { PlusIcon, SendIcon, XCircleIcon } from './icons.tsx';
+import { jsPDF } from 'jspdf';
+import { useSettings } from '../hooks/useSettings.ts';
+import { useReminders } from '../hooks/useReminders.ts';
+import type { ChatMessage, QuoteResult, MessageContent } from '../types.ts';
+import { 
+    PlusIcon, SendIcon, AlertTriangleIcon, ClipboardCheckIcon, 
+    ClipboardIcon, DownloadIcon, UserIcon, BellIcon, CalendarIcon 
+} from './icons.tsx';
 import { Loader } from './Loader.tsx';
+import { ReminderModal } from './Reminders.tsx';
+import { TypingIndicator } from './TypingIndicator.tsx';
+import { ProductSearch } from './ProductSearch.tsx';
+import { UserSearch } from './UserSearch.tsx';
+import { Modal } from './Modal.tsx';
+
 
 interface ChatInputProps {
     text: string;
@@ -69,18 +81,6 @@ const ChatInput: React.FC<ChatInputProps> = ({
         </div>
     );
 };
-
-// Keep original code below for context
-import { jsPDF } from 'jspdf';
-import { useSettings } from '../hooks/useSettings.ts';
-import { useReminders } from '../hooks/useReminders.ts';
-import type { ChatMessage, QuoteResult, MessageContent } from '../types.ts';
-import { AlertTriangleIcon, ClipboardCheckIcon, ClipboardIcon, DownloadIcon, UserIcon, BellIcon, CalendarIcon } from './icons.tsx';
-import { ReminderModal } from './Reminders.tsx';
-import { TypingIndicator } from './TypingIndicator.tsx';
-import { ProductSearch } from './ProductSearch.tsx';
-import { UserSearch } from './UserSearch.tsx';
-import { Modal } from './Modal.tsx';
 
 const AIAvatar: React.FC = () => (
     <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-fuchsia-900 self-end">

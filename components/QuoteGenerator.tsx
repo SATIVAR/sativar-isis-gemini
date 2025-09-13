@@ -20,28 +20,31 @@ interface FilePreviewModalProps {
 
 
 const FilePreviewModal: React.FC<FilePreviewModalProps> = ({ file, onClose, onConfirm, isConfirmation }) => {
-     // Create a consistent file detail object, managing object URLs internally
+    const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+
     const fileDetails = useMemo(() => {
-        if (file instanceof File) {
-            return {
-                url: URL.createObjectURL(file),
-                type: file.type,
-                name: file.name,
-                isObjectURL: true
-            };
-        }
-        // For files already in chat history, the URL might be an object URL or a permanent one
-        return { ...file, isObjectURL: file.url.startsWith('blob:') };
+        const name = file instanceof File ? file.name : file.name;
+        const type = file instanceof File ? file.type : file.type;
+        return { name, type };
     }, [file]);
 
-    // Effect to clean up the object URL when the component unmounts
     useEffect(() => {
+        let objectUrl: string | null = null;
+        if (file instanceof File) {
+            objectUrl = URL.createObjectURL(file);
+            setPreviewUrl(objectUrl);
+        } else {
+            setPreviewUrl(file.url);
+        }
+
         return () => {
-            if (fileDetails.isObjectURL) {
-                URL.revokeObjectURL(fileDetails.url);
+            if (objectUrl) {
+                URL.revokeObjectURL(objectUrl);
+                setPreviewUrl(null);
             }
         };
-    }, [fileDetails]);
+    }, [file]);
+
 
     return (
         <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4" onClick={onClose} role="dialog" aria-modal="true" aria-labelledby="file-preview-title">
@@ -53,14 +56,20 @@ const FilePreviewModal: React.FC<FilePreviewModalProps> = ({ file, onClose, onCo
                     </button>
                 </div>
                 <div className="flex-grow p-2 overflow-auto flex items-center justify-center">
-                    {fileDetails.type.startsWith('image/') ? (
-                        <img src={fileDetails.url} alt={`Visualização de ${fileDetails.name}`} className="max-w-full max-h-full object-contain" />
-                    ) : fileDetails.type === 'application/pdf' ? (
-                        <iframe src={fileDetails.url} className="w-full h-full border-0" title={fileDetails.name} />
+                    {previewUrl && fileDetails.type.startsWith('image/') ? (
+                        <img src={previewUrl} alt={`Visualização de ${fileDetails.name}`} className="max-w-full max-h-full object-contain" />
+                    ) : previewUrl && fileDetails.type === 'application/pdf' ? (
+                        <iframe src={previewUrl} className="w-full h-full border-0" title={fileDetails.name} />
                     ) : (
                         <div className="text-center text-gray-400 p-10">
-                            <p>Visualização não disponível para este tipo de arquivo.</p>
-                            <a href={fileDetails.url} download={fileDetails.name} className="mt-4 inline-block text-fuchsia-400 underline">Baixar arquivo</a>
+                            {previewUrl ? (
+                                <>
+                                    <p>Visualização não disponível para este tipo de arquivo.</p>
+                                    <a href={previewUrl} download={fileDetails.name} className="mt-4 inline-block text-fuchsia-400 underline">Baixar arquivo</a>
+                                </>
+                            ) : (
+                                <Loader />
+                            )}
                         </div>
                     )}
                 </div>
@@ -303,12 +312,14 @@ export const QuoteGenerator: React.FC<QuoteGeneratorProps> = ({ isMobileHistoryO
         }
     }, [handleSendText]);
 
-    const handleConfirmAndAnalyze = async () => {
+    const handleConfirmAndAnalyze = useCallback(async () => {
         if (pendingAnalysisFile) {
-            await runFileAnalysis(pendingAnalysisFile);
+            // Capture the file and close the modal immediately for a responsive UI.
+            const fileToAnalyze = pendingAnalysisFile;
+            setPendingAnalysisFile(null);
+            await runFileAnalysis(fileToAnalyze);
         }
-        setPendingAnalysisFile(null); // Close the modal
-    };
+    }, [pendingAnalysisFile, runFileAnalysis]);
     
     const handleOpenFilePreview = (file: { url: string; type: string; name: string }) => {
         setPreviewFile(file);
