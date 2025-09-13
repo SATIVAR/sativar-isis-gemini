@@ -1,8 +1,6 @@
-
-
 import React, { useState } from 'react';
 import type { Page } from '../App.tsx';
-import { SettingsIcon, BellIcon, MenuIcon } from './icons.tsx';
+import { SettingsIcon, BellIcon, PlusIcon } from './icons.tsx';
 import { useReminders } from '../hooks/useReminders.ts';
 import { useSettings } from '../hooks/useSettings.ts';
 import { RemindersList } from './Reminders.tsx';
@@ -58,15 +56,7 @@ export const Header: React.FC<HeaderProps> = ({ setCurrentPage, currentPage, onT
             `}</style>
             <header className="flex flex-shrink-0 items-center justify-between border-b border-gray-700/50 bg-[#131314] p-4">
                 <div className="flex items-center gap-2 md:gap-4">
-                     {currentPage === 'chat' && (
-                        <button
-                            onClick={onToggleMobileHistory}
-                            className="rounded-full p-2 transition-colors hover:bg-gray-700 md:hidden"
-                            aria-label="Mostrar histórico de conversas"
-                        >
-                            <MenuIcon className="h-6 w-6 text-gray-400" />
-                        </button>
-                     )}
+                     {/* Button was removed from here. */}
                      <Logo className="h-10 w-10" />
                     <div>
                         <div className="flex items-baseline gap-2">
@@ -88,6 +78,15 @@ export const Header: React.FC<HeaderProps> = ({ setCurrentPage, currentPage, onT
                 </div>
                 {auth.isAuthenticated && (
                     <nav className="flex items-center gap-2">
+                        {currentPage === 'chat' && (
+                            <button
+                                onClick={onToggleMobileHistory}
+                                className="rounded-full p-2 transition-colors hover:bg-gray-700 md:hidden"
+                                aria-label="Nova análise ou ver histórico"
+                            >
+                                <PlusIcon className="h-6 w-6 text-gray-400" />
+                            </button>
+                        )}
                         <div className="relative">
                             <button 
                                 onClick={() => setIsRemindersOpen(prev => !prev)}
