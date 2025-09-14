@@ -15,7 +15,7 @@ interface StepContent {
 
 const steps: StepContent[] = [
   {
-    icon: <Logo className="h-20 w-20 mb-4" />,
+    icon: <Logo className="h-20 w-20 mb-4 mx-auto" />,
     title: 'Bem-vindo(a) ao SATIVAR - Isis!',
     description: (
       <p>
@@ -27,7 +27,7 @@ const steps: StepContent[] = [
     buttonText: 'Vamos começar!',
   },
   {
-    icon: <SparklesIcon className="h-16 w-16 mb-4 text-fuchsia-300" />,
+    icon: <SparklesIcon className="h-16 w-16 mb-4 text-fuchsia-300 mx-auto" />,
     title: 'Modo Isis: O Cérebro da Operação',
     description: (
       <ul className="list-disc list-inside space-y-2 text-left mx-auto max-w-sm">
@@ -39,7 +39,7 @@ const steps: StepContent[] = [
     buttonText: 'Próximo',
   },
   {
-    icon: <BriefcaseIcon className="h-16 w-16 mb-4 text-blue-300" />,
+    icon: <BriefcaseIcon className="h-16 w-16 mb-4 text-blue-300 mx-auto" />,
     title: 'Modo Seishat: Seu CRM Integrado',
     description: (
       <p>
@@ -49,7 +49,7 @@ const steps: StepContent[] = [
     buttonText: 'Próximo',
   },
   {
-    icon: <SettingsIcon className="h-16 w-16 mb-4 text-gray-300" />,
+    icon: <SettingsIcon className="h-16 w-16 mb-4 text-gray-300 mx-auto" />,
     title: 'Configuração Inicial Essencial',
     description: (
       <p>
@@ -63,7 +63,7 @@ const steps: StepContent[] = [
     buttonText: 'Entendido, vamos lá!',
   },
   {
-    icon: <CheckCircleIcon className="h-16 w-16 mb-4 text-green-400" />,
+    icon: <CheckCircleIcon className="h-16 w-16 mb-4 text-green-400 mx-auto" />,
     title: 'Tudo Pronto!',
     description: (
       <p>
