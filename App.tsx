@@ -17,6 +17,7 @@ import { Modal } from './components/Modal.tsx';
 import { AlertTriangleIcon, CheckCircleIcon, UsersIcon } from './components/icons.tsx';
 import { AuthProvider, useAuth } from './hooks/useAuth.ts';
 import { TokenUsageProvider } from './hooks/useTokenUsage.ts';
+import { OnboardingGuide } from './components/OnboardingGuide.tsx';
 
 export type Page = 'main' | 'settings';
 export type AppMode = 'isis' | 'seishat';
@@ -94,6 +95,8 @@ const AppContent: React.FC = () => {
     const [currentPage, setCurrentPage] = useState<Page>('main');
     const [isMobileHistoryOpen, setIsMobileHistoryOpen] = useState(false);
     const auth = useAuth();
+    const [showOnboarding, setShowOnboarding] = useState(!localStorage.getItem('sativar_isis_onboarding_complete'));
+
 
     React.useEffect(() => {
         // If the user role is 'user' and they are trying to access settings, redirect them to main page.
@@ -109,6 +112,12 @@ const AppContent: React.FC = () => {
     if (isInitialSyncing) {
         return <LoadingScreen message={initialSyncMessage} />;
     }
+
+    const handleOnboardingComplete = () => {
+        localStorage.setItem('sativar_isis_onboarding_complete', 'true');
+        setShowOnboarding(false);
+        setCurrentPage('settings');
+    };
 
     const renderMainContent = () => {
         if (currentMode === 'isis') {
@@ -139,6 +148,7 @@ const AppContent: React.FC = () => {
 
     return (
         <div className="flex h-screen flex-col bg-[#131314] font-sans text-gray-200">
+            {showOnboarding && <OnboardingGuide onComplete={handleOnboardingComplete} />}
             <Header 
                 setCurrentPage={setCurrentPage} 
                 currentPage={currentPage} 
