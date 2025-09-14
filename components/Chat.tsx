@@ -532,7 +532,7 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({ message, onAction, proces
                         </button>
                     )}
                     {isUserActionCompleteText ? (
-                         <p className="whitespace-pre-wrap pr-4">{renderContent(message.content)}</p>
+                         <div className="whitespace-pre-wrap pr-4">{renderContent(message.content)}</div>
                     ) : (
                         <div className={canBeCopied ? 'pr-8' : ''}>
                             {renderContent(message.content)}

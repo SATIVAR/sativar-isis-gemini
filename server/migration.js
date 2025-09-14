@@ -98,7 +98,7 @@ CREATE TABLE IF NOT EXISTS users (
   id TEXT PRIMARY KEY,
   name TEXT NOT NULL UNIQUE,
   whatsapp TEXT,
-  role TEXT NOT NULL CHECK(role IN ('admin', 'user')),
+  role TEXT NOT NULL CHECK(role IN ('admin', 'manager', 'user')),
   password TEXT NOT NULL,
   created_at TEXT DEFAULT (datetime('now', 'localtime')),
   updated_at TEXT DEFAULT (datetime('now', 'localtime'))

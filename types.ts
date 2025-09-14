@@ -192,7 +192,7 @@ export interface Conversation {
 }
 
 // From hooks/useAuth.ts
-export type UserRole = 'admin' | 'user';
+export type UserRole = 'admin' | 'manager' | 'user';
 
 export interface User {
     id: string;

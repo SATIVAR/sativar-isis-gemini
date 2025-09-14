@@ -1,6 +1,7 @@
+
 import React, { useState } from 'react';
-import type { Page } from '../App.tsx';
-import { SettingsIcon, BellIcon, PlusIcon } from './icons.tsx';
+import type { Page, AppMode } from '../App.tsx';
+import { SettingsIcon, BellIcon, PlusIcon, RepeatIcon, BriefcaseIcon, SparklesIcon } from './icons.tsx';
 import { useReminders } from '../hooks/useReminders.ts';
 import { useSettings } from '../hooks/useSettings.ts';
 import { RemindersList } from './Reminders.tsx';
@@ -11,10 +12,12 @@ import { useAuth } from '../hooks/useAuth.ts';
 interface HeaderProps {
     setCurrentPage: (page: Page) => void;
     currentPage: Page;
+    currentMode: AppMode;
+    setCurrentMode: (mode: AppMode) => void;
     onToggleMobileHistory?: () => void;
 }
 
-export const Header: React.FC<HeaderProps> = ({ setCurrentPage, currentPage, onToggleMobileHistory }) => {
+export const Header: React.FC<HeaderProps> = ({ setCurrentPage, currentPage, currentMode, setCurrentMode, onToggleMobileHistory }) => {
     const [isRemindersOpen, setIsRemindersOpen] = useState(false);
     const { reminders, hasOverdueReminders } = useReminders();
     const { settings } = useSettings();
@@ -26,7 +29,7 @@ export const Header: React.FC<HeaderProps> = ({ setCurrentPage, currentPage, onT
     const handleSettingsClick = () => {
         setIsRemindersOpen(false); // Close reminders when navigating
         if (currentPage === 'settings') {
-            setCurrentPage('chat');
+            setCurrentPage('main');
         } else {
             setCurrentPage('settings');
         }
@@ -34,8 +37,13 @@ export const Header: React.FC<HeaderProps> = ({ setCurrentPage, currentPage, onT
     
     const handleHomeClick = () => {
         setIsRemindersOpen(false); // Close reminders when navigating
-        setCurrentPage('chat');
+        setCurrentPage('main');
     }
+
+    const handleModeToggle = () => {
+        setCurrentMode(currentMode === 'isis' ? 'seishat' : 'isis');
+        setCurrentPage('main'); // Always go to the main page of the new mode
+    };
 
     return (
         <>
@@ -56,12 +64,11 @@ export const Header: React.FC<HeaderProps> = ({ setCurrentPage, currentPage, onT
             `}</style>
             <header className="flex flex-shrink-0 items-center justify-between border-b border-gray-700/50 bg-[#131314] p-4">
                 <div className="flex items-center gap-2 md:gap-4">
-                     {/* Button was removed from here. */}
                      <Logo className="h-10 w-10" />
                     <div>
                         <div className="flex items-baseline gap-2">
                             <h1 className="text-xl font-semibold text-gray-200 hover:text-white transition-colors" onClick={handleHomeClick} style={{ cursor: 'pointer' }}>
-                                SATIVAR - Isis
+                                SATIVAR - {currentMode === 'isis' ? 'Isis' : 'Seishat'}
                             </h1>
                             <span
                                 className={`select-none text-xs font-mono px-2 py-0.5 rounded-full transition-colors cursor-help ${isOnline ? 'bg-green-600 text-white' : 'bg-red-600 text-white'}`}
@@ -77,7 +84,7 @@ export const Header: React.FC<HeaderProps> = ({ setCurrentPage, currentPage, onT
                 </div>
                 {auth.isAuthenticated && (
                     <nav className="flex items-center gap-2">
-                        {currentPage === 'chat' && (
+                        {currentMode === 'isis' && currentPage === 'main' && (
                             <button
                                 onClick={onToggleMobileHistory}
                                 className="rounded-full p-2 transition-colors hover:bg-gray-700 min-[461px]:hidden"
@@ -86,6 +93,16 @@ export const Header: React.FC<HeaderProps> = ({ setCurrentPage, currentPage, onT
                                 <PlusIcon className="h-6 w-6 text-gray-400" />
                             </button>
                         )}
+                        
+                        <button
+                            onClick={handleModeToggle}
+                            className="rounded-full p-2 transition-colors hover:bg-gray-700"
+                            title={currentMode === 'isis' ? 'Alternar para Modo Seishat (CRM)' : 'Alternar para Modo Isis (IA)'}
+                            aria-label="Alternar modo de operação"
+                        >
+                           {currentMode === 'isis' ? <BriefcaseIcon className="h-6 w-6 text-gray-400" /> : <SparklesIcon className="h-6 w-6 text-gray-400" />}
+                        </button>
+                        
                         <div className="relative">
                             <button 
                                 onClick={() => setIsRemindersOpen(prev => !prev)}
@@ -101,14 +118,16 @@ export const Header: React.FC<HeaderProps> = ({ setCurrentPage, currentPage, onT
                             </button>
                             {isRemindersOpen && <RemindersList onClose={() => setIsRemindersOpen(false)} />}
                         </div>
-
-                        <button 
-                            onClick={handleSettingsClick}
-                            className="rounded-full p-2 transition-colors hover:bg-gray-700"
-                            aria-label="Toggle settings"
-                        >
-                            <SettingsIcon className="h-6 w-6 text-gray-400" />
-                        </button>
+                        
+                        {auth.user?.role !== 'user' && (
+                            <button 
+                                onClick={handleSettingsClick}
+                                className="rounded-full p-2 transition-colors hover:bg-gray-700"
+                                aria-label="Toggle settings"
+                            >
+                                <SettingsIcon className="h-6 w-6 text-gray-400" />
+                            </button>
+                        )}
                     </nav>
                 )}
             </header>

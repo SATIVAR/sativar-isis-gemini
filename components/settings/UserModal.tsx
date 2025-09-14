@@ -93,6 +93,7 @@ export const UserModal: React.FC<UserModalProps> = ({ user, onClose, onSaveSucce
                     <label htmlFor="role" className="block text-sm font-medium text-gray-300 mb-2">Função</label>
                     <select id="role" value={role} onChange={e => setRole(e.target.value as UserRole)} className="w-full bg-[#202124] border border-gray-600/50 text-white rounded-lg px-3 py-2 focus:ring-2 focus:ring-fuchsia-500" disabled={user?.role === 'admin'}>
                         <option value="user">Usuário</option>
+                        <option value="manager">Gerente</option>
                         <option value="admin">Admin</option>
                     </select>
                     {user?.role === 'admin' && <p className="text-xs text-gray-400 mt-1">A função do superadministrador não pode ser alterada.</p>}

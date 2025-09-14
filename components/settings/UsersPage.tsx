@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useModal } from '../../hooks/useModal.ts';
 import { apiClient } from '../../services/database/apiClient.ts';
-import type { User } from '../../types.ts';
+import type { User, UserRole } from '../../types.ts';
 import { Loader } from '../Loader.tsx';
 import { UsersIcon, PlusCircleIcon, SearchIcon, EditIcon, Trash2Icon } from '../icons.tsx';
 import { UserModal } from './UserModal.tsx';
@@ -72,6 +72,12 @@ export const UsersPage: React.FC = () => {
         );
     }, [users, search]);
 
+    const roleInfo: Record<UserRole, { label: string; className: string }> = {
+        admin: { label: 'Admin', className: 'bg-fuchsia-800 text-fuchsia-200' },
+        manager: { label: 'Gerente', className: 'bg-blue-800 text-blue-200' },
+        user: { label: 'Usuário', className: 'bg-gray-600 text-gray-300' },
+    };
+
     const renderContent = () => {
         if (isLoading) return <div className="flex justify-center items-center py-10"><Loader /></div>;
         if (error) return <div className="text-center text-red-400 py-10">{error}</div>;
@@ -93,8 +99,8 @@ export const UsersPage: React.FC = () => {
                                 <td className="px-4 py-3 font-medium text-white">{user.name}</td>
                                 <td className="px-4 py-3 text-gray-300">{user.whatsapp || 'N/A'}</td>
                                 <td className="px-4 py-3">
-                                    <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${user.role === 'admin' ? 'bg-fuchsia-800 text-fuchsia-200' : 'bg-gray-600 text-gray-300'}`}>
-                                        {user.role}
+                                    <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${roleInfo[user.role]?.className || roleInfo.user.className}`}>
+                                        {roleInfo[user.role]?.label || user.role}
                                     </span>
                                 </td>
                                 <td className="px-4 py-3 flex items-center justify-end gap-2">
