@@ -1,5 +1,5 @@
 import React from 'react';
-import { StoreIcon, LogOutIcon, UsersIcon, FileTextIcon, ShoppingCartIcon, DollarSignIcon, BarChart2Icon } from '../icons.tsx';
+import { StoreIcon, LogOutIcon, UsersIcon, FileTextIcon, ShoppingCartIcon, DollarSignIcon, BarChart2Icon } from '../../icons.tsx';
 import type { UserRole } from '../../../types.ts';
 
 export type SeishatSettingsPageName = 'products' | 'patients' | 'prescribers' | 'documents' | 'orders' | 'expenses' | 'reports';
