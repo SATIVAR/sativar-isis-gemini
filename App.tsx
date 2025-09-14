@@ -1,7 +1,7 @@
-
 import React, { useState } from 'react';
 import { Header } from './components/Header.tsx';
 import { SettingsLayout } from './components/settings/SettingsLayout.tsx';
+import { SeishatSettingsLayout } from './components/settings/seishat/SeishatSettingsLayout.tsx';
 // FIX: Import the 'useSettings' hook.
 import { SettingsProvider, useSettings } from './hooks/useSettings.ts';
 import { RemindersProvider, useReminders } from './hooks/useReminders.ts';
@@ -87,15 +87,6 @@ const SeishatCrm: React.FC = () => (
     </div>
 );
 
-const SeishatSettings: React.FC = () => (
-    <div className="flex flex-col items-center justify-center h-full text-center text-gray-400 p-8">
-        <h1 className="text-3xl font-bold text-white mb-2">Configurações - Modo Seishat</h1>
-        <p className="max-w-md">
-            As configurações específicas para o módulo de CRM serão gerenciadas aqui, como campos customizados, integrações e permissões de equipe.
-        </p>
-    </div>
-);
-
 
 const AppContent: React.FC = () => {
     const { isInitialSyncing, initialSyncMessage } = useSettings();
@@ -141,7 +132,7 @@ const AppContent: React.FC = () => {
             return <SettingsLayout onLogout={handleLogout} />;
         }
         if (currentMode === 'seishat') {
-            return <SeishatSettings />;
+            return <SeishatSettingsLayout onLogout={handleLogout} />;
         }
         return null;
     };

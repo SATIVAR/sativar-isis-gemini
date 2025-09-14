@@ -1,10 +1,7 @@
-
-
 import React, { useState, useEffect } from 'react';
 import { SettingsSidebar, type SettingsPageName } from './SettingsSidebar.tsx';
 import { AssociationPage } from './AssociationPage.tsx';
 import { ApiConfigPage } from './ApiConfigPage.tsx';
-import { ProductsPage } from './ProductsPage.tsx';
 import { AdvancedPage } from './ClientsPage.tsx';
 import { PromptPage } from './PromptPage.tsx';
 import { ApiHistoryPage } from './ApiHistoryPage.tsx';
@@ -38,7 +35,7 @@ export const SettingsLayout: React.FC<SettingsLayoutProps> = ({ onLogout }) => {
   // Effect to reset to a valid page if a non-admin user somehow lands on an admin page
   useEffect(() => {
     if (auth.user?.role === 'user') {
-        const allowedPagesForUser: SettingsPageName[] = ['association', 'products', 'notifications'];
+        const allowedPagesForUser: SettingsPageName[] = ['association', 'notifications'];
         if (!allowedPagesForUser.includes(currentPage)) {
             setCurrentPage('association');
         }
@@ -75,8 +72,6 @@ export const SettingsLayout: React.FC<SettingsLayoutProps> = ({ onLogout }) => {
         return <UsersPage />;
       case 'api':
         return <ApiConfigPage />;
-      case 'products':
-        return <ProductsPage />;
       case 'notifications':
         return <NotificationsPage />;
       case 'advanced':
