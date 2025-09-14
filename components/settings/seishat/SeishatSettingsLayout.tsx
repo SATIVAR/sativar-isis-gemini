@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import { SeishatSettingsSidebar, type SeishatSettingsPageName } from './SeishatSettingsSidebar.tsx';
 import { SeishatProductsPage } from '../ProductsPage.tsx';
-import { useAuth } from '../../hooks/useAuth.ts';
-import { useSettings } from '../../hooks/useSettings.ts';
-import { CheckCircleIcon, AlertTriangleIcon, CheckIcon } from '../icons.tsx';
+import { useAuth } from '../../../hooks/useAuth.ts';
+import { useSettings } from '../../../hooks/useSettings.ts';
+import { CheckCircleIcon, AlertTriangleIcon, CheckIcon } from '../../icons.tsx';
 import { Loader } from '../../Loader.tsx';
 
 interface SeishatSettingsLayoutProps {
