@@ -14,7 +14,7 @@ import { Loader } from './components/Loader.tsx';
 import { ChatHistoryProvider } from './hooks/useChatHistory.ts';
 import { ModalProvider, useModal } from './hooks/useModal.ts';
 import { Modal } from './components/Modal.tsx';
-import { AlertTriangleIcon, CheckCircleIcon, UsersIcon } from './components/icons.tsx';
+import { AlertTriangleIcon, BookIcon, BookOpenIcon, BriefcaseIcon, CalendarIcon, CheckCircleIcon, CheckSquareIcon, CoffeeIcon, DollarSignIcon, EditIcon, PersonRunningIcon, PlusIcon, SparklesIcon, SunriseIcon, TableIcon, UtensilsIcon } from './components/icons.tsx';
 import { AuthProvider, useAuth } from './hooks/useAuth.ts';
 import { TokenUsageProvider } from './hooks/useTokenUsage.ts';
 import { OnboardingGuide } from './components/OnboardingGuide.tsx';
@@ -65,38 +65,155 @@ const NotificationTrigger: React.FC = () => {
     return null; // This component doesn't render anything visible
 };
 
-const LoadingScreen: React.FC<{ message: string }> = ({ message }) => {
+const LoadingScreen: React.FC<{ message: string; mode: AppMode }> = ({ message, mode }) => {
+    const modeDetails = {
+        isis: {
+            name: 'Isis Chat',
+            icon: <SparklesIcon className="w-5 h-5 text-gray-400" />
+        },
+        seishat: {
+            name: 'Seishat CRM',
+            icon: <BriefcaseIcon className="w-5 h-5 text-gray-400" />
+        }
+    };
+    const currentModeDetails = modeDetails[mode];
+
     return (
         <div className="flex flex-col items-center justify-center h-screen bg-[#131314] text-gray-300 font-sans">
             <Logo className="h-24 w-24 mb-6" />
-            <h1 className="text-3xl font-bold text-white mb-2">SATIVAR - Isis</h1>
-            <div className="flex items-center gap-4 mt-4">
-                <Loader />
+            <h1 className="text-3xl font-bold text-white mb-1">SATIVAR</h1>
+            <div className="flex items-center gap-2 text-lg text-gray-400 mb-6">
+                {currentModeDetails.icon}
+                <span>{currentModeDetails.name}</span>
+            </div>
+            <div className="flex items-center gap-3 mt-4">
+                <div className="w-3 h-3 bg-fuchsia-500 rounded-full animate-pulse"></div>
                 <p className="text-lg text-gray-400">{message}</p>
             </div>
         </div>
     );
 };
 
-const SeishatCrm: React.FC = () => (
-    <div className="flex flex-col items-center justify-center h-full text-center text-gray-400 p-8">
-        <UsersIcon className="w-16 h-16 mx-auto mb-6 text-gray-500" />
-        <h1 className="text-3xl font-bold text-white mb-2">Modo Seishat (CRM)</h1>
-        <p className="max-w-md">
-            Esta área será dedicada ao gerenciamento de pacientes, prescritores, receitas, relatórios e todas as operações de CRM da associação.
-        </p>
-    </div>
-);
+
+const StatusBadge: React.FC<{ status: 'Concluído' | 'Em andamento' | 'Não iniciada' }> = ({ status }) => {
+    const statusStyles = {
+        'Concluído': 'bg-green-800 text-green-300',
+        'Em andamento': 'bg-yellow-800 text-yellow-300',
+        'Não iniciada': 'bg-gray-700 text-gray-400',
+    };
+    return <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${statusStyles[status]}`}>{status}</span>;
+};
+
+const SeishatCrm: React.FC = () => {
+    const activities = [
+        { icon: <SunriseIcon className="w-4 h-4 text-gray-400" />, text: 'Acordar e fazer higiene', status: 'Concluído' as const },
+        { icon: <CoffeeIcon className="w-4 h-4 text-gray-400" />, text: 'Tomar café da manhã', status: 'Em andamento' as const },
+        { icon: <BookOpenIcon className="w-4 h-4 text-gray-400" />, text: 'Trabalhar ou estudar', status: 'Não iniciada' as const },
+        { icon: <UtensilsIcon className="w-4 h-4 text-gray-400" />, text: 'Almoçar', status: 'Não iniciada' as const },
+        { icon: <PersonRunningIcon className="w-4 h-4 text-gray-400" />, text: 'Treinar', status: 'Não iniciada' as const },
+    ];
+    
+    const templates = [
+        { icon: <BookIcon className="w-6 h-6 text-gray-400" />, title: 'Wiki da vida', author: 'Pelo Notion', image: 'https://i.imgur.com/KFF3fB2.png' },
+        { icon: <EditIcon className="w-6 h-6 text-gray-400" />, title: 'Diário', author: 'Pelo Notion', image: 'https://i.imgur.com/lJg0m7A.png' },
+        { icon: <CheckSquareIcon className="w-6 h-6 text-gray-400" />, title: 'Lista de tarefas', author: 'Pelo Notion', image: 'https://i.imgur.com/8mP1H4a.png' },
+        { icon: <DollarSignIcon className="w-6 h-6 text-gray-400" />, title: 'Orçamento', author: 'Pelo Notion', image: 'https://i.imgur.com/qE4Jc8E.png' },
+    ];
+
+    const DashboardSectionTitle: React.FC<{ title: string; icon: React.ReactNode; }> = ({ title, icon }) => (
+        <div className="flex items-center gap-2 text-sm text-gray-400 mb-3 px-1">
+            {icon}
+            <h2 className="font-semibold">{title}</h2>
+        </div>
+    );
+
+    return (
+        <div className="h-full overflow-y-auto p-4 sm:p-6 md:p-8 text-gray-300 font-sans">
+            <div className="max-w-6xl mx-auto space-y-8">
+                <section>
+                    <DashboardSectionTitle title="Próximos eventos" icon={<CalendarIcon className="w-5 h-5" />} />
+                    <div className="bg-[#202124] rounded-lg p-12 flex flex-col items-center justify-center text-center border border-gray-700/50 min-h-[200px]">
+                        <div className="relative mb-4">
+                            <CalendarIcon className="w-16 h-16 text-gray-500" />
+                            <span className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-[30%] text-lg font-bold text-gray-500">14</span>
+                        </div>
+                        <p className="text-gray-400 mb-3">Não há eventos nos próximos 3 dias</p>
+                        <button className="flex items-center gap-1.5 text-sm text-blue-400 hover:text-blue-300 hover:bg-blue-500/10 px-2 py-1 rounded-md transition-colors">
+                            <PlusIcon className="w-4 h-4" />
+                            Novo evento
+                        </button>
+                    </div>
+                </section>
+                
+                <section>
+                    <DashboardSectionTitle title="Visualizações da página inicial" icon={<TableIcon className="w-5 h-5" />} />
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                        <div className="lg:col-span-1 bg-[#202124] rounded-lg p-6 flex flex-col items-start justify-center text-left border border-gray-700/50 h-full">
+                            <TableIcon className="w-12 h-12 text-gray-500 mb-4" />
+                            <p className="text-gray-400 text-sm mb-4">Fixe uma visualização da base de dados para que você possa acessá-la rapidamente na página inicial.</p>
+                            <button className="text-sm text-blue-400 hover:text-blue-300 transition-colors">
+                                Selecionar base de dados
+                            </button>
+                        </div>
+                        <div className="lg:col-span-2 bg-[#202124] rounded-lg p-6 border border-gray-700/50">
+                            <div className="flex justify-between items-center mb-4">
+                                <h3 className="font-semibold text-sm text-gray-400">Atividade</h3>
+                                <h3 className="font-semibold text-sm text-gray-400">Status</h3>
+                            </div>
+                            <ul className="space-y-1">
+                                {activities.map((activity, index) => (
+                                    <li key={index} className="flex items-center justify-between p-2 rounded-md hover:bg-gray-700/50 transition-colors">
+                                        <div className="flex items-center gap-3">
+                                            {activity.icon}
+                                            <span className="text-sm text-gray-200">{activity.text}</span>
+                                        </div>
+                                        <StatusBadge status={activity.status} />
+                                    </li>
+                                ))}
+                            </ul>
+                        </div>
+                    </div>
+                </section>
+                
+                <section>
+                    <DashboardSectionTitle title="Modelos em destaque" icon={<SparklesIcon className="w-5 h-5" />} />
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                        {templates.map((template, index) => (
+                             <div key={index} className="bg-[#202124] rounded-lg border border-gray-700/50 cursor-pointer hover:bg-gray-700/30 transition-colors">
+                                <div className="p-4">
+                                    <div className="flex items-center gap-2 mb-1">
+                                        {template.icon}
+                                        <h4 className="text-sm font-semibold text-white truncate">{template.title}</h4>
+                                    </div>
+                                    <p className="text-xs text-gray-500">{template.author}</p>
+                                </div>
+                                <div className="h-24 bg-gray-800 rounded-b-lg overflow-hidden">
+                                     <img src={template.image} alt={template.title} className="w-full h-full object-cover"/>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </section>
+            </div>
+        </div>
+    );
+};
 
 
 const AppContent: React.FC = () => {
     const { isInitialSyncing, initialSyncMessage } = useSettings();
-    const [currentMode, setCurrentMode] = useState<AppMode>('isis');
+    const [currentMode, _setCurrentMode] = useState<AppMode>(
+        () => (localStorage.getItem('sativar_app_mode') as AppMode) || 'isis'
+    );
     const [currentPage, setCurrentPage] = useState<Page>('main');
     const [isMobileHistoryOpen, setIsMobileHistoryOpen] = useState(false);
     const auth = useAuth();
     const [showOnboarding, setShowOnboarding] = useState(!localStorage.getItem('sativar_isis_onboarding_complete'));
 
+    const setCurrentMode = (mode: AppMode) => {
+        localStorage.setItem('sativar_app_mode', mode);
+        _setCurrentMode(mode);
+    };
 
     React.useEffect(() => {
         // If the user role is 'user' and they are trying to access settings, redirect them to main page.
@@ -110,7 +227,7 @@ const AppContent: React.FC = () => {
     };
     
     if (isInitialSyncing) {
-        return <LoadingScreen message={initialSyncMessage} />;
+        return <LoadingScreen message={initialSyncMessage} mode={currentMode} />;
     }
 
     const handleOnboardingComplete = () => {
