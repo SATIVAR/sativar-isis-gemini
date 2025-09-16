@@ -143,8 +143,7 @@ const SeishatSidebar: React.FC<SeishatSidebarProps> = ({ activePage, setActivePa
     
     const isisItems = [
         { page: 'prompt' as SeishatPageName, label: 'Prompt do Sistema', icon: <FileCodeIcon className="w-5 h-5" />, roles: ['admin'], disabled: false },
-        { page: 'apiHistory' as SeishatPageName, label: 'Log de Chamadas', icon: <ClockIcon className="w-5 h-5" />, roles: ['admin'], disabled: false },
-        { page: 'apiUsage' as SeishatPageName, label: 'Uso da API Gemini', icon: <BarChart2Icon className="w-5 h-5" />, roles: ['admin'], disabled: false },
+        { page: 'apiHistory' as SeishatPageName, label: 'Log e Uso da API', icon: <ClockIcon className="w-5 h-5" />, roles: ['admin'], disabled: false },
     ];
 
     const handleAccordionClick = (name: AccordionName) => {
