@@ -8,7 +8,7 @@ interface OnboardingGuideProps {
 
 interface StepContent {
   icon: React.ReactNode;
-  title: string;
+  title: React.ReactNode;
   description: React.ReactNode;
   buttonText: string;
 }
@@ -16,7 +16,16 @@ interface StepContent {
 const steps: StepContent[] = [
   {
     icon: <Logo className="h-20 w-20 mb-4 mx-auto" />,
-    title: 'Bem-vindo(a) ao SATIVAR - Isis!',
+    title: (
+        <>
+          Bem-vindo(a) ao SATIVAR.
+          <div className="flex items-center justify-center gap-2 mt-2 text-xl text-gray-400 font-normal">
+            <span>Seishat</span> <BriefcaseIcon className="w-5 h-5 text-blue-300" />
+            <span className="text-gray-600">.</span>
+            <span>Isis</span> <SparklesIcon className="w-5 h-5 text-fuchsia-300" />
+          </div>
+        </>
+      ),
     description: (
       <p>
         Seu assistente de IA para otimizar o atendimento da sua associação.
