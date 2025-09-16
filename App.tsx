@@ -18,6 +18,8 @@ import { AlertTriangleIcon, BookIcon, BookOpenIcon, BriefcaseIcon, CalendarIcon,
 import { AuthProvider, useAuth } from './hooks/useAuth.ts';
 import { TokenUsageProvider } from './hooks/useTokenUsage.ts';
 import { OnboardingGuide } from './components/OnboardingGuide.tsx';
+import { AdminLogin } from './components/AdminLogin.tsx';
+import { AdminRegistration } from './components/AdminRegistration.tsx';
 
 export type Page = 'main' | 'settings';
 export type AppMode = 'isis' | 'seishat';
@@ -226,8 +228,9 @@ const AppContent: React.FC = () => {
         setCurrentPage('main'); // Redirect to main page on logout
     };
     
-    if (isInitialSyncing) {
-        return <LoadingScreen message={initialSyncMessage} mode={currentMode} />;
+    if (isInitialSyncing || auth.isLoading) {
+        const message = auth.isLoading ? 'Verificando credenciais...' : initialSyncMessage;
+        return <LoadingScreen message={message} mode={currentMode} />;
     }
 
     const handleOnboardingComplete = () => {
@@ -235,6 +238,36 @@ const AppContent: React.FC = () => {
         setShowOnboarding(false);
         setCurrentPage('settings');
     };
+
+    const AuthWrapper: React.FC<{children: React.ReactNode}> = ({ children }) => (
+        <div className="flex h-screen flex-col bg-[#131314] font-sans text-gray-200">
+            <Header 
+                setCurrentPage={setCurrentPage} 
+                currentPage={currentPage} 
+                currentMode={currentMode}
+                setCurrentMode={setCurrentMode}
+            />
+            <main className="flex-grow overflow-hidden flex items-center justify-center p-4">
+                {children}
+            </main>
+        </div>
+    );
+
+    if (!auth.isAdminSetup) {
+        return (
+            <AuthWrapper>
+                <AdminRegistration onRegistrationSuccess={auth.checkSetup} />
+            </AuthWrapper>
+        );
+    }
+
+    if (!auth.isAuthenticated) {
+        return (
+            <AuthWrapper>
+                <AdminLogin />
+            </AuthWrapper>
+        );
+    }
 
     const renderMainContent = () => {
         if (currentMode === 'isis') {
