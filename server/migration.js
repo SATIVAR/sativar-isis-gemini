@@ -2,6 +2,7 @@
 const { getDb } = require('./db');
 const { getChatDb } = require('./chatDb');
 const { getUserDb } = require('./userDb');
+const { getSeishatDb } = require('./seishatDb');
 const chalk = require('chalk');
 
 const MAIN_DB_MIGRATION_SQL = `
@@ -115,6 +116,29 @@ CREATE INDEX IF NOT EXISTS idx_users_name ON users(name);
 CREATE INDEX IF NOT EXISTS idx_users_role ON users(role);
 `;
 
+const SEISHAT_DB_MIGRATION_SQL = `
+PRAGMA foreign_keys = ON;
+
+CREATE TABLE IF NOT EXISTS products (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  price TEXT NOT NULL,
+  description TEXT,
+  icon TEXT,
+  created_at TEXT DEFAULT (datetime('now', 'localtime')),
+  updated_at TEXT DEFAULT (datetime('now', 'localtime'))
+);
+
+CREATE TRIGGER IF NOT EXISTS products_update_trigger
+AFTER UPDATE ON products
+FOR EACH ROW
+BEGIN
+  UPDATE products SET updated_at = datetime('now', 'localtime') WHERE id = OLD.id;
+END;
+
+CREATE INDEX IF NOT EXISTS idx_products_name ON products(name);
+`;
+
 
 const runMigrations = async () => {
   try {
@@ -132,6 +156,11 @@ const runMigrations = async () => {
     console.log(chalk.yellow('[Migration] Running USER database migrations for SQLite...'));
     userDb.exec(USER_DB_MIGRATION_SQL);
     console.log(chalk.yellow('✅ USER Database migration completed successfully.'));
+
+    const seishatDb = getSeishatDb();
+    console.log(chalk.magenta('[Migration] Running SEISHAT database migrations for SQLite...'));
+    seishatDb.exec(SEISHAT_DB_MIGRATION_SQL);
+    console.log(chalk.magenta('✅ SEISHAT Database migration completed successfully.'));
 
   } catch (error) {
     console.error(chalk.red('❌ An error occurred during database migration.'));

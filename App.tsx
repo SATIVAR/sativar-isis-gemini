@@ -1,4 +1,5 @@
 
+
 import React, { useState, useMemo, useEffect } from 'react';
 import { Header } from './components/Header.tsx';
 import { SettingsProvider, useSettings } from './hooks/useSettings.ts';
@@ -124,14 +125,16 @@ const SeishatSidebar: React.FC<SeishatSidebarProps> = ({ activePage, setActivePa
     
     const generalItems = [
         // FIX: Added className to icons to avoid using React.cloneElement and fix a type error.
-        { page: 'association' as SeishatPageName, label: 'Associação', icon: <UsersIcon className="w-5 h-5" />, roles: ['admin', 'manager', 'user'] },
-        { page: 'users' as SeishatPageName, label: 'Usuários do Sistema', icon: <UsersIcon className="w-5 h-5" />, roles: ['admin'] },
-        { page: 'notifications' as SeishatPageName, label: 'Notificações', icon: <BellIcon className="w-5 h-5" />, roles: ['admin', 'manager', 'user'] },
+        // FIX: Added 'disabled' property to ensure consistent object shape and fix TypeScript error.
+        { page: 'association' as SeishatPageName, label: 'Associação', icon: <UsersIcon className="w-5 h-5" />, roles: ['admin', 'manager', 'user'], disabled: false },
+        { page: 'users' as SeishatPageName, label: 'Usuários do Sistema', icon: <UsersIcon className="w-5 h-5" />, roles: ['admin'], disabled: false },
+        { page: 'notifications' as SeishatPageName, label: 'Notificações', icon: <BellIcon className="w-5 h-5" />, roles: ['admin', 'manager', 'user'], disabled: false },
     ];
     
     const seishatItems = [
         // FIX: Added className to icons to avoid using React.cloneElement and fix a type error.
-        { page: 'products' as SeishatPageName, label: 'Produtos', icon: <StoreIcon className="w-5 h-5" />, roles: ['admin', 'manager'] },
+        // FIX: Added 'disabled' property to ensure consistent object shape and fix TypeScript error.
+        { page: 'products' as SeishatPageName, label: 'Produtos', icon: <StoreIcon className="w-5 h-5" />, roles: ['admin', 'manager'], disabled: false },
         { page: 'patients' as SeishatPageName, label: 'Pacientes', icon: <UsersIcon className="w-5 h-5" />, roles: ['admin', 'manager'], disabled: true },
         { page: 'prescribers' as SeishatPageName, label: 'Prescritores', icon: <UsersIcon className="w-5 h-5" />, roles: ['admin', 'manager'], disabled: true },
         { page: 'documents' as SeishatPageName, label: 'Documentos', icon: <FileTextIcon className="w-5 h-5" />, roles: ['admin', 'manager'], disabled: true },
@@ -142,9 +145,10 @@ const SeishatSidebar: React.FC<SeishatSidebarProps> = ({ activePage, setActivePa
     
     const isisItems = [
         // FIX: Added className to icons to avoid using React.cloneElement and fix a type error.
-        { page: 'prompt' as SeishatPageName, label: 'Prompt do Sistema', icon: <FileCodeIcon className="w-5 h-5" />, roles: ['admin'] },
-        { page: 'apiHistory' as SeishatPageName, label: 'Log de Chamadas', icon: <ClockIcon className="w-5 h-5" />, roles: ['admin'] },
-        { page: 'advanced' as SeishatPageName, label: 'Avançado', icon: <DatabaseIcon className="w-5 h-5" />, roles: ['admin'] },
+        // FIX: Added 'disabled' property to ensure consistent object shape and fix TypeScript error.
+        { page: 'prompt' as SeishatPageName, label: 'Prompt do Sistema', icon: <FileCodeIcon className="w-5 h-5" />, roles: ['admin'], disabled: false },
+        { page: 'apiHistory' as SeishatPageName, label: 'Log de Chamadas', icon: <ClockIcon className="w-5 h-5" />, roles: ['admin'], disabled: false },
+        { page: 'advanced' as SeishatPageName, label: 'Avançado', icon: <DatabaseIcon className="w-5 h-5" />, roles: ['admin'], disabled: false },
     ];
 
     const handleAccordionClick = (name: AccordionName) => {

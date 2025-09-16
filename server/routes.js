@@ -4,6 +4,7 @@ const express = require('express');
 const { query } = require('./db');
 const { chatQuery, getChatDb } = require('./chatDb');
 const { userQuery } = require('./userDb');
+const { seishatQuery, getSeishatDb } = require('./seishatDb');
 const router = express.Router();
 const chalk = require('chalk');
 
@@ -32,13 +33,19 @@ const parseReminderTasks = (reminder) => {
 // GET /api/settings
 router.get('/settings', async (req, res, next) => {
   try {
-    const rows = await query('SELECT data FROM settings WHERE id = 1');
-    if (rows.length > 0) {
-      const settingsData = typeof rows[0].data === 'string' ? JSON.parse(rows[0].data) : rows[0].data;
-      res.json(settingsData);
-    } else {
-      res.json(null); // No settings found
+    const settingsRows = await query('SELECT data FROM settings WHERE id = 1');
+    const productRows = await seishatQuery('SELECT id, name, price, description, icon FROM products');
+    
+    let settingsData = {};
+    if (settingsRows.length > 0) {
+      // The `data` column no longer contains 'products'.
+      settingsData = typeof settingsRows[0].data === 'string' ? JSON.parse(settingsRows[0].data) : settingsRows[0].data;
     }
+    
+    // Inject products into the settings object before sending to client, maintaining the API contract.
+    settingsData.products = productRows || [];
+
+    res.json(settingsData);
   } catch (err) {
     console.error(chalk.red(`[${req.method} ${req.originalUrl}] Error fetching settings:`), err.message);
     next(err);
@@ -47,19 +54,32 @@ router.get('/settings', async (req, res, next) => {
 
 // POST /api/settings
 router.post('/settings', async (req, res, next) => {
-  const settingsData = req.body;
-  const dataToStore = JSON.stringify(settingsData);
+  const { products, ...settingsData } = req.body;
+  const settingsDataToStore = JSON.stringify(settingsData);
+  
+  const seishatDb = getSeishatDb();
+
   try {
-    const rows = await query('SELECT id FROM settings WHERE id = 1');
-    
-    if (rows && rows.length > 0) {
-      // Update existing settings. The 'updated_at' field is handled by a DB trigger.
-      const updateQuery = 'UPDATE settings SET data = ? WHERE id = 1';
-      await query(updateQuery, [dataToStore]);
+    // Transaction for saving products to the Seishat DB
+    const saveProducts = seishatDb.transaction((productList) => {
+        seishatDb.prepare('DELETE FROM products').run();
+        if (productList && productList.length > 0) {
+            const insert = seishatDb.prepare('INSERT INTO products (id, name, price, description, icon) VALUES (@id, @name, @price, @description, @icon)');
+            for (const product of productList) {
+                // The frontend can send products without an ID if they are new.
+                const id = product.id ?? crypto.randomUUID();
+                insert.run({ ...product, id });
+            }
+        }
+    });
+    saveProducts(products);
+
+    // Save the rest of the settings to the main DB
+    const settingsRows = await query('SELECT id FROM settings WHERE id = 1');
+    if (settingsRows && settingsRows.length > 0) {
+      await query('UPDATE settings SET data = ? WHERE id = 1', [settingsDataToStore]);
     } else {
-      // Insert new settings
-      const insertQuery = 'INSERT INTO settings (id, data) VALUES (1, ?)';
-      await query(insertQuery, [dataToStore]);
+      await query('INSERT INTO settings (id, data) VALUES (1, ?)', [settingsDataToStore]);
     }
     
     res.status(200).json({ success: true });
