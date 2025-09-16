@@ -1,7 +1,7 @@
+
 import React, { useState } from 'react';
 import { Header } from './components/Header.tsx';
-import { SettingsLayout } from './components/settings/SettingsLayout.tsx';
-// FIX: Import the 'useSettings' hook.
+// import { SettingsLayout } from './components/settings/SettingsLayout.tsx'; // No longer needed
 import { SettingsProvider, useSettings } from './hooks/useSettings.ts';
 import { RemindersProvider, useReminders } from './hooks/useReminders.ts';
 import { ConnectionProvider } from './hooks/useConnection.ts';
@@ -13,15 +13,142 @@ import { Loader } from './components/Loader.tsx';
 import { ChatHistoryProvider } from './hooks/useChatHistory.ts';
 import { ModalProvider, useModal } from './hooks/useModal.ts';
 import { Modal } from './components/Modal.tsx';
-import { AlertTriangleIcon, BookIcon, BookOpenIcon, BriefcaseIcon, CalendarIcon, CheckCircleIcon, CheckSquareIcon, CoffeeIcon, DollarSignIcon, EditIcon, PersonRunningIcon, PlusIcon, SparklesIcon, SunriseIcon, TableIcon, UtensilsIcon } from './components/icons.tsx';
+import { AlertTriangleIcon, BarChart2Icon, BookIcon, BookOpenIcon, BriefcaseIcon, CalendarIcon, CheckCircleIcon, CheckSquareIcon, ChevronDownIcon, ChevronUpIcon, CoffeeIcon, DollarSignIcon, EditIcon, FileTextIcon, PersonRunningIcon, PlusIcon, ShoppingCartIcon, SparklesIcon, StoreIcon, SunriseIcon, TableIcon, UtensilsIcon, UsersIcon } from './components/icons.tsx';
 import { AuthProvider, useAuth } from './hooks/useAuth.ts';
 import { TokenUsageProvider } from './hooks/useTokenUsage.ts';
 import { OnboardingGuide } from './components/OnboardingGuide.tsx';
 import { AdminRegistration } from './components/AdminRegistration.tsx';
 import { AdminLogin } from './components/AdminLogin.tsx';
+import { SeishatProductsPage } from './components/settings/ProductsPage.tsx';
 
-export type Page = 'main' | 'settings';
 export type AppMode = 'isis' | 'seishat';
+
+// --- Seishat CRM Components ---
+
+type SeishatPageName = 'products' | 'patients' | 'prescribers' | 'documents' | 'orders' | 'expenses' | 'reports';
+
+interface NavItemProps {
+  pageName: SeishatPageName;
+  label: string;
+  // FIX: Changed icon type from React.ReactNode to React.ReactElement to fix cloneElement typing issues.
+  icon: React.ReactElement;
+  activePage: SeishatPageName;
+  onClick: (page: SeishatPageName) => void;
+  disabled?: boolean;
+}
+
+const NavItem: React.FC<NavItemProps> = ({ pageName, label, icon, activePage, onClick, disabled }) => (
+    <button
+      onClick={() => !disabled && onClick(pageName)}
+      className={`w-full flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors ${
+        activePage === pageName
+          ? 'bg-[#4c2a5a] text-white font-semibold'
+          : disabled 
+            ? 'text-gray-600 cursor-not-allowed'
+            : 'text-gray-400 hover:bg-gray-700/50 hover:text-white'
+      }`}
+      aria-current={activePage === pageName ? 'page' : undefined}
+      disabled={disabled}
+    >
+      {/* FIX: Using React.cloneElement with a more specific prop type for 'icon' resolves the overload error. The unnecessary type assertion is removed. */}
+      {React.cloneElement(icon, { className: `w-5 h-5 ${activePage === pageName ? 'text-[#d973b5]' : ''}` })}
+      <span>{label}</span>
+      {disabled && <span className="text-xs text-gray-500 ml-auto">(Em breve)</span>}
+    </button>
+);
+
+interface SeishatSidebarProps {
+  activePage: SeishatPageName;
+  setActivePage: (page: SeishatPageName) => void;
+}
+
+const SeishatSidebar: React.FC<SeishatSidebarProps> = ({ activePage, setActivePage }) => {
+    const [isExpanded, setIsExpanded] = useState(true);
+
+    const navItems = [
+        { page: 'products' as SeishatPageName, label: 'Produtos', icon: <StoreIcon />, disabled: false },
+        { page: 'patients' as SeishatPageName, label: 'Pacientes', icon: <UsersIcon />, disabled: true },
+        { page: 'prescribers' as SeishatPageName, label: 'Prescritores', icon: <UsersIcon />, disabled: true },
+        { page: 'documents' as SeishatPageName, label: 'Documentos', icon: <FileTextIcon />, disabled: true },
+        { page: 'orders' as SeishatPageName, label: 'Pedidos', icon: <ShoppingCartIcon />, disabled: true },
+        { page: 'expenses' as SeishatPageName, label: 'Despesas', icon: <DollarSignIcon />, disabled: true },
+        { page: 'reports' as SeishatPageName, label: 'Relatórios', icon: <BarChart2Icon />, disabled: true },
+    ];
+    
+    return (
+        <aside className="w-64 flex-shrink-0 bg-[#2d2d30] p-3 flex flex-col font-sans">
+            <button 
+                className="w-full flex items-center justify-between p-2 mb-2"
+                onClick={() => setIsExpanded(!isExpanded)}
+            >
+                <div className="flex items-center gap-2">
+                    <BriefcaseIcon className="w-5 h-5 text-gray-400" />
+                    <span className="font-bold text-sm text-white">Seishat (CRM)</span>
+                </div>
+                { isExpanded ? <ChevronUpIcon className="w-5 h-5 text-gray-400" /> : <ChevronDownIcon className="w-5 h-5 text-gray-400" />}
+            </button>
+            
+            <div className={`transition-all duration-300 ease-in-out overflow-hidden ${isExpanded ? 'max-h-screen' : 'max-h-0'}`}>
+                <nav className="flex flex-col gap-1 mt-2">
+                    {navItems.map(item => (
+                        <NavItem
+                            key={item.page}
+                            pageName={item.page}
+                            label={item.label}
+                            icon={item.icon}
+                            activePage={activePage}
+                            onClick={setActivePage}
+                            disabled={item.disabled}
+                        />
+                    ))}
+                </nav>
+            </div>
+        </aside>
+    );
+};
+
+const ComingSoon: React.FC<{ pageName: string }> = ({ pageName }) => (
+    <div className="flex flex-col items-center justify-center h-full text-center text-gray-500">
+        <BriefcaseIcon className="w-16 h-16 mb-4" />
+        <h2 className="text-2xl font-bold text-gray-300">Página de {pageName}</h2>
+        <p className="mt-2 text-lg">Este módulo estará disponível em breve.</p>
+    </div>
+);
+
+const SeishatLayout: React.FC = () => {
+    const [activePage, setActivePage] = useState<SeishatPageName>('products');
+
+    const renderPage = () => {
+        switch (activePage) {
+            case 'products':
+                return <SeishatProductsPage />;
+            case 'patients':
+                return <ComingSoon pageName="Pacientes" />;
+            case 'prescribers':
+                return <ComingSoon pageName="Prescritores" />;
+            case 'documents':
+                return <ComingSoon pageName="Documentos" />;
+            case 'orders':
+                return <ComingSoon pageName="Pedidos" />;
+            case 'expenses':
+                return <ComingSoon pageName="Despesas" />;
+            case 'reports':
+                return <ComingSoon pageName="Relatórios" />;
+            default:
+                return <SeishatProductsPage />;
+        }
+    };
+
+    return (
+        <div className="flex h-full">
+            <SeishatSidebar activePage={activePage} setActivePage={setActivePage} />
+            <div className="flex-grow p-4 sm:p-6 md:p-8 overflow-y-auto bg-[#131314]">
+                {renderPage()}
+            </div>
+        </div>
+    );
+};
+
 
 // This component contains the logic to trigger notifications.
 // It's placed inside the App component to have access to all necessary contexts.
@@ -96,117 +223,11 @@ const LoadingScreen: React.FC<{ message: string; mode: AppMode }> = ({ message, 
 };
 
 
-const StatusBadge: React.FC<{ status: 'Concluído' | 'Em andamento' | 'Não iniciada' }> = ({ status }) => {
-    const statusStyles = {
-        'Concluído': 'bg-green-800 text-green-300',
-        'Em andamento': 'bg-yellow-800 text-yellow-300',
-        'Não iniciada': 'bg-gray-700 text-gray-400',
-    };
-    return <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${statusStyles[status]}`}>{status}</span>;
-};
-
-const SeishatCrm: React.FC = () => {
-    const activities = [
-        { icon: <SunriseIcon className="w-4 h-4 text-gray-400" />, text: 'Acordar e fazer higiene', status: 'Concluído' as const },
-        { icon: <CoffeeIcon className="w-4 h-4 text-gray-400" />, text: 'Tomar café da manhã', status: 'Em andamento' as const },
-        { icon: <BookOpenIcon className="w-4 h-4 text-gray-400" />, text: 'Trabalhar ou estudar', status: 'Não iniciada' as const },
-        { icon: <UtensilsIcon className="w-4 h-4 text-gray-400" />, text: 'Almoçar', status: 'Não iniciada' as const },
-        { icon: <PersonRunningIcon className="w-4 h-4 text-gray-400" />, text: 'Treinar', status: 'Não iniciada' as const },
-    ];
-    
-    const templates = [
-        { icon: <BookIcon className="w-6 h-6 text-gray-400" />, title: 'Wiki da vida', author: 'Pelo Notion', image: 'https://i.imgur.com/KFF3fB2.png' },
-        { icon: <EditIcon className="w-6 h-6 text-gray-400" />, title: 'Diário', author: 'Pelo Notion', image: 'https://i.imgur.com/lJg0m7A.png' },
-        { icon: <CheckSquareIcon className="w-6 h-6 text-gray-400" />, title: 'Lista de tarefas', author: 'Pelo Notion', image: 'https://i.imgur.com/8mP1H4a.png' },
-        { icon: <DollarSignIcon className="w-6 h-6 text-gray-400" />, title: 'Orçamento', author: 'Pelo Notion', image: 'https://i.imgur.com/qE4Jc8E.png' },
-    ];
-
-    const DashboardSectionTitle: React.FC<{ title: string; icon: React.ReactNode; }> = ({ title, icon }) => (
-        <div className="flex items-center gap-2 text-sm text-gray-400 mb-3 px-1">
-            {icon}
-            <h2 className="font-semibold">{title}</h2>
-        </div>
-    );
-
-    return (
-        <div className="h-full overflow-y-auto p-4 sm:p-6 md:p-8 text-gray-300 font-sans">
-            <div className="max-w-6xl mx-auto space-y-8">
-                <section>
-                    <DashboardSectionTitle title="Próximos eventos" icon={<CalendarIcon className="w-5 h-5" />} />
-                    <div className="bg-[#202124] rounded-lg p-12 flex flex-col items-center justify-center text-center border border-gray-700/50 min-h-[200px]">
-                        <div className="relative mb-4">
-                            <CalendarIcon className="w-16 h-16 text-gray-500" />
-                            <span className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-[30%] text-lg font-bold text-gray-500">14</span>
-                        </div>
-                        <p className="text-gray-400 mb-3">Não há eventos nos próximos 3 dias</p>
-                        <button className="flex items-center gap-1.5 text-sm text-blue-400 hover:text-blue-300 hover:bg-blue-500/10 px-2 py-1 rounded-md transition-colors">
-                            <PlusIcon className="w-4 h-4" />
-                            Novo evento
-                        </button>
-                    </div>
-                </section>
-                
-                <section>
-                    <DashboardSectionTitle title="Visualizações da página inicial" icon={<TableIcon className="w-5 h-5" />} />
-                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                        <div className="lg:col-span-1 bg-[#202124] rounded-lg p-6 flex flex-col items-start justify-center text-left border border-gray-700/50 h-full">
-                            <TableIcon className="w-12 h-12 text-gray-500 mb-4" />
-                            <p className="text-gray-400 text-sm mb-4">Fixe uma visualização da base de dados para que você possa acessá-la rapidamente na página inicial.</p>
-                            <button className="text-sm text-blue-400 hover:text-blue-300 transition-colors">
-                                Selecionar base de dados
-                            </button>
-                        </div>
-                        <div className="lg:col-span-2 bg-[#202124] rounded-lg p-6 border border-gray-700/50">
-                            <div className="flex justify-between items-center mb-4">
-                                <h3 className="font-semibold text-sm text-gray-400">Atividade</h3>
-                                <h3 className="font-semibold text-sm text-gray-400">Status</h3>
-                            </div>
-                            <ul className="space-y-1">
-                                {activities.map((activity, index) => (
-                                    <li key={index} className="flex items-center justify-between p-2 rounded-md hover:bg-gray-700/50 transition-colors">
-                                        <div className="flex items-center gap-3">
-                                            {activity.icon}
-                                            <span className="text-sm text-gray-200">{activity.text}</span>
-                                        </div>
-                                        <StatusBadge status={activity.status} />
-                                    </li>
-                                ))}
-                            </ul>
-                        </div>
-                    </div>
-                </section>
-                
-                <section>
-                    <DashboardSectionTitle title="Modelos em destaque" icon={<SparklesIcon className="w-5 h-5" />} />
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                        {templates.map((template, index) => (
-                             <div key={index} className="bg-[#202124] rounded-lg border border-gray-700/50 cursor-pointer hover:bg-gray-700/30 transition-colors">
-                                <div className="p-4">
-                                    <div className="flex items-center gap-2 mb-1">
-                                        {template.icon}
-                                        <h4 className="text-sm font-semibold text-white truncate">{template.title}</h4>
-                                    </div>
-                                    <p className="text-xs text-gray-500">{template.author}</p>
-                                </div>
-                                <div className="h-24 bg-gray-800 rounded-b-lg overflow-hidden">
-                                     <img src={template.image} alt={template.title} className="w-full h-full object-cover"/>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                </section>
-            </div>
-        </div>
-    );
-};
-
-
 const AppContent: React.FC = () => {
     const { settings, isInitialSyncing, initialSyncMessage } = useSettings();
     const [currentMode, _setCurrentMode] = useState<AppMode>(
         () => (localStorage.getItem('sativar_app_mode') as AppMode) || 'seishat'
     );
-    const [currentPage, setCurrentPage] = useState<Page>('main');
     const [isMobileHistoryOpen, setIsMobileHistoryOpen] = useState(false);
     const auth = useAuth();
     const [showOnboarding, setShowOnboarding] = useState(!localStorage.getItem('sativar_isis_onboarding_complete'));
@@ -215,13 +236,6 @@ const AppContent: React.FC = () => {
         localStorage.setItem('sativar_app_mode', mode);
         _setCurrentMode(mode);
     };
-
-    React.useEffect(() => {
-        // If the user role is 'user' and they are trying to access settings, redirect them to main page.
-        if (auth.isAuthenticated && auth.user?.role === 'user' && currentPage === 'settings') {
-            setCurrentPage('main');
-        }
-    }, [currentPage, auth.isAuthenticated, auth.user?.role]);
     
     // Effect to enforce Isis mode availability
     React.useEffect(() => {
@@ -233,10 +247,6 @@ const AppContent: React.FC = () => {
             setCurrentMode('seishat');
         }
     }, [settings.isIsisAiEnabled, auth.user, currentMode]);
-
-    const handleLogout = () => {
-        setCurrentPage('main'); // Redirect to main page on logout
-    };
     
     if (isInitialSyncing) {
         return <LoadingScreen message={initialSyncMessage} mode={currentMode} />;
@@ -271,10 +281,10 @@ const AppContent: React.FC = () => {
             localStorage.setItem('sativar_isis_onboarding_complete', 'true');
         }
         setShowOnboarding(false);
-        setCurrentPage('settings');
+        setCurrentMode('seishat');
     };
 
-    const renderMainContent = () => {
+    const renderContent = () => {
         if (currentMode === 'isis') {
             return (
                 <QuoteGenerator 
@@ -284,33 +294,21 @@ const AppContent: React.FC = () => {
             );
         }
         if (currentMode === 'seishat') {
-            return <SeishatCrm />;
+            return <SeishatLayout />;
         }
         return null;
-    };
-
-    const renderSettingsContent = () => {
-        if (auth.user?.role === 'user') return null; // Double-check to prevent rendering
-        return <SettingsLayout onLogout={handleLogout} />;
     };
 
     return (
         <div className="flex h-screen flex-col bg-[#131314] font-sans text-gray-200">
             {showOnboarding && <OnboardingGuide onComplete={handleOnboardingComplete} />}
             <Header 
-                setCurrentPage={setCurrentPage} 
-                currentPage={currentPage} 
                 currentMode={currentMode}
                 setCurrentMode={setCurrentMode}
                 onToggleMobileHistory={() => setIsMobileHistoryOpen(p => !p)} 
             />
             <main className="flex-grow overflow-hidden">
-                {currentPage === 'main' && renderMainContent()}
-                {currentPage === 'settings' && (
-                    <div className="p-4 md:p-8 h-full">
-                        {renderSettingsContent()}
-                    </div>
-                )}
+                {renderContent()}
             </main>
         </div>
     );

@@ -1,7 +1,7 @@
 
 
 import React, { useState } from 'react';
-import type { Page, AppMode } from '../App.tsx';
+import type { AppMode } from '../App.tsx';
 import { SettingsIcon, BellIcon, PlusIcon, RepeatIcon, BriefcaseIcon, SparklesIcon } from './icons.tsx';
 import { useReminders } from '../hooks/useReminders.ts';
 import { useSettings } from '../hooks/useSettings.ts';
@@ -11,14 +11,12 @@ import { useConnection } from '../hooks/useConnection.ts';
 import { useAuth } from '../hooks/useAuth.ts';
 
 interface HeaderProps {
-    setCurrentPage: (page: Page) => void;
-    currentPage: Page;
     currentMode: AppMode;
     setCurrentMode: (mode: AppMode) => void;
     onToggleMobileHistory?: () => void;
 }
 
-export const Header: React.FC<HeaderProps> = ({ setCurrentPage, currentPage, currentMode, setCurrentMode, onToggleMobileHistory }) => {
+export const Header: React.FC<HeaderProps> = ({ currentMode, setCurrentMode, onToggleMobileHistory }) => {
     const [isRemindersOpen, setIsRemindersOpen] = useState(false);
     const { reminders, hasOverdueReminders } = useReminders();
     const { settings } = useSettings();
@@ -29,21 +27,16 @@ export const Header: React.FC<HeaderProps> = ({ setCurrentPage, currentPage, cur
     
     const handleSettingsClick = () => {
         setIsRemindersOpen(false); // Close reminders when navigating
-        if (currentPage === 'settings') {
-            setCurrentPage('main');
-        } else {
-            setCurrentPage('settings');
-        }
+        setCurrentMode('seishat');
     };
     
     const handleHomeClick = () => {
         setIsRemindersOpen(false); // Close reminders when navigating
-        setCurrentPage('main');
+        // The concept of a separate "main" page is removed; this just ensures reminders close.
     }
 
     const handleModeToggle = () => {
         setCurrentMode(currentMode === 'isis' ? 'seishat' : 'isis');
-        setCurrentPage('main'); // Always go to the main page of the new mode
     };
 
     const canShowModeToggle = auth.user?.role === 'admin' || settings.isIsisAiEnabled;
@@ -88,7 +81,7 @@ export const Header: React.FC<HeaderProps> = ({ setCurrentPage, currentPage, cur
                 </div>
                 {auth.isAuthenticated && (
                     <nav className="flex items-center gap-2">
-                        {currentMode === 'isis' && currentPage === 'main' && (
+                        {currentMode === 'isis' && (
                             <button
                                 onClick={onToggleMobileHistory}
                                 className="rounded-full p-2 transition-colors hover:bg-gray-700 min-[461px]:hidden"
@@ -140,7 +133,8 @@ export const Header: React.FC<HeaderProps> = ({ setCurrentPage, currentPage, cur
                             <button 
                                 onClick={handleSettingsClick}
                                 className="rounded-full p-2 transition-colors hover:bg-gray-700"
-                                aria-label="Toggle settings"
+                                title="Acessar Painel de Controle (CRM)"
+                                aria-label="Acessar Painel de Controle"
                             >
                                 <SettingsIcon className="h-6 w-6 text-gray-400" />
                             </button>
