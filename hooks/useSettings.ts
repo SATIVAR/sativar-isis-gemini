@@ -272,6 +272,7 @@ const defaultSettings: Settings = {
   prescriptionValidityMonths: '1',
   shippingContext: "O frete padrão é de R$ 50,00.",
   paymentContext: "Aceitamos pagamento via PIX ou Cartão de Crédito (com uma taxa de processamento de 3,98%). É só escolher a opção que preferir.",
+  isIsisAiEnabled: true,
 };
 
 const defaultWpConfig: WpConfig = {

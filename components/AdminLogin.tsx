@@ -1,8 +1,7 @@
-
-
 import React, { useState } from 'react';
 import { EyeIcon, EyeOffIcon } from './icons.tsx';
 import { useAuth } from '../hooks/useAuth.ts';
+import { Logo } from './Logo.tsx';
 
 export const AdminLogin: React.FC = () => {
   const [username, setUsername] = useState('');
@@ -24,7 +23,11 @@ export const AdminLogin: React.FC = () => {
   };
 
   return (
-    <div className="flex items-center justify-center h-full">
+    <div className="flex flex-col items-center justify-center min-h-full text-gray-300 font-sans p-4">
+      <Logo className="h-24 w-24 mb-6" />
+      <h1 className="text-3xl font-bold text-white mb-2">Bem-vindo(a) de volta!</h1>
+      <p className="text-lg text-gray-400 mb-8">Faça login para acessar o painel SATIVAR.</p>
+      
       <div className="w-full max-w-md bg-[#202124] rounded-xl border border-gray-700 shadow-2xl p-8">
         <h2 className="text-2xl font-bold text-center text-white mb-2">Acesso Restrito</h2>
         <p className="text-center text-gray-400 mb-6">Esta área é reservada para a equipe.</p>

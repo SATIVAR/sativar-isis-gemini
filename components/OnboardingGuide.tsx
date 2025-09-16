@@ -3,7 +3,7 @@ import { Logo } from './Logo.tsx';
 import { SparklesIcon, BriefcaseIcon, SettingsIcon, CheckCircleIcon } from './icons.tsx';
 
 interface OnboardingGuideProps {
-  onComplete: () => void;
+  onComplete: (dontShowAgain: boolean) => void;
 }
 
 interface StepContent {
@@ -76,16 +76,18 @@ const steps: StepContent[] = [
 
 export const OnboardingGuide: React.FC<OnboardingGuideProps> = ({ onComplete }) => {
   const [currentStep, setCurrentStep] = useState(0);
+  const [dontShowAgain, setDontShowAgain] = useState(false);
 
   const handleNext = () => {
     if (currentStep < steps.length - 1) {
       setCurrentStep(currentStep + 1);
     } else {
-      onComplete();
+      onComplete(dontShowAgain);
     }
   };
 
   const step = steps[currentStep];
+  const isLastStep = currentStep === steps.length - 1;
 
   return (
     <div className="fixed inset-0 bg-black/80 z-[100] flex items-center justify-center p-4 animate-fade-in">
@@ -100,7 +102,7 @@ export const OnboardingGuide: React.FC<OnboardingGuideProps> = ({ onComplete }) 
         <h2 className="text-2xl font-bold text-white mt-2 mb-4">{step.title}</h2>
         <div className="text-gray-300 mb-8">{step.description}</div>
         
-        <div className="flex justify-center items-center gap-4 mb-4">
+        <div className="flex justify-center items-center gap-4 mb-8">
             {steps.map((_, index) => (
                 <div 
                     key={index}
@@ -115,6 +117,21 @@ export const OnboardingGuide: React.FC<OnboardingGuideProps> = ({ onComplete }) 
         >
           {step.buttonText}
         </button>
+
+        {isLastStep && (
+             <div className="flex items-center justify-center mt-6">
+                <input
+                    type="checkbox"
+                    id="dont-show-again"
+                    checked={dontShowAgain}
+                    onChange={(e) => setDontShowAgain(e.target.checked)}
+                    className="h-4 w-4 rounded border-gray-500 bg-gray-700 text-fuchsia-600 focus:ring-fuchsia-500 focus:ring-offset-gray-800"
+                />
+                <label htmlFor="dont-show-again" className="ml-2 block text-sm text-gray-400 select-none">
+                    Não mostrar esta mensagem novamente
+                </label>
+            </div>
+        )}
       </div>
     </div>
   );

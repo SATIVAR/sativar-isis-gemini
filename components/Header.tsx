@@ -1,4 +1,5 @@
 
+
 import React, { useState } from 'react';
 import type { Page, AppMode } from '../App.tsx';
 import { SettingsIcon, BellIcon, PlusIcon, RepeatIcon, BriefcaseIcon, SparklesIcon } from './icons.tsx';
@@ -44,6 +45,9 @@ export const Header: React.FC<HeaderProps> = ({ setCurrentPage, currentPage, cur
         setCurrentMode(currentMode === 'isis' ? 'seishat' : 'isis');
         setCurrentPage('main'); // Always go to the main page of the new mode
     };
+
+    const canShowModeToggle = auth.user?.role === 'admin' || settings.isIsisAiEnabled;
+    const isIsisDeactivatedForOthers = auth.user?.role === 'admin' && !settings.isIsisAiEnabled;
 
     return (
         <>
@@ -94,14 +98,27 @@ export const Header: React.FC<HeaderProps> = ({ setCurrentPage, currentPage, cur
                             </button>
                         )}
                         
-                        <button
-                            onClick={handleModeToggle}
-                            className="rounded-full p-2 transition-colors hover:bg-gray-700"
-                            title={currentMode === 'isis' ? 'Alternar para Modo Seishat (CRM)' : 'Alternar para Modo Isis (IA)'}
-                            aria-label="Alternar modo de operação"
-                        >
-                           {currentMode === 'isis' ? <BriefcaseIcon className="h-6 w-6 text-gray-400" /> : <SparklesIcon className="h-6 w-6 text-gray-400" />}
-                        </button>
+                        {canShowModeToggle && (
+                            <div className="relative">
+                                <button
+                                    onClick={handleModeToggle}
+                                    className="rounded-full p-2 transition-colors hover:bg-gray-700"
+                                    title={
+                                        isIsisDeactivatedForOthers 
+                                            ? 'Modo Isis está desativado para outros usuários'
+                                            : (currentMode === 'isis' ? 'Alternar para Modo Seishat (CRM)' : 'Alternar para Modo Isis (IA)')
+                                    }
+                                    aria-label="Alternar modo de operação"
+                                >
+                                    {currentMode === 'isis' ? <BriefcaseIcon className="h-6 w-6 text-gray-400" /> : <SparklesIcon className="h-6 w-6 text-gray-400" />}
+                                </button>
+                                {isIsisDeactivatedForOthers && (
+                                     <span className="absolute top-1 right-1 block h-3 w-3 rounded-full bg-red-600 border-2 border-[#131314] ring-1 ring-red-500">
+                                        <span className="sr-only">Modo Isis Desativado</span>
+                                    </span>
+                                )}
+                            </div>
+                        )}
                         
                         <div className="relative">
                             <button 

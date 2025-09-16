@@ -203,7 +203,7 @@ const SeishatCrm: React.FC = () => {
 
 
 const AppContent: React.FC = () => {
-    const { isInitialSyncing, initialSyncMessage } = useSettings();
+    const { settings, isInitialSyncing, initialSyncMessage } = useSettings();
     const [currentMode, _setCurrentMode] = useState<AppMode>(
         () => (localStorage.getItem('sativar_app_mode') as AppMode) || 'seishat'
     );
@@ -223,6 +223,17 @@ const AppContent: React.FC = () => {
             setCurrentPage('main');
         }
     }, [currentPage, auth.isAuthenticated, auth.user?.role]);
+    
+    // Effect to enforce Isis mode availability
+    React.useEffect(() => {
+        if (
+            !settings.isIsisAiEnabled &&
+            auth.user?.role !== 'admin' &&
+            currentMode === 'isis'
+        ) {
+            setCurrentMode('seishat');
+        }
+    }, [settings.isIsisAiEnabled, auth.user, currentMode]);
 
     const handleLogout = () => {
         setCurrentPage('main'); // Redirect to main page on logout
@@ -256,8 +267,10 @@ const AppContent: React.FC = () => {
         );
     }
 
-    const handleOnboardingComplete = () => {
-        localStorage.setItem('sativar_isis_onboarding_complete', 'true');
+    const handleOnboardingComplete = (dontShowAgain: boolean) => {
+        if (dontShowAgain) {
+            localStorage.setItem('sativar_isis_onboarding_complete', 'true');
+        }
         setShowOnboarding(false);
         setCurrentPage('settings');
     };

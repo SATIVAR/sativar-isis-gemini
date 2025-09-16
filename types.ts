@@ -1,3 +1,5 @@
+import type { GoogleGenAI } from '@google/genai';
+
 // From services/geminiService.ts and components/Chat.tsx
 export interface QuotedProduct {
     name: string;
@@ -107,6 +109,7 @@ export interface Settings {
     prescriptionValidityMonths: string;
     shippingContext: string;
     paymentContext: string;
+    isIsisAiEnabled: boolean;
 }
 
 // From hooks/useSettings.ts and components/settings/ApiConfigPage.tsx and services/wpApiService.ts
