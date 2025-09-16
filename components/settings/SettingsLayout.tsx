@@ -1,12 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { SettingsSidebar, type SettingsPageName } from './SettingsSidebar.tsx';
 import { AssociationPage } from './AssociationPage.tsx';
-import { ProductsPage } from './ProductsPage.tsx';
-import { SystemSyncPage } from './SystemSyncPage.tsx';
+import { ApiConfigPage } from './ApiConfigPage.tsx';
+import { AdvancedPage } from './ClientsPage.tsx';
 import { PromptPage } from './PromptPage.tsx';
 import { ApiHistoryPage } from './ApiHistoryPage.tsx';
 import { NotificationsPage } from './NotificationsPage.tsx';
-import { ModeManagementPage } from './ModeManagementPage.tsx';
 import { AdminLogin } from '../AdminLogin.tsx';
 import { AdminRegistration } from '../AdminRegistration.tsx';
 import { Loader } from '../Loader.tsx';
@@ -14,7 +13,6 @@ import { useSettings } from '../../hooks/useSettings.ts';
 import { CheckCircleIcon, AlertTriangleIcon, CheckIcon } from '../icons.tsx';
 import { useAuth } from '../../hooks/useAuth.ts';
 import { UsersPage } from './UsersPage.tsx';
-import { ApiIntegrationPage } from './ApiIntegrationPage.tsx';
 
 interface SettingsLayoutProps {
   onLogout: () => void;
@@ -72,16 +70,12 @@ export const SettingsLayout: React.FC<SettingsLayoutProps> = ({ onLogout }) => {
         return <AssociationPage />;
       case 'users':
         return <UsersPage />;
-      case 'products':
-        return <ProductsPage />;
       case 'api':
-        return <ApiIntegrationPage />;
-      case 'modes':
-        return <ModeManagementPage />;
+        return <ApiConfigPage />;
       case 'notifications':
         return <NotificationsPage />;
-      case 'systemSync':
-        return <SystemSyncPage />;
+      case 'advanced':
+        return <AdvancedPage />;
       case 'apiHistory':
         return <ApiHistoryPage />;
       case 'prompt':

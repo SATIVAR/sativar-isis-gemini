@@ -1,8 +1,9 @@
 
-import React from 'react';
+
+import React, { useState, useEffect } from 'react';
 import { useSettings } from '../../hooks/useSettings.ts';
 import { useReminders } from '../../hooks/useReminders.ts';
-import { DatabaseIcon, ServerIcon, AlertCircleIcon, CheckCircleIcon } from '../icons.tsx';
+import { DatabaseIcon, BarChart2Icon, ServerIcon, AlertCircleIcon, CheckCircleIcon } from '../icons.tsx';
 import { Loader } from '../Loader.tsx';
 
 const ConnectionStatusBadge: React.FC<{ isOnline: boolean }> = ({ isOnline }) => (
@@ -12,10 +13,24 @@ const ConnectionStatusBadge: React.FC<{ isOnline: boolean }> = ({ isOnline }) =>
     </div>
 );
 
-export const SystemSyncPage: React.FC = () => {
+// Renamed from ClientsPage to AdvancedPage
+export const AdvancedPage: React.FC = () => {
     const { isOnline, isSyncing, settingsSyncQueueCount, forceSyncSettings } = useSettings();
     const { isSyncingReminders, remindersSyncQueueCount, forceSyncReminders } = useReminders();
+    const [apiCallCount, setApiCallCount] = useState(0);
     
+    useEffect(() => {
+        const storedCount = localStorage.getItem('sativar_isis_api_call_count');
+        setApiCallCount(storedCount ? parseInt(storedCount, 10) : 0);
+    }, []);
+
+    const handleResetApiCount = () => {
+        if(confirm("Tem certeza que deseja zerar o contador de chamadas da API? Esta ação é útil para iniciar um novo ciclo de faturamento.")) {
+            localStorage.setItem('sativar_isis_api_call_count', '0');
+            setApiCallCount(0);
+        }
+    };
+
     const handleForceSync = async () => {
         await forceSyncSettings();
         await forceSyncReminders();
@@ -30,10 +45,10 @@ export const SystemSyncPage: React.FC = () => {
             <div>
                 <div className="flex items-center gap-4 mb-2">
                     <DatabaseIcon className="w-8 h-8 text-fuchsia-300" />
-                    <h2 className="text-2xl font-bold text-white">Sincronização de Dados</h2>
+                    <h2 className="text-2xl font-bold text-white">Configurações Avançadas</h2>
                 </div>
                 <p className="text-gray-400">
-                    Monitore o status da conexão com o servidor e gerencie a sincronização de dados offline.
+                    Gerencie a sincronização de dados e monitore o uso de APIs.
                 </p>
             </div>
 
@@ -103,6 +118,29 @@ export const SystemSyncPage: React.FC = () => {
                             </div>
                         </div>
                     )}
+                </div>
+            </div>
+
+            <div className="space-y-6 p-6 bg-[#303134]/50 border border-gray-700/50 rounded-lg">
+                <div className="flex items-center gap-3">
+                    <BarChart2Icon className="w-6 h-6 text-fuchsia-300"/>
+                    <h3 className="text-lg font-semibold text-fuchsia-300">Uso da API Gemini</h3>
+                </div>
+                <p className="text-sm text-gray-400 -mt-3">
+                    Monitore o número estimado de chamadas feitas à API Gemini. O contador é salvo localmente e pode ser zerado a qualquer momento.
+                </p>
+                <div className="flex items-center justify-between p-4 bg-[#202124] rounded-lg border border-gray-600/50">
+                    <div>
+                        <p className="text-sm text-gray-400">Chamadas estimadas neste ciclo</p>
+                        <p className="text-3xl font-bold text-white">{apiCallCount}</p>
+                    </div>
+                    <button 
+                        type="button"
+                        onClick={handleResetApiCount}
+                        className="px-4 py-2 bg-yellow-700/80 text-sm text-white font-semibold rounded-lg hover:bg-yellow-600 transition-colors"
+                    >
+                        Zerar Contador
+                    </button>
                 </div>
             </div>
         </div>

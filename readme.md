@@ -5,9 +5,9 @@
 Esta é a aplicação SATIVAR-ISIS, um sistema inteligente para processamento de receitas médicas. A arquitetura é composta por:
 
 1.  **Frontend**: Uma aplicação React (neste diretório) que fornece a interface do usuário.
-2.  **Backend**: Um servidor Node.js/Express (no diretório `/server`) que atua como uma API segura, utilizando um banco de dados **SQLite** para persistir todos os dados da aplicação, incluindo configurações, lembretes e produtos.
+2.  **Backend**: Um servidor Node.js/Express (no diretório `/server`) que atua como uma API segura, utilizando um banco de dados **SQLite** para persistir os dados de forma robusta e autônoma.
 
-A aplicação utiliza a API do Google Gemini para extrair informações de prescrições e interage com o backend para todas as operações de dados.
+A aplicação utiliza a API do Google Gemini para extrair informações de prescrições e interage com o backend para salvar e carregar configurações e lembretes.
 
 ## Arquitetura e Requisitos
 
@@ -18,11 +18,11 @@ A aplicação utiliza a API do Google Gemini para extrair informações de presc
 
 ## Configuração para Desenvolvimento
 
-Para rodar o projeto localmente, você precisará configurar e executar o frontend e o backend separadamente. A configuração do banco de dados é automática.
+Para rodar o projeto localmente, você precisará configurar e executar o frontend e o backend separadamente. A configuração do banco de dados agora é automática.
 
 ### Etapa 1: Configurar o Backend (`/server`)
 
-O backend é autônomo e criará seus próprios arquivos de banco de dados SQLite.
+O backend agora é autônomo e criará seu próprio arquivo de banco de dados SQLite.
 
 1.  **Navegue até o diretório do servidor:**
     ```bash
@@ -48,7 +48,7 @@ O backend é autônomo e criará seus próprios arquivos de banco de dados SQLit
     ```
 
 4.  **Inicialize o Banco de Dados:**
-    Não há etapa manual! Ao iniciar, o servidor criará automaticamente os arquivos de banco de dados necessários (ex: `server/data/sativar_isis.db`) e as tabelas.
+    Não há mais etapa manual! Ao iniciar, o servidor criará automaticamente o arquivo `server/data/sativar_isis.db` e as tabelas necessárias.
 
 ### Etapa 2: Configurar o Frontend (Diretório Raiz)
 
@@ -99,4 +99,4 @@ Para desenvolver localmente, você precisa de dois terminais abertos.
     ```
     A aplicação React será iniciada, geralmente na porta `5173`. Acesse `http://localhost:5173` no seu navegador.
 
-Agora, o frontend irá se comunicar com o seu backend local, que por sua vez usará seu próprio banco de dados SQLite, proporcionando um ambiente de desenvolvimento completo e autônomo.
+Agora, o frontend irá se comunicar com o seu backend local, que por sua vez usará seu próprio banco de dados SQLite, proporcionando um ambiente de desenvolvimento completo e simples.

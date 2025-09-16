@@ -7,6 +7,9 @@ import { Chat } from './Chat.tsx';
 import { useChatHistory } from '../hooks/useChatHistory.ts';
 import { ChatHistoryTabs } from './ChatHistoryTabs.tsx';
 import { Loader } from './Loader.tsx';
+import { useAuth } from '../hooks/useAuth.ts';
+import { AdminLogin } from './AdminLogin.tsx';
+import { AdminRegistration } from './AdminRegistration.tsx';
 import { useTokenUsage } from '../hooks/useTokenUsage.ts';
 
 interface FilePreviewModalProps {
@@ -104,7 +107,8 @@ interface QuoteGeneratorProps {
 }
 
 export const QuoteGenerator: React.FC<QuoteGeneratorProps> = ({ isMobileHistoryOpen, setIsMobileHistoryOpen }) => {
-    const { isLoaded, systemPrompt, settings } = useSettings();
+    const auth = useAuth();
+    const { isLoaded, sativarSeishatProducts, systemPrompt, wpConfig, settings } = useSettings();
     const {
         messages, setMessages, addMessage,
         conversations, activeConversationId,
@@ -117,6 +121,7 @@ export const QuoteGenerator: React.FC<QuoteGeneratorProps> = ({ isMobileHistoryO
     const [isSending, setIsSending] = useState(false);
     const [loadingAction, setLoadingAction] = useState<'file' | 'text' | null>(null);
     const [showSettingsWarning, setShowSettingsWarning] = useState(false);
+    const [wpConfigMissing, setWpConfigMissing] = useState(false);
     const [processingAction, setProcessingAction] = useState<{ messageId: string; payload: string; text?: string } | null>(null);
     
     // State for file previews
@@ -143,9 +148,10 @@ export const QuoteGenerator: React.FC<QuoteGeneratorProps> = ({ isMobileHistoryO
     useEffect(() => {
         if (!isLoaded) return;
         
+        setWpConfigMissing(!wpConfig || !wpConfig.url);
         setShowSettingsWarning(settings.associationName.includes("[Insira") || settings.pixKey.includes("[Insira"));
 
-    }, [isLoaded, settings]);
+    }, [isLoaded, settings, wpConfig]);
 
 
     const handleAction = useCallback(async (messageId: string, payload: string) => {
@@ -260,7 +266,7 @@ export const QuoteGenerator: React.FC<QuoteGeneratorProps> = ({ isMobileHistoryO
     }, [messages, settings, addMessage, setMessages, addTokens]);
 
     const runFileAnalysis = useCallback(async (file: File) => {
-        if (showSettingsWarning || apiKeyMissing) return;
+        if (showSettingsWarning || apiKeyMissing || wpConfigMissing) return;
 
         const fileURL = URL.createObjectURL(file);
         objectUrls.current.push(fileURL);
@@ -314,7 +320,7 @@ export const QuoteGenerator: React.FC<QuoteGeneratorProps> = ({ isMobileHistoryO
             setIsSending(false);
             setLoadingAction(null);
         }
-    }, [systemPrompt, showSettingsWarning, apiKeyMissing, setMessages, addMessage, activeConversationId, updateConversationTitle, addTokens]);
+    }, [systemPrompt, showSettingsWarning, apiKeyMissing, wpConfigMissing, setMessages, addMessage, activeConversationId, updateConversationTitle, addTokens]);
 
     const handleSendText = useCallback(async (text: string) => {
         if (apiKeyMissing) return;
@@ -368,11 +374,36 @@ export const QuoteGenerator: React.FC<QuoteGeneratorProps> = ({ isMobileHistoryO
         setPreviewFile(file);
     };
 
+    if (auth.isLoading) {
+        return (
+            <div className="flex h-full items-center justify-center">
+                <Loader />
+            </div>
+        );
+    }
+
+    if (!auth.isAdminSetup) {
+        return (
+            <div className="flex h-full items-center justify-center p-4">
+                <AdminRegistration onRegistrationSuccess={auth.checkSetup} />
+            </div>
+        );
+    }
+
+    if (!auth.isAuthenticated) {
+        return (
+            <div className="flex h-full items-center justify-center p-4">
+                <AdminLogin />
+            </div>
+        );
+    }
+
     const isChatClosed = activeConversation?.is_closed === true;
-    const isChatDisabled = showSettingsWarning || apiKeyMissing || isChatClosed;
+    const isChatDisabled = showSettingsWarning || apiKeyMissing || wpConfigMissing || isChatClosed;
     
     let disabledReason = "";
     if (apiKeyMissing) disabledReason = "Ação necessária: A Chave da API do Gemini não foi configurada no ambiente.";
+    else if (wpConfigMissing) disabledReason = "Ação necessária: Configure a API do Sativar_WP_API nas Configurações.";
     else if (showSettingsWarning) disabledReason = "Complete as configurações da associação para habilitar o envio de receitas.";
     else if (isChatClosed) disabledReason = "Chat encerrado. Inicie uma nova análise para continuar.";
 
@@ -432,6 +463,14 @@ export const QuoteGenerator: React.FC<QuoteGeneratorProps> = ({ isMobileHistoryO
                                     A aplicação está em modo de funcionalidade limitada. Para habilitar a análise de receitas, um administrador deve configurar a variável de ambiente <code>VITE_GEMINI_API_KEY</code> no painel de controle do ambiente de hospedagem.
                                 </p>
                             </div>
+                        </div>
+                    </div>
+                )}
+                {(wpConfigMissing && !apiKeyMissing) && (
+                     <div className="flex-shrink-0 p-2">
+                        <div className="mx-auto max-w-4xl rounded-md bg-yellow-900/50 p-3 text-sm text-yellow-300 flex items-center gap-3 border border-yellow-700/50">
+                            <AlertTriangleIcon className="h-5 w-5 flex-shrink-0" />
+                            <span>A conexão com o sistema Sativar_WP_API ainda não foi configurada. Visite a página de 'Configurações' para habilitar a integração.</span>
                         </div>
                     </div>
                 )}

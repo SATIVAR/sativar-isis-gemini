@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Header } from './components/Header.tsx';
 import { SettingsLayout } from './components/settings/SettingsLayout.tsx';
+import { SeishatSettingsLayout } from './components/settings/seishat/SeishatSettingsLayout.tsx';
 // FIX: Import the 'useSettings' hook.
 import { SettingsProvider, useSettings } from './hooks/useSettings.ts';
 import { RemindersProvider, useReminders } from './hooks/useReminders.ts';
@@ -17,8 +18,6 @@ import { AlertTriangleIcon, BookIcon, BookOpenIcon, BriefcaseIcon, CalendarIcon,
 import { AuthProvider, useAuth } from './hooks/useAuth.ts';
 import { TokenUsageProvider } from './hooks/useTokenUsage.ts';
 import { OnboardingGuide } from './components/OnboardingGuide.tsx';
-import { AdminLogin } from './components/AdminLogin.tsx';
-import { AdminRegistration } from './components/AdminRegistration.tsx';
 
 export type Page = 'main' | 'settings';
 export type AppMode = 'isis' | 'seishat';
@@ -202,7 +201,7 @@ const SeishatCrm: React.FC = () => {
 
 
 const AppContent: React.FC = () => {
-    const { isInitialSyncing, initialSyncMessage, settings } = useSettings();
+    const { isInitialSyncing, initialSyncMessage } = useSettings();
     const [currentMode, _setCurrentMode] = useState<AppMode>(
         () => (localStorage.getItem('sativar_app_mode') as AppMode) || 'isis'
     );
@@ -215,8 +214,6 @@ const AppContent: React.FC = () => {
         localStorage.setItem('sativar_app_mode', mode);
         _setCurrentMode(mode);
     };
-    
-    const isIsisModeEnabled = settings.modeSettings?.isIsisModeEnabled ?? true;
 
     React.useEffect(() => {
         // If the user role is 'user' and they are trying to access settings, redirect them to main page.
@@ -224,21 +221,13 @@ const AppContent: React.FC = () => {
             setCurrentPage('main');
         }
     }, [currentPage, auth.isAuthenticated, auth.user?.role]);
-    
-    // Effect to handle managers being forced out of a disabled isis mode.
-    React.useEffect(() => {
-        if (auth.isAuthenticated && auth.user?.role === 'manager' && currentMode === 'isis' && !isIsisModeEnabled) {
-            setCurrentMode('seishat');
-        }
-    }, [auth.isAuthenticated, auth.user?.role, currentMode, isIsisModeEnabled, setCurrentMode]);
 
     const handleLogout = () => {
         setCurrentPage('main'); // Redirect to main page on logout
     };
     
-    if (isInitialSyncing || auth.isLoading) {
-        const message = auth.isLoading ? 'Verificando credenciais...' : initialSyncMessage;
-        return <LoadingScreen message={message} mode={currentMode} />;
+    if (isInitialSyncing) {
+        return <LoadingScreen message={initialSyncMessage} mode={currentMode} />;
     }
 
     const handleOnboardingComplete = () => {
@@ -246,59 +235,6 @@ const AppContent: React.FC = () => {
         setShowOnboarding(false);
         setCurrentPage('settings');
     };
-
-    const AuthWrapper: React.FC<{children: React.ReactNode}> = ({ children }) => (
-        <div className="flex h-screen flex-col bg-[#131314] font-sans text-gray-200">
-            <Header 
-                setCurrentPage={setCurrentPage} 
-                currentPage={currentPage} 
-                currentMode={currentMode}
-                setCurrentMode={setCurrentMode}
-            />
-            <main className="flex-grow overflow-hidden flex items-center justify-center p-4">
-                {children}
-            </main>
-        </div>
-    );
-
-    if (!auth.isAdminSetup) {
-        return (
-            <AuthWrapper>
-                <AdminRegistration onRegistrationSuccess={auth.checkSetup} />
-            </AuthWrapper>
-        );
-    }
-
-    if (!auth.isAuthenticated) {
-        return (
-            <AuthWrapper>
-                <AdminLogin />
-            </AuthWrapper>
-        );
-    }
-    
-    // Handle 'user' role access when Isis mode is disabled
-    if (auth.isAuthenticated && auth.user?.role === 'user' && !isIsisModeEnabled) {
-        return (
-            <div className="flex h-screen flex-col bg-[#131314] font-sans text-gray-200">
-                <Header 
-                    setCurrentPage={setCurrentPage} 
-                    currentPage={currentPage} 
-                    currentMode={currentMode}
-                    setCurrentMode={setCurrentMode}
-                />
-                <main className="flex-grow flex flex-col items-center justify-center text-center p-4">
-                    <AlertTriangleIcon className="w-12 h-12 text-yellow-400 mb-4" />
-                    <h2 className="text-xl font-bold text-white">Acesso Indisponível</h2>
-                    <p className="text-gray-400 mt-2 max-w-md">
-                        O modo de análise por IA (Isis) está temporariamente desativado pelo administrador. Como esta é a sua tela principal, seu acesso está pausado.
-                        <br />
-                        Por favor, entre em contato com um gerente para mais informações.
-                    </p>
-                </main>
-            </div>
-        );
-    }
 
     const renderMainContent = () => {
         if (currentMode === 'isis') {
@@ -317,7 +253,14 @@ const AppContent: React.FC = () => {
 
     const renderSettingsContent = () => {
         if (auth.user?.role === 'user') return null; // Double-check to prevent rendering
-        return <SettingsLayout onLogout={handleLogout} />;
+
+        if (currentMode === 'isis') {
+            return <SettingsLayout onLogout={handleLogout} />;
+        }
+        if (currentMode === 'seishat') {
+            return <SeishatSettingsLayout onLogout={handleLogout} />;
+        }
+        return null;
     };
 
     return (

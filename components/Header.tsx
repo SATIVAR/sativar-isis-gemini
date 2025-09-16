@@ -45,12 +45,6 @@ export const Header: React.FC<HeaderProps> = ({ setCurrentPage, currentPage, cur
         setCurrentPage('main'); // Always go to the main page of the new mode
     };
 
-    const isIsisModeEnabled = settings.modeSettings?.isIsisModeEnabled ?? true;
-    const showModeToggle = auth.isAuthenticated && (
-      auth.user?.role === 'admin' || 
-      (auth.user?.role === 'manager' && isIsisModeEnabled)
-    );
-
     return (
         <>
             <style>{`
@@ -100,16 +94,14 @@ export const Header: React.FC<HeaderProps> = ({ setCurrentPage, currentPage, cur
                             </button>
                         )}
                         
-                        {showModeToggle && (
-                            <button
-                                onClick={handleModeToggle}
-                                className="rounded-full p-2 transition-colors hover:bg-gray-700"
-                                title={currentMode === 'isis' ? 'Alternar para Modo Seishat (CRM)' : 'Alternar para Modo Isis (IA)'}
-                                aria-label="Alternar modo de operação"
-                            >
-                            {currentMode === 'isis' ? <BriefcaseIcon className="h-6 w-6 text-gray-400" /> : <SparklesIcon className="h-6 w-6 text-gray-400" />}
-                            </button>
-                        )}
+                        <button
+                            onClick={handleModeToggle}
+                            className="rounded-full p-2 transition-colors hover:bg-gray-700"
+                            title={currentMode === 'isis' ? 'Alternar para Modo Seishat (CRM)' : 'Alternar para Modo Isis (IA)'}
+                            aria-label="Alternar modo de operação"
+                        >
+                           {currentMode === 'isis' ? <BriefcaseIcon className="h-6 w-6 text-gray-400" /> : <SparklesIcon className="h-6 w-6 text-gray-400" />}
+                        </button>
                         
                         <div className="relative">
                             <button 

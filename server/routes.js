@@ -1,12 +1,9 @@
 
 
-
-
 const express = require('express');
 const { query } = require('./db');
 const { chatQuery, getChatDb } = require('./chatDb');
 const { userQuery } = require('./userDb');
-const { seishatQuery } = require('./seishatDb');
 const router = express.Router();
 const chalk = require('chalk');
 
@@ -68,77 +65,6 @@ router.post('/settings', async (req, res, next) => {
     res.status(200).json({ success: true });
   } catch (err) {
     console.error(chalk.red(`[${req.method} ${req.originalUrl}] Error saving settings:`), err.message);
-    next(err);
-  }
-});
-
-// --- Products CRUD Routes ---
-
-// GET /api/products - Get all products
-router.get('/products', async (req, res, next) => {
-  try {
-    const rows = await seishatQuery('SELECT * FROM products ORDER BY name ASC');
-    res.json(rows);
-  } catch (err) {
-    console.error(chalk.red(`[${req.method} ${req.originalUrl}] Error fetching products:`), err.message);
-    next(err);
-  }
-});
-
-// POST /api/products - Create a new product
-router.post('/products', async (req, res, next) => {
-  const { id, name, price, description, icon } = req.body;
-  if (!id || !name || !price) {
-      return res.status(400).json({ error: 'ID, Name and Price are required.' });
-  }
-  try {
-    const insertQuery = `
-      INSERT INTO products (id, name, price, description, icon)
-      VALUES (?, ?, ?, ?, ?)
-    `;
-    await seishatQuery(insertQuery, [id, name, price, description, icon]);
-    const [newProduct] = await seishatQuery('SELECT * FROM products WHERE id = ?', [id]);
-    res.status(201).json(newProduct);
-  } catch (err) {
-    console.error(chalk.red(`[${req.method} ${req.originalUrl}] Error creating product:`), err.message);
-    next(err);
-  }
-});
-
-// PUT /api/products/:id - Update an existing product
-router.put('/products/:id', async (req, res, next) => {
-  const { id } = req.params;
-  const { name, price, description, icon } = req.body;
-   if (!name || !price) {
-      return res.status(400).json({ error: 'Name and Price are required.' });
-  }
-  try {
-    const updateQuery = `
-      UPDATE products
-      SET name = ?, price = ?, description = ?, icon = ?
-      WHERE id = ?
-    `;
-    await seishatQuery(updateQuery, [name, price, description, icon, id]);
-    const [updatedProduct] = await seishatQuery('SELECT * FROM products WHERE id = ?', [id]);
-    if (updatedProduct) {
-        res.json(updatedProduct);
-    } else {
-        res.status(404).json({ error: 'Product not found.' });
-    }
-  } catch (err) {
-    console.error(chalk.red(`[${req.method} ${req.originalUrl}] Error updating product:`), err.message);
-    next(err);
-  }
-});
-
-// DELETE /api/products/:id - Delete a product
-router.delete('/products/:id', async (req, res, next) => {
-  const { id } = req.params;
-  try {
-    await seishatQuery('DELETE FROM products WHERE id = ?', [id]);
-    res.status(204).send(); // No content
-  } catch (err) {
-    console.error(chalk.red(`[${req.method} ${req.originalUrl}] Error deleting product:`), err.message);
     next(err);
   }
 });
