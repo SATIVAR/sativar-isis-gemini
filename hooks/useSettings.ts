@@ -1,20 +1,15 @@
 import React, { createContext, useState, useContext, useEffect, useMemo, useCallback } from 'react';
-import type { Settings, WpConfig, SativarSeishatProduct, SativarSeishatCategory, Product } from '../types.ts';
-import { checkApiStatus, getProducts, getCategories } from '../services/wpApiService.ts';
+// FIX: Import new types for WP integration.
+import type { Settings, Product, WpConfig, SativarSeishatProduct } from '../types.ts';
 import { apiClient } from '../services/database/apiClient.ts';
 import { useConnection } from './useConnection.ts';
 
 // --- Types ---
-type ConnectionStatus = 'idle' | 'testing' | 'success' | 'error';
-
 interface SettingsContextType {
   settings: Settings;
+  products: Product[];
   isLoaded: boolean;
   saveSettings: (newSettings: Settings) => Promise<void>;
-  wpConfig: WpConfig;
-  wpConnectionStatus: ConnectionStatus;
-  saveWpConfig: (newConfig: WpConfig) => Promise<void>;
-  testWpConnection: (configToTest: WpConfig) => Promise<boolean>;
   systemPrompt: string;
   isOnline: boolean;
   isSyncing: boolean;
@@ -23,20 +18,21 @@ interface SettingsContextType {
   formState: Settings;
   setFormState: React.Dispatch<React.SetStateAction<Settings>>;
   hasUnsavedChanges: boolean;
-  sativarSeishatProducts: SativarSeishatProduct[];
-  sativarSeishatCategories: SativarSeishatCategory[];
-  isSativarSeishatLoading: boolean;
-  sativarSeishatError: string | null;
-  lastSativarSeishatSync: Date | null;
-  syncWithSativarSeishat: () => Promise<void>;
   validateSettings: (data: Settings) => boolean;
   errors: Partial<Record<keyof Settings, string>>;
   isInitialSyncing: boolean;
   initialSyncMessage: string;
+  addProduct: (product: Product) => Promise<void>;
+  updateProduct: (product: Product) => Promise<void>;
+  deleteProduct: (productId: string | number) => Promise<void>;
+  fetchProducts: () => Promise<void>;
+  // FIX: Add wpConfig and related properties for API integration components.
+  wpConfig: WpConfig;
+  sativarSeishatProducts: SativarSeishatProduct[];
+  saveWpConfig: (newConfig: WpConfig) => Promise<void>;
 }
 
 // --- Constants & Defaults ---
-export const WP_CONFIG_STORAGE_KEY = 'sativar_isis_wp_config';
 const LOCAL_SETTINGS_KEY = 'sativar_isis_local_settings';
 const SETTINGS_SYNC_PENDING_KEY = 'sativar_isis_settings_sync_pending';
 
@@ -225,27 +221,22 @@ const parseProductAttributes = (name: string) => {
 
 /**
  * Generates the product table in Markdown format for the system prompt.
- * @param products - An array of products (either from Sativar - Seishat or local settings).
- * @param isFromSativarSeishat - A boolean indicating the source of the products.
+ * @param products - An array of products from the internal database.
  * @returns A formatted string containing the product table and a source comment.
  */
-const generateProductTable = (products: (SativarSeishatProduct | Product)[], isFromSativarSeishat: boolean): string => {
-  const stripHtml = (html: string) => (html ? html.replace(/<[^>]*>?/gm, '') : '');
-
+const generateProductTable = (products: Product[]): string => {
   const tableHeader = `| Nome do Produto | Preço (R$) | Componentes Chave | Concentração | Volume | Descrição Breve |
 |---|---|---|---|---|---|`;
 
   const tableRows = products && products.length > 0
     ? products.map(p => {
-        const desc = 'short_description' in p ? stripHtml(p.short_description) : p.description;
+        const desc = p.description;
         const attrs = parseProductAttributes(p.name);
         return `| ${p.name} | ${p.price} | ${attrs.components} | ${attrs.concentration} | ${attrs.volume} | ${desc || ''} |`;
       }).join('\n')
     : '| Nenhum produto cadastrado | - | - | - | - | - |';
     
-  const sourceComment = isFromSativarSeishat
-    ? '# Fonte dos Produtos: Sativar - Seishat API (em tempo real)'
-    : '# Fonte dos Produtos: Lista de Fallback Manual (API indisponível ou sem produtos)';
+  const sourceComment = '# Fonte dos Produtos: Banco de Dados Interno';
 
   return `
 # TABELA DE PRODUTOS OFICIAL
@@ -268,23 +259,22 @@ const defaultSettings: Settings = {
   pixKey: "[Insira a Chave PIX aqui]",
   companyName: "[Insira a Razão Social aqui]",
   bankName: "[Insira o Nome do Banco aqui]",
-  products: [], // Products are now fetched from API, this is just for type compatibility.
   prescriptionValidityMonths: '1',
   shippingContext: "O frete padrão é de R$ 50,00.",
   paymentContext: "Aceitamos pagamento via PIX ou Cartão de Crédito (com uma taxa de processamento de 3,98%). É só escolher a opção que preferir.",
   modeSettings: {
     isIsisModeEnabled: true,
   },
-};
-
-const defaultWpConfig: WpConfig = {
+  // FIX: Add default values for wpConfig and products to match the updated Settings type.
+  wpConfig: {
     url: '',
     consumerKey: '',
     consumerSecret: '',
     username: '',
     applicationPassword: '',
+  },
+  products: [],
 };
-
 
 // --- Context & Provider ---
 const SettingsContext = createContext<SettingsContextType | undefined>(undefined);
@@ -292,18 +282,12 @@ const SettingsContext = createContext<SettingsContextType | undefined>(undefined
 export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { isOnline } = useConnection();
   const [settings, setSettings] = useState<Settings>(defaultSettings);
+  const [products, setProducts] = useState<Product[]>([]);
+  // FIX: Add state for WordPress products.
+  const [sativarSeishatProducts, setSativarSeishatProducts] = useState<SativarSeishatProduct[]>([]);
   const [formState, setFormState] = useState<Settings>(defaultSettings);
-  const [wpConfig, setWpConfig] = useState<WpConfig>(defaultWpConfig);
-  const [wpConnectionStatus, setWpConnectionStatus] = useState<ConnectionStatus>('idle');
   const [isLoaded, setIsLoaded] = useState(false);
   const [errors, setErrors] = useState<Partial<Record<keyof Settings, string>>>({});
-  
-  // Sativar - Seishat State
-  const [sativarSeishatProducts, setSativarSeishatProducts] = useState<SativarSeishatProduct[]>([]);
-  const [sativarSeishatCategories, setSativarSeishatCategories] = useState<SativarSeishatCategory[]>([]);
-  const [isSativarSeishatLoading, setIsSativarSeishatLoading] = useState(false);
-  const [sativarSeishatError, setSativarSeishatError] = useState<string | null>(null);
-  const [lastSativarSeishatSync, setLastSativarSeishatSync] = useState<Date | null>(null);
   
   // Sync State
   const [isSyncing, setIsSyncing] = useState(false);
@@ -312,6 +296,21 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   // Initial App Load State
   const [isInitialSyncing, setIsInitialSyncing] = useState(true);
   const [initialSyncMessage, setInitialSyncMessage] = useState('Inicializando sistema...');
+  
+  const fetchProducts = useCallback(async () => {
+      if (!isOnline) {
+          console.log("Offline mode, not fetching products from API.");
+          setProducts([]); 
+          return;
+      }
+      try {
+          const fetchedProducts = await apiClient.get<Product[]>('/products');
+          setProducts(fetchedProducts);
+      } catch (error) {
+          console.error("Failed to fetch products:", error);
+          setProducts([]);
+      }
+  }, [isOnline]);
 
   // Sync process
   const processSync = useCallback(async () => {
@@ -351,7 +350,7 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         setIsLoaded(false);
 
         try {
-            // 1. Load basic settings and WP config
+            // 1. Load basic settings
             setInitialSyncMessage('Carregando configurações...');
             let loadedSettings: Settings | null = null;
             if (isOnline) {
@@ -382,41 +381,15 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             setSettings(finalSettings);
             setFormState(finalSettings);
             
-            const storedWpConfig = localStorage.getItem(WP_CONFIG_STORAGE_KEY);
-            const finalWpConfig = storedWpConfig ? { ...defaultWpConfig, ...JSON.parse(storedWpConfig) } : defaultWpConfig;
-            setWpConfig(finalWpConfig);
-
             const syncPending = localStorage.getItem(SETTINGS_SYNC_PENDING_KEY) === 'true';
             setSettingsSyncQueueCount(syncPending ? 1 : 0);
 
-            // 2. Sync with Sativar - Seishat if configured
-            if (finalWpConfig.url && finalWpConfig.consumerKey) {
-                setInitialSyncMessage('Sincronizando produtos e categorias...');
-                setIsSativarSeishatLoading(true);
-                try {
-                    const [products, categories] = await Promise.all([
-                        getProducts(finalWpConfig),
-                        getCategories(finalWpConfig),
-                    ]);
-                    setSativarSeishatProducts(products);
-                    setSativarSeishatCategories(categories);
-                    setLastSativarSeishatSync(new Date());
-                    setSativarSeishatError(null);
-                    setInitialSyncMessage('Sincronização concluída com sucesso!');
-                } catch (err) {
-                    const errorMessage = err instanceof Error ? err.message : "Erro desconhecido.";
-                    setSativarSeishatError(errorMessage);
-                    setInitialSyncMessage('Falha na sincronização. Usando produtos de fallback.');
-                    console.error("Initial Sativar - Seishat sync failed:", err);
-                } finally {
-                    setIsSativarSeishatLoading(false);
-                }
-            } else {
-                setInitialSyncMessage('API do Sativar - Seishat não configurada. Usando produtos de fallback.');
-            }
+            // 2. Fetch products
+            setInitialSyncMessage('Carregando produtos...');
+            await fetchProducts();
 
             // 3. Finalize
-            await new Promise(resolve => setTimeout(resolve, 1000));
+            await new Promise(resolve => setTimeout(resolve, 500));
             setInitialSyncMessage('Pronto!');
 
         } catch (error) {
@@ -430,7 +403,7 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     };
 
     startupSequence();
-  }, [isOnline]);
+  }, [isOnline, fetchProducts]);
 
 
   const validateSettings = useCallback((data: Settings): boolean => {
@@ -485,58 +458,24 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
   }, [processSync]);
 
+  // FIX: Implement saveWpConfig to update the wpConfig part of the settings.
   const saveWpConfig = useCallback(async (newConfig: WpConfig) => {
-    setWpConfig(newConfig);
-    try {
-      localStorage.setItem(WP_CONFIG_STORAGE_KEY, JSON.stringify(newConfig));
-    } catch (error) {
-      console.error("Failed to save WP config to localStorage", error);
-    }
-  }, []);
+    const newSettings = { ...settings, wpConfig: newConfig };
+    await saveSettings(newSettings);
+  }, [settings, saveSettings]);
 
-  const testWpConnection = useCallback(async (configToTest: WpConfig): Promise<boolean> => {
-    setWpConnectionStatus('testing');
-    try {
-      const status = await checkApiStatus(configToTest);
-      // FIX: Corrected typo from `sativarClients` to `sativarUsers` to match the `ApiStatus` type definition.
-      const isSuccess = status.sativarSeishat === 'success' && status.sativarUsers === 'success';
-      if (isSuccess) {
-          setWpConnectionStatus('success');
-      } else {
-          setWpConnectionStatus('error');
-      }
-      return isSuccess;
-    } catch (error) {
-      console.error("WP connection test failed:", error);
-      setWpConnectionStatus('error');
-      return false;
-    }
-  }, []);
-  
-  const syncWithSativarSeishat = useCallback(async () => {
-    if (!wpConfig.url || !wpConfig.consumerKey) {
-        setSativarSeishatError("API do Sativar - Seishat não configurada. Por favor, preencha os dados na página 'Configuração da API'.");
-        return;
-    }
-    setIsSativarSeishatLoading(true);
-    setSativarSeishatError(null);
-    try {
-        const [products, categories] = await Promise.all([
-            getProducts(wpConfig),
-            getCategories(wpConfig),
-        ]);
-        setSativarSeishatProducts(products);
-        setSativarSeishatCategories(categories);
-        setLastSativarSeishatSync(new Date());
-    } catch (err) {
-        console.error("Failed to sync with Sativar - Seishat", err);
-        setSativarSeishatError(err instanceof Error ? err.message : "Ocorreu um erro desconhecido ao sincronizar com o Sativar - Seishat. Verifique as configurações da API e sua conexão.");
-        setSativarSeishatProducts([]);
-        setSativarSeishatCategories([]);
-    } finally {
-        setIsSativarSeishatLoading(false);
-    }
-  }, [wpConfig]);
+  const addProduct = async (product: Product) => {
+    const newProduct = await apiClient.post<Product>('/products', product);
+    setProducts(prev => [...prev, newProduct].sort((a,b) => a.name.localeCompare(b.name)));
+  };
+  const updateProduct = async (product: Product) => {
+    const updatedProduct = await apiClient.put<Product>(`/products/${product.id}`, product);
+    setProducts(prev => prev.map(p => p.id === updatedProduct.id ? updatedProduct : p));
+  };
+  const deleteProduct = async (productId: string | number) => {
+    await apiClient.delete(`/products/${productId}`);
+    setProducts(prev => prev.filter(p => p.id !== productId));
+  };
   
   const forceSyncSettings = useCallback(async () => {
     await processSync();
@@ -545,43 +484,32 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const hasUnsavedChanges = useMemo(() => JSON.stringify(formState) !== JSON.stringify(settings), [formState, settings]);
 
   const systemPrompt = useMemo(() => {
-    const isFromSativarSeishat = sativarSeishatProducts.length > 0;
-    const productSource = isFromSativarSeishat ? sativarSeishatProducts : settings.products;
-
-    // 1. Assemble all template parts
     const templates = [
       PROMPT_PARTS.CONFIGURATION_HEADER,
       getConfigurationBlockTemplate(),
       PROMPT_PARTS.PERSONA,
       PROMPT_PARTS.KNOWLEDGE_BASE,
       getJsonOutputInstructionsTemplate(),
-      generateProductTable(productSource, isFromSativarSeishat),
+      generateProductTable(products),
     ];
 
     let combinedPrompt = templates.join('\n\n');
     
-    // 2. Get the placeholder-to-value map
     const placeholders = getPromptPlaceholders(settings);
 
-    // 3. Replace all placeholders in the combined template
     for (const [key, value] of Object.entries(placeholders)) {
-        // Use a global regex to replace all occurrences of the placeholder key.
-        // We escape the key to handle special regex characters like curly braces.
         const escapedKey = key.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
         combinedPrompt = combinedPrompt.replace(new RegExp(escapedKey, 'g'), value);
     }
     
     return combinedPrompt;
-  }, [settings, sativarSeishatProducts]);
+  }, [settings, products]);
 
   const value = useMemo(() => ({ 
       settings, 
+      products,
       isLoaded,
       saveSettings,
-      wpConfig,
-      wpConnectionStatus,
-      saveWpConfig,
-      testWpConnection,
       systemPrompt,
       isOnline,
       isSyncing,
@@ -590,17 +518,19 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       formState,
       setFormState,
       hasUnsavedChanges,
-      sativarSeishatProducts,
-      sativarSeishatCategories,
-      isSativarSeishatLoading,
-      sativarSeishatError,
-      lastSativarSeishatSync,
-      syncWithSativarSeishat,
       validateSettings,
       errors,
       isInitialSyncing,
       initialSyncMessage,
-  }), [settings, isLoaded, saveSettings, wpConfig, wpConnectionStatus, saveWpConfig, testWpConnection, systemPrompt, isOnline, isSyncing, settingsSyncQueueCount, forceSyncSettings, formState, hasUnsavedChanges, sativarSeishatProducts, sativarSeishatCategories, isSativarSeishatLoading, sativarSeishatError, lastSativarSeishatSync, syncWithSativarSeishat, validateSettings, errors, isInitialSyncing, initialSyncMessage]);
+      addProduct,
+      updateProduct,
+      deleteProduct,
+      fetchProducts,
+      // FIX: Provide wpConfig and related properties.
+      wpConfig: settings.wpConfig,
+      sativarSeishatProducts,
+      saveWpConfig,
+  }), [settings, products, isLoaded, saveSettings, systemPrompt, isOnline, isSyncing, settingsSyncQueueCount, forceSyncSettings, formState, hasUnsavedChanges, validateSettings, errors, isInitialSyncing, initialSyncMessage, addProduct, updateProduct, deleteProduct, fetchProducts, sativarSeishatProducts, saveWpConfig]);
 
   return React.createElement(SettingsContext.Provider, { value }, children);
 };

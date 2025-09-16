@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { SettingsSidebar, type SettingsPageName } from './SettingsSidebar.tsx';
 import { AssociationPage } from './AssociationPage.tsx';
-import { ApiConfigPage } from './ApiConfigPage.tsx';
+import { ProductsPage } from './ProductsPage.tsx';
 import { AdvancedPage } from './ClientsPage.tsx';
 import { PromptPage } from './PromptPage.tsx';
 import { ApiHistoryPage } from './ApiHistoryPage.tsx';
@@ -71,8 +71,8 @@ export const SettingsLayout: React.FC<SettingsLayoutProps> = ({ onLogout }) => {
         return <AssociationPage />;
       case 'users':
         return <UsersPage />;
-      case 'api':
-        return <ApiConfigPage />;
+      case 'products':
+        return <ProductsPage />;
       case 'modes':
         return <ModeManagementPage />;
       case 'notifications':

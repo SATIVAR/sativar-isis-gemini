@@ -7,6 +7,7 @@ const chalk = require('chalk');
 const { testPoolConnection } = require('./db');
 const { testChatDbConnection } = require('./chatDb');
 const { testUserDbConnection } = require('./userDb');
+const { testSeishatProductDbConnection } = require('./seishatProductDb');
 const { runMigrations } = require('./migration');
 require('dotenv').config();
 
@@ -28,6 +29,10 @@ const startServer = async () => {
         console.log(chalk.yellow('Connecting to the USER database...'));
         await testUserDbConnection();
         console.log(chalk.yellow.bold('✅ Successfully connected to the USER database.'));
+        
+        console.log(chalk.magenta('Connecting to the SEISHAT PRODUCT database...'));
+        await testSeishatProductDbConnection();
+        console.log(chalk.magenta.bold('✅ Successfully connected to the SEISHAT PRODUCT database.'));
         
         // 2. Run database migrations for all DBs
         console.log(chalk.blue('Running database migrations...'));

@@ -84,7 +84,7 @@ export interface ChatMessage {
 
 // From hooks/useSettings.ts
 export interface Product {
-    id: string | number; // Allow both UUIDs for manual products and numeric IDs for Sativar - Seishat mapping
+    id: string | number;
     name: string;
     price: string;
     description: string;
@@ -93,6 +93,15 @@ export interface Product {
 
 export interface ModeSettings {
     isIsisModeEnabled: boolean;
+}
+
+// FIX: Add WpConfig type for WordPress API integration settings.
+export interface WpConfig {
+  url: string;
+  consumerKey: string;
+  consumerSecret: string;
+  username: string;
+  applicationPassword: string;
 }
 
 export interface Settings {
@@ -107,51 +116,15 @@ export interface Settings {
     pixKey: string;
     companyName: string;
     bankName: string;
-    products: Product[];
     prescriptionValidityMonths: string;
     shippingContext: string;
     paymentContext: string;
     modeSettings: ModeSettings;
+    // FIX: Add wpConfig for API settings components.
+    wpConfig: WpConfig;
+    // FIX: Add products for fallback product management in PriceTablePage.
+    products: Product[];
 }
-
-// From hooks/useSettings.ts and components/settings/ApiConfigPage.tsx and services/wpApiService.ts
-export interface WpConfig {
-    url: string;
-    consumerKey: string;
-    consumerSecret: string;
-    username?: string;
-    applicationPassword?: string;
-}
-
-export interface SativarSeishatProductImage {
-    id: number;
-    src: string;
-    name: string;
-}
-
-export interface SativarSeishatProductCategory {
-    id: number;
-    name: string;
-    slug: string;
-}
-
-export interface SativarSeishatProduct {
-    id: number;
-    name: string;
-    price: string;
-    short_description: string;
-    stock_quantity: number | null;
-    images: SativarSeishatProductImage[];
-    categories: SativarSeishatProductCategory[];
-}
-
-export interface SativarSeishatCategory {
-    id: number;
-    name: string;
-    slug: string;
-    count: number;
-}
-
 
 // From services/database/repositories/interfaces.ts
 export interface Task {
@@ -172,21 +145,6 @@ export interface Reminder {
     priority: 'low' | 'medium' | 'high';
 }
 
-// From services/wpApiService.ts (SATIVAR Users)
-export interface SativarUser {
-    id: number;
-    display_name: string;
-    email: string;
-    acf_fields: {
-        cpf?: string;
-        telefone?: string;
-        tipo_associacao?: string;
-        nome_completo_responc?: string;
-        cpf_responsavel?: string;
-        nome_completo?: string;
-    };
-}
-
 // From hooks/useChatHistory.ts
 export interface Conversation {
   id: string;
@@ -205,6 +163,33 @@ export interface User {
     whatsapp?: string;
     role: UserRole;
     // Password should not be part of the client-side type
+}
+
+// FIX: Add types for Sativar/WordPress integration.
+export interface SativarSeishatCategory {
+    id: number;
+    name: string;
+    slug: string;
+}
+
+export interface SativarSeishatProduct {
+  id: number;
+  name: string;
+  price: string;
+  stock_quantity: number | null;
+  images?: { src: string }[];
+  categories?: SativarSeishatCategory[];
+}
+
+export interface SativarUser {
+  id: number;
+  display_name: string;
+  email: string;
+  acf_fields?: {
+    cpf?: string;
+    telefone?: string;
+    nome_completo_responc?: string;
+  };
 }
 
 

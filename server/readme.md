@@ -3,7 +3,7 @@
 This directory contains the Node.js/Express backend for the SATIVAR-ISIS application. Its primary responsibilities are:
 
 1.  To provide a secure API for the frontend to interact with.
-2.  To manage the connection and queries to a persistent **SQLite** database.
+2.  To manage the connection and queries to persistent **SQLite** databases for all application data (settings, reminders, users, products, etc.).
 3.  To act as a secure layer, protecting sensitive operations.
 
 ## Getting Started
@@ -38,7 +38,7 @@ API_SECRET_KEY=generate-a-strong-random-string-for-this
 
 **This step is now automatic!**
 
-When you start the server for the first time, it will automatically create a `data` directory and a `sativar_isis.db` database file inside it. It will also run the necessary migrations to create the required tables.
+When you start the server for the first time, it will automatically create a `data` directory and all necessary database files (e.g., `sativar_isis.db`) inside it. It will also run the required migrations to create the tables.
 
 ### 4. Running the Server
 
@@ -52,4 +52,4 @@ When you start the server for the first time, it will automatically create a `da
     npm start
     ```
 
-The server will start on the port specified in your `.env` file (or `3001` by default) and will use the SQLite database.
+The server will start on the port specified in your `.env` file (or `3001` by default) and will use the self-contained SQLite databases.
