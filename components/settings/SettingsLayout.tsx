@@ -13,6 +13,7 @@ import { useSettings } from '../../hooks/useSettings.ts';
 import { CheckCircleIcon, AlertTriangleIcon, CheckIcon } from '../icons.tsx';
 import { useAuth } from '../../hooks/useAuth.ts';
 import { UsersPage } from './UsersPage.tsx';
+import { SeishatProductsPage } from './ProductsPage.tsx';
 
 interface SettingsLayoutProps {
   onLogout: () => void;
@@ -70,6 +71,8 @@ export const SettingsLayout: React.FC<SettingsLayoutProps> = ({ onLogout }) => {
         return <AssociationPage />;
       case 'users':
         return <UsersPage />;
+      case 'products':
+        return <SeishatProductsPage />;
       case 'api':
         return <ApiConfigPage />;
       case 'notifications':

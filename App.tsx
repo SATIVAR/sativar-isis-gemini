@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { Header } from './components/Header.tsx';
 import { SettingsLayout } from './components/settings/SettingsLayout.tsx';
-import { SeishatSettingsLayout } from './components/settings/seishat/SeishatSettingsLayout.tsx';
 // FIX: Import the 'useSettings' hook.
 import { SettingsProvider, useSettings } from './hooks/useSettings.ts';
 import { RemindersProvider, useReminders } from './hooks/useReminders.ts';
@@ -292,14 +291,7 @@ const AppContent: React.FC = () => {
 
     const renderSettingsContent = () => {
         if (auth.user?.role === 'user') return null; // Double-check to prevent rendering
-
-        if (currentMode === 'isis') {
-            return <SettingsLayout onLogout={handleLogout} />;
-        }
-        if (currentMode === 'seishat') {
-            return <SeishatSettingsLayout onLogout={handleLogout} />;
-        }
-        return null;
+        return <SettingsLayout onLogout={handleLogout} />;
     };
 
     return (

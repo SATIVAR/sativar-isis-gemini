@@ -371,10 +371,11 @@ export const QuoteGenerator: React.FC<QuoteGeneratorProps> = ({ isMobileHistoryO
     };
 
     const isChatClosed = activeConversation?.is_closed === true;
-    const isChatDisabled = showSettingsWarning || apiKeyMissing || wpConfigMissing || isChatClosed;
+    const isChatDisabled = !settings.isIsisAiEnabled || showSettingsWarning || apiKeyMissing || wpConfigMissing || isChatClosed;
     
     let disabledReason = "";
-    if (apiKeyMissing) disabledReason = "Ação necessária: A Chave da API do Gemini não foi configurada no ambiente.";
+    if (!settings.isIsisAiEnabled) disabledReason = "O Modo Isis (IA) está desativado nas configurações da associação.";
+    else if (apiKeyMissing) disabledReason = "Ação necessária: A Chave da API do Gemini não foi configurada no ambiente.";
     else if (wpConfigMissing) disabledReason = "Ação necessária: Configure a API do Sativar_WP_API nas Configurações.";
     else if (showSettingsWarning) disabledReason = "Complete as configurações da associação para habilitar o envio de receitas.";
     else if (isChatClosed) disabledReason = "Chat encerrado. Inicie uma nova análise para continuar.";

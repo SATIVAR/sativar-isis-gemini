@@ -1,8 +1,12 @@
 import React from 'react';
-import { DatabaseIcon, ServerIcon, StoreIcon, FileCodeIcon, LogOutIcon, UsersIcon, ClockIcon, BellIcon, BarChart2Icon } from '../icons.tsx';
+import { 
+    DatabaseIcon, ServerIcon, StoreIcon, FileCodeIcon, 
+    LogOutIcon, UsersIcon, ClockIcon, BellIcon, 
+    BarChart2Icon, FileTextIcon, ShoppingCartIcon, DollarSignIcon 
+} from '../icons.tsx';
 import type { UserRole } from '../../types.ts';
 
-export type SettingsPageName = 'association' | 'users' | 'api' | 'products' | 'notifications' | 'advanced' | 'prompt' | 'apiHistory';
+export type SettingsPageName = 'association' | 'users' | 'api' | 'products' | 'notifications' | 'advanced' | 'prompt' | 'apiHistory' | 'patients' | 'prescribers' | 'documents' | 'orders' | 'expenses' | 'reports';
 
 interface NavItemProps {
   pageName: SettingsPageName;
@@ -10,22 +14,27 @@ interface NavItemProps {
   icon: React.ReactNode;
   currentPage: SettingsPageName;
   onClick: (page: SettingsPageName) => void;
+  disabled?: boolean;
 }
 
-const NavItem: React.FC<NavItemProps> = ({ pageName, label, icon, currentPage, onClick }) => (
-  <button
-    onClick={() => onClick(pageName)}
-    className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-      currentPage === pageName
-        ? 'bg-fuchsia-600/20 text-fuchsia-300'
-        : 'text-gray-400 hover:bg-gray-700/50 hover:text-gray-200'
-    }`}
-    aria-current={currentPage === pageName ? 'page' : undefined}
-  >
-    {icon}
-    <span>{label}</span>
-  </button>
-);
+const NavItem: React.FC<NavItemProps> = ({ pageName, label, icon, currentPage, onClick, disabled }) => (
+    <button
+      onClick={() => !disabled && onClick(pageName)}
+      className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+        currentPage === pageName
+          ? 'bg-fuchsia-600/20 text-fuchsia-300'
+          : disabled 
+            ? 'text-gray-600 cursor-not-allowed'
+            : 'text-gray-400 hover:bg-gray-700/50 hover:text-gray-200'
+      }`}
+      aria-current={currentPage === pageName ? 'page' : undefined}
+      disabled={disabled}
+    >
+      {icon}
+      <span>{label}</span>
+      {disabled && <span className="text-xs text-gray-500 ml-auto">(Em breve)</span>}
+    </button>
+  );
 
 interface SettingsSidebarProps {
   currentPage: SettingsPageName;
@@ -35,15 +44,22 @@ interface SettingsSidebarProps {
 }
 
 export const SettingsSidebar: React.FC<SettingsSidebarProps> = ({ currentPage, setCurrentPage, onLogout, userRole }) => {
-  const navItems: Array<{ page: SettingsPageName; label: string; icon: React.ReactNode; roles: UserRole[] }> = [
-    { page: 'association', label: 'Associação', icon: <UsersIcon className="w-5 h-5" />, roles: ['admin', 'manager'] },
-    { page: 'users', label: 'Usuários do Sistema', icon: <UsersIcon className="w-5 h-5" />, roles: ['admin'] },
-    { page: 'api', label: 'Configuração da API', icon: <ServerIcon className="w-5 h-5" />, roles: ['admin'] },
-    { page: 'notifications', label: 'Notificações', icon: <BellIcon className="w-5 h-5" />, roles: ['admin', 'manager'] },
-    { page: 'advanced', label: 'Avançado', icon: <DatabaseIcon className="w-5 h-5" />, roles: ['admin'] },
-    { page: 'apiHistory', label: 'Log de Chamadas', icon: <ClockIcon className="w-5 h-5" />, roles: ['admin'] },
-    { page: 'prompt', label: 'Prompt do Sistema', icon: <FileCodeIcon className="w-5 h-5" />, roles: ['admin'] },
-  ];
+    const navItems: Array<{ page: SettingsPageName; label: string; icon: React.ReactNode; roles: UserRole[], disabled?: boolean }> = [
+        { page: 'association', label: 'Associação', icon: <UsersIcon className="w-5 h-5" />, roles: ['admin', 'manager'] },
+        { page: 'users', label: 'Usuários do Sistema', icon: <UsersIcon className="w-5 h-5" />, roles: ['admin'] },
+        { page: 'products', label: 'Produtos', icon: <StoreIcon className="w-5 h-5" />, roles: ['admin', 'manager'] },
+        { page: 'api', label: 'Configuração da API', icon: <ServerIcon className="w-5 h-5" />, roles: ['admin'] },
+        { page: 'notifications', label: 'Notificações', icon: <BellIcon className="w-5 h-5" />, roles: ['admin', 'manager'] },
+        { page: 'patients', label: 'Pacientes', icon: <UsersIcon className="w-5 h-5" />, roles: ['admin', 'manager'], disabled: true },
+        { page: 'prescribers', label: 'Prescritores', icon: <UsersIcon className="w-5 h-5" />, roles: ['admin', 'manager'], disabled: true },
+        { page: 'documents', label: 'Documentos', icon: <FileTextIcon className="w-5 h-5" />, roles: ['admin', 'manager'], disabled: true },
+        { page: 'orders', label: 'Pedidos', icon: <ShoppingCartIcon className="w-5 h-5" />, roles: ['admin', 'manager'], disabled: true },
+        { page: 'expenses', label: 'Despesas', icon: <DollarSignIcon className="w-5 h-5" />, roles: ['admin', 'manager'], disabled: true },
+        { page: 'reports', label: 'Relatórios', icon: <BarChart2Icon className="w-5 h-5" />, roles: ['admin', 'manager'], disabled: true },
+        { page: 'advanced', label: 'Avançado', icon: <DatabaseIcon className="w-5 h-5" />, roles: ['admin'] },
+        { page: 'apiHistory', label: 'Log de Chamadas', icon: <ClockIcon className="w-5 h-5" />, roles: ['admin'] },
+        { page: 'prompt', label: 'Prompt do Sistema', icon: <FileCodeIcon className="w-5 h-5" />, roles: ['admin'] },
+      ];
 
   const visibleNavItems = navItems.filter(item => item.roles.includes(userRole));
 
@@ -60,6 +76,7 @@ export const SettingsSidebar: React.FC<SettingsSidebarProps> = ({ currentPage, s
                 icon={item.icon}
                 currentPage={currentPage}
                 onClick={setCurrentPage}
+                disabled={item.disabled}
                 />
             ))}
             </nav>
