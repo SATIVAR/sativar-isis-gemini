@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import type { AppMode } from '../App.tsx';
-import { SettingsIcon, BellIcon, PlusIcon, RepeatIcon, BriefcaseIcon, SparklesIcon } from './icons.tsx';
+import { BellIcon, PlusIcon, BriefcaseIcon, SparklesIcon } from './icons.tsx';
 import { useReminders } from '../hooks/useReminders.ts';
 import { useSettings } from '../hooks/useSettings.ts';
 import { RemindersList } from './Reminders.tsx';
@@ -24,11 +24,6 @@ export const Header: React.FC<HeaderProps> = ({ currentMode, setCurrentMode, onT
     const auth = useAuth();
 
     const pendingCount = reminders.filter(r => !r.isCompleted).length;
-    
-    const handleSettingsClick = () => {
-        setIsRemindersOpen(false); // Close reminders when navigating
-        setCurrentMode('seishat');
-    };
     
     const handleHomeClick = () => {
         setIsRemindersOpen(false); // Close reminders when navigating
@@ -99,7 +94,7 @@ export const Header: React.FC<HeaderProps> = ({ currentMode, setCurrentMode, onT
                                     title={
                                         isIsisDeactivatedForOthers 
                                             ? 'Modo Isis está desativado para outros usuários'
-                                            : (currentMode === 'isis' ? 'Alternar para Modo Seishat (CRM)' : 'Alternar para Modo Isis (IA)')
+                                            : (currentMode === 'isis' ? 'Acessar Painel Seishat (CRM)' : 'Acessar Modo Isis (IA)')
                                     }
                                     aria-label="Alternar modo de operação"
                                 >
@@ -129,16 +124,6 @@ export const Header: React.FC<HeaderProps> = ({ currentMode, setCurrentMode, onT
                             {isRemindersOpen && <RemindersList onClose={() => setIsRemindersOpen(false)} />}
                         </div>
                         
-                        {auth.user?.role !== 'user' && (
-                            <button 
-                                onClick={handleSettingsClick}
-                                className="rounded-full p-2 transition-colors hover:bg-gray-700"
-                                title="Acessar Painel de Controle (CRM)"
-                                aria-label="Acessar Painel de Controle"
-                            >
-                                <SettingsIcon className="h-6 w-6 text-gray-400" />
-                            </button>
-                        )}
                     </nav>
                 )}
             </header>

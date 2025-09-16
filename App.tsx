@@ -1,7 +1,6 @@
 
-import React, { useState } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Header } from './components/Header.tsx';
-// import { SettingsLayout } from './components/settings/SettingsLayout.tsx'; // No longer needed
 import { SettingsProvider, useSettings } from './hooks/useSettings.ts';
 import { RemindersProvider, useReminders } from './hooks/useReminders.ts';
 import { ConnectionProvider } from './hooks/useConnection.ts';
@@ -13,24 +12,39 @@ import { Loader } from './components/Loader.tsx';
 import { ChatHistoryProvider } from './hooks/useChatHistory.ts';
 import { ModalProvider, useModal } from './hooks/useModal.ts';
 import { Modal } from './components/Modal.tsx';
-import { AlertTriangleIcon, BarChart2Icon, BookIcon, BookOpenIcon, BriefcaseIcon, CalendarIcon, CheckCircleIcon, CheckSquareIcon, ChevronDownIcon, ChevronUpIcon, CoffeeIcon, DollarSignIcon, EditIcon, FileTextIcon, PersonRunningIcon, PlusIcon, ShoppingCartIcon, SparklesIcon, StoreIcon, SunriseIcon, TableIcon, UtensilsIcon, UsersIcon } from './components/icons.tsx';
+import { AlertTriangleIcon, BarChart2Icon, BellIcon, BriefcaseIcon, CheckCircleIcon, CheckSquareIcon, ChevronDownIcon, ClockIcon, DollarSignIcon, FileCodeIcon, FileTextIcon, LogOutIcon, PlusIcon, SettingsIcon, ShoppingCartIcon, SparklesIcon, StoreIcon, UsersIcon, DatabaseIcon } from './components/icons.tsx';
 import { AuthProvider, useAuth } from './hooks/useAuth.ts';
 import { TokenUsageProvider } from './hooks/useTokenUsage.ts';
 import { OnboardingGuide } from './components/OnboardingGuide.tsx';
 import { AdminRegistration } from './components/AdminRegistration.tsx';
 import { AdminLogin } from './components/AdminLogin.tsx';
+import type { UserRole, Settings } from './types.ts';
+
+// Import all settings pages
 import { SeishatProductsPage } from './components/settings/ProductsPage.tsx';
+import { AssociationPage } from './components/settings/AssociationPage.tsx';
+import { UsersPage } from './components/settings/UsersPage.tsx';
+import { NotificationsPage } from './components/settings/NotificationsPage.tsx';
+import { AdvancedPage } from './components/settings/ClientsPage.tsx';
+import { PromptPage } from './components/settings/PromptPage.tsx';
+import { ApiHistoryPage } from './components/settings/ApiHistoryPage.tsx';
+
 
 export type AppMode = 'isis' | 'seishat';
 
-// --- Seishat CRM Components ---
+// --- Seishat CRM / Settings Components ---
 
-type SeishatPageName = 'products' | 'patients' | 'prescribers' | 'documents' | 'orders' | 'expenses' | 'reports';
+export type SeishatPageName = 
+    // General
+    | 'association' | 'users' | 'notifications'
+    // Seishat
+    | 'products' | 'patients' | 'prescribers' | 'documents' | 'orders' | 'expenses' | 'reports'
+    // Isis
+    | 'prompt' | 'apiHistory' | 'advanced';
 
 interface NavItemProps {
   pageName: SeishatPageName;
   label: string;
-  // FIX: Changed icon type from React.ReactNode to React.ReactElement to fix cloneElement typing issues.
   icon: React.ReactElement;
   activePage: SeishatPageName;
   onClick: (page: SeishatPageName) => void;
@@ -40,9 +54,9 @@ interface NavItemProps {
 const NavItem: React.FC<NavItemProps> = ({ pageName, label, icon, activePage, onClick, disabled }) => (
     <button
       onClick={() => !disabled && onClick(pageName)}
-      className={`w-full flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors ${
+      className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors ${
         activePage === pageName
-          ? 'bg-[#4c2a5a] text-white font-semibold'
+          ? 'bg-fuchsia-600/20 text-fuchsia-300 font-semibold'
           : disabled 
             ? 'text-gray-600 cursor-not-allowed'
             : 'text-gray-400 hover:bg-gray-700/50 hover:text-white'
@@ -50,59 +64,173 @@ const NavItem: React.FC<NavItemProps> = ({ pageName, label, icon, activePage, on
       aria-current={activePage === pageName ? 'page' : undefined}
       disabled={disabled}
     >
-      {/* FIX: Using React.cloneElement with a more specific prop type for 'icon' resolves the overload error. The unnecessary type assertion is removed. */}
-      {React.cloneElement(icon, { className: `w-5 h-5 ${activePage === pageName ? 'text-[#d973b5]' : ''}` })}
+      {/* FIX: The icon is now passed with its className, so we can render it directly
+      instead of using React.cloneElement, which caused a type error. */}
+      {icon}
       <span>{label}</span>
       {disabled && <span className="text-xs text-gray-500 ml-auto">(Em breve)</span>}
     </button>
 );
 
+type AccordionName = 'general' | 'seishat' | 'isis' | 'none';
+
+const AccordionItem: React.FC<{
+  label: string;
+  icon: React.ReactNode;
+  children: React.ReactNode;
+  isOpen: boolean;
+  onClick: () => void;
+  isActiveSection: boolean;
+}> = ({ label, icon, children, isOpen, onClick, isActiveSection }) => (
+  <div>
+    <button
+      onClick={onClick}
+      className={`w-full flex items-center justify-between gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+        isActiveSection && !isOpen ? 'bg-fuchsia-600/10 text-white' : 'text-gray-400 hover:bg-gray-700/50 hover:text-gray-200'
+      }`}
+      aria-expanded={isOpen}
+    >
+      <div className="flex items-center gap-3">
+        {icon}
+        <span>{label}</span>
+      </div>
+      <ChevronDownIcon className={`w-5 h-5 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
+    </button>
+    <div
+      className={`pl-4 overflow-hidden transition-all duration-300 ease-in-out ${isOpen ? 'max-h-[500px]' : 'max-h-0'}`}
+    >
+        <div className="border-l border-gray-600/50 flex flex-col gap-1 pl-4 py-1 mt-1">
+            {children}
+        </div>
+    </div>
+  </div>
+);
+
 interface SeishatSidebarProps {
   activePage: SeishatPageName;
   setActivePage: (page: SeishatPageName) => void;
+  onLogout: () => void;
+  userRole: UserRole;
+  formState: Settings;
+  setFormState: React.Dispatch<React.SetStateAction<Settings>>;
 }
 
-const SeishatSidebar: React.FC<SeishatSidebarProps> = ({ activePage, setActivePage }) => {
-    const [isExpanded, setIsExpanded] = useState(true);
-
-    const navItems = [
-        { page: 'products' as SeishatPageName, label: 'Produtos', icon: <StoreIcon />, disabled: false },
-        { page: 'patients' as SeishatPageName, label: 'Pacientes', icon: <UsersIcon />, disabled: true },
-        { page: 'prescribers' as SeishatPageName, label: 'Prescritores', icon: <UsersIcon />, disabled: true },
-        { page: 'documents' as SeishatPageName, label: 'Documentos', icon: <FileTextIcon />, disabled: true },
-        { page: 'orders' as SeishatPageName, label: 'Pedidos', icon: <ShoppingCartIcon />, disabled: true },
-        { page: 'expenses' as SeishatPageName, label: 'Despesas', icon: <DollarSignIcon />, disabled: true },
-        { page: 'reports' as SeishatPageName, label: 'Relatórios', icon: <BarChart2Icon />, disabled: true },
+const SeishatSidebar: React.FC<SeishatSidebarProps> = ({ activePage, setActivePage, onLogout, userRole, formState, setFormState }) => {
+    const [openAccordion, setOpenAccordion] = useState<AccordionName>('general');
+    
+    const handleToggleChange = (name: string, value: boolean) => {
+        setFormState(prev => ({ ...prev, [name]: value }));
+    };
+    
+    const generalItems = [
+        // FIX: Added className to icons to avoid using React.cloneElement and fix a type error.
+        { page: 'association' as SeishatPageName, label: 'Associação', icon: <UsersIcon className="w-5 h-5" />, roles: ['admin', 'manager', 'user'] },
+        { page: 'users' as SeishatPageName, label: 'Usuários do Sistema', icon: <UsersIcon className="w-5 h-5" />, roles: ['admin'] },
+        { page: 'notifications' as SeishatPageName, label: 'Notificações', icon: <BellIcon className="w-5 h-5" />, roles: ['admin', 'manager', 'user'] },
     ];
+    
+    const seishatItems = [
+        // FIX: Added className to icons to avoid using React.cloneElement and fix a type error.
+        { page: 'products' as SeishatPageName, label: 'Produtos', icon: <StoreIcon className="w-5 h-5" />, roles: ['admin', 'manager'] },
+        { page: 'patients' as SeishatPageName, label: 'Pacientes', icon: <UsersIcon className="w-5 h-5" />, roles: ['admin', 'manager'], disabled: true },
+        { page: 'prescribers' as SeishatPageName, label: 'Prescritores', icon: <UsersIcon className="w-5 h-5" />, roles: ['admin', 'manager'], disabled: true },
+        { page: 'documents' as SeishatPageName, label: 'Documentos', icon: <FileTextIcon className="w-5 h-5" />, roles: ['admin', 'manager'], disabled: true },
+        { page: 'orders' as SeishatPageName, label: 'Pedidos', icon: <ShoppingCartIcon className="w-5 h-5" />, roles: ['admin', 'manager'], disabled: true },
+        { page: 'expenses' as SeishatPageName, label: 'Despesas', icon: <DollarSignIcon className="w-5 h-5" />, roles: ['admin', 'manager'], disabled: true },
+        { page: 'reports' as SeishatPageName, label: 'Relatórios', icon: <BarChart2Icon className="w-5 h-5" />, roles: ['admin', 'manager'], disabled: true },
+    ];
+    
+    const isisItems = [
+        // FIX: Added className to icons to avoid using React.cloneElement and fix a type error.
+        { page: 'prompt' as SeishatPageName, label: 'Prompt do Sistema', icon: <FileCodeIcon className="w-5 h-5" />, roles: ['admin'] },
+        { page: 'apiHistory' as SeishatPageName, label: 'Log de Chamadas', icon: <ClockIcon className="w-5 h-5" />, roles: ['admin'] },
+        { page: 'advanced' as SeishatPageName, label: 'Avançado', icon: <DatabaseIcon className="w-5 h-5" />, roles: ['admin'] },
+    ];
+
+    const handleAccordionClick = (name: AccordionName) => {
+      setOpenAccordion(prev => (prev === name ? 'none' : name));
+    };
+
+    const isGeneralSectionActive = useMemo(() => generalItems.some(item => item.page === activePage), [activePage]);
+    const isSeishatSectionActive = useMemo(() => seishatItems.some(item => item.page === activePage), [activePage]);
+    const isIsisSectionActive = useMemo(() => isisItems.some(item => item.page === activePage), [activePage]);
+
+    useEffect(() => {
+        if (isGeneralSectionActive) setOpenAccordion('general');
+        else if (isSeishatSectionActive) setOpenAccordion('seishat');
+        else if (isIsisSectionActive) setOpenAccordion('isis');
+    }, [isGeneralSectionActive, isSeishatSectionActive, isIsisSectionActive]);
     
     return (
         <aside className="w-64 flex-shrink-0 bg-[#2d2d30] p-3 flex flex-col font-sans">
-            <button 
-                className="w-full flex items-center justify-between p-2 mb-2"
-                onClick={() => setIsExpanded(!isExpanded)}
-            >
-                <div className="flex items-center gap-2">
-                    <BriefcaseIcon className="w-5 h-5 text-gray-400" />
-                    <span className="font-bold text-sm text-white">Seishat (CRM)</span>
-                </div>
-                { isExpanded ? <ChevronUpIcon className="w-5 h-5 text-gray-400" /> : <ChevronDownIcon className="w-5 h-5 text-gray-400" />}
-            </button>
-            
-            <div className={`transition-all duration-300 ease-in-out overflow-hidden ${isExpanded ? 'max-h-screen' : 'max-h-0'}`}>
-                <nav className="flex flex-col gap-1 mt-2">
-                    {navItems.map(item => (
-                        <NavItem
-                            key={item.page}
-                            pageName={item.page}
-                            label={item.label}
-                            icon={item.icon}
-                            activePage={activePage}
-                            onClick={setActivePage}
-                            disabled={item.disabled}
-                        />
+            <h2 className="text-lg font-bold text-white px-2 mb-4">Painel de Controle</h2>
+            <nav className="flex-grow space-y-3">
+                 <AccordionItem
+                    label="Geral"
+                    icon={<SettingsIcon className="w-5 h-5" />}
+                    isOpen={openAccordion === 'general'}
+                    onClick={() => handleAccordionClick('general')}
+                    isActiveSection={isGeneralSectionActive}
+                >
+                    {/* FIX: Pass props to NavItem explicitly to match the NavItemProps interface (page -> pageName)
+                    and avoid spreading unnecessary props like 'roles'. */}
+                    {generalItems.filter(i => i.roles.includes(userRole)).map(item => (
+                        <NavItem key={item.page} pageName={item.page} label={item.label} icon={item.icon} disabled={item.disabled} activePage={activePage} onClick={setActivePage} />
                     ))}
-                </nav>
-            </div>
+                </AccordionItem>
+
+                 <AccordionItem
+                    label="Seishat (CRM)"
+                    icon={<BriefcaseIcon className="w-5 h-5" />}
+                    isOpen={openAccordion === 'seishat'}
+                    onClick={() => handleAccordionClick('seishat')}
+                    isActiveSection={isSeishatSectionActive}
+                >
+                    {/* FIX: Pass props to NavItem explicitly to match the NavItemProps interface (page -> pageName)
+                    and avoid spreading unnecessary props like 'roles'. */}
+                    {seishatItems.filter(i => i.roles.includes(userRole)).map(item => (
+                        <NavItem key={item.page} pageName={item.page} label={item.label} icon={item.icon} disabled={item.disabled} activePage={activePage} onClick={setActivePage} />
+                    ))}
+                </AccordionItem>
+
+                {userRole === 'admin' && (
+                     <AccordionItem
+                        label="Ísis (IA)"
+                        icon={<SparklesIcon className="w-5 h-5" />}
+                        isOpen={openAccordion === 'isis'}
+                        onClick={() => handleAccordionClick('isis')}
+                        isActiveSection={isIsisSectionActive}
+                    >
+                         {/* FIX: Pass props to NavItem explicitly to match the NavItemProps interface (page -> pageName)
+                         and avoid spreading unnecessary props like 'roles'. */}
+                         {isisItems.filter(i => i.roles.includes(userRole)).map(item => (
+                            <NavItem key={item.page} pageName={item.page} label={item.label} icon={item.icon} disabled={item.disabled} activePage={activePage} onClick={setActivePage} />
+                        ))}
+                        <div className="mt-2 pt-2 border-t border-gray-600/50">
+                            <div className="flex items-center justify-between p-2 rounded-lg text-sm" title="Permite que os usuários acessem as funcionalidades de inteligência artificial.">
+                                <label htmlFor="isis-toggle-sidebar" className="flex items-center gap-3 cursor-pointer flex-grow">
+                                    <SparklesIcon className="w-5 h-5 text-gray-400" />
+                                    <span className="font-medium text-gray-300">Habilitar Isis</span>
+                                </label>
+                                <button
+                                    type="button"
+                                    id="isis-toggle-sidebar"
+                                    onClick={() => handleToggleChange('isIsisAiEnabled', !formState.isIsisAiEnabled)}
+                                    className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-fuchsia-500 focus:ring-offset-2 focus:ring-offset-[#202124] ${formState.isIsisAiEnabled ? 'bg-green-600' : 'bg-gray-600'}`}
+                                    role="switch"
+                                    aria-checked={formState.isIsisAiEnabled}
+                                >
+                                    <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${formState.isIsisAiEnabled ? 'translate-x-5' : 'translate-x-0'}`} />
+                                </button>
+                            </div>
+                        </div>
+                    </AccordionItem>
+                )}
+            </nav>
+            <button onClick={onLogout} className="w-full mt-4 flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-400 hover:bg-red-900/40 hover:text-red-300 transition-colors">
+                <LogOutIcon className="w-5 h-5" />
+                Sair
+            </button>
         </aside>
     );
 };
@@ -115,43 +243,104 @@ const ComingSoon: React.FC<{ pageName: string }> = ({ pageName }) => (
     </div>
 );
 
-const SeishatLayout: React.FC = () => {
-    const [activePage, setActivePage] = useState<SeishatPageName>('products');
+const SeishatLayout: React.FC<{ onLogout: () => void; }> = ({ onLogout }) => {
+    const auth = useAuth();
+    const { formState, setFormState, saveSettings, hasUnsavedChanges, validateSettings } = useSettings();
+    
+    const [activePage, setActivePage] = useState<SeishatPageName>('association');
+    const [isSaving, setIsSaving] = useState(false);
+    const [showSavedToast, setShowSavedToast] = useState(false);
+    const [showErrorToast, setShowErrorToast] = useState(false);
+
+    const handleSave = async () => {
+        if (!hasUnsavedChanges) return;
+
+        if (!validateSettings(formState)) {
+            setShowErrorToast(true);
+            setTimeout(() => setShowErrorToast(false), 3000);
+            return;
+        }
+
+        setIsSaving(true);
+        await saveSettings(formState);
+        setIsSaving(false);
+        setShowSavedToast(true);
+        setTimeout(() => setShowSavedToast(false), 2500);
+    };
 
     const renderPage = () => {
+        if (!auth.user) return <Loader />;
+
         switch (activePage) {
-            case 'products':
-                return <SeishatProductsPage />;
-            case 'patients':
-                return <ComingSoon pageName="Pacientes" />;
-            case 'prescribers':
-                return <ComingSoon pageName="Prescritores" />;
-            case 'documents':
-                return <ComingSoon pageName="Documentos" />;
-            case 'orders':
-                return <ComingSoon pageName="Pedidos" />;
-            case 'expenses':
-                return <ComingSoon pageName="Despesas" />;
-            case 'reports':
-                return <ComingSoon pageName="Relatórios" />;
-            default:
-                return <SeishatProductsPage />;
+            // General
+            case 'association': return <AssociationPage />;
+            case 'users': return <UsersPage />;
+            case 'notifications': return <NotificationsPage />;
+            // Seishat
+            case 'products': return <SeishatProductsPage />;
+            case 'patients': return <ComingSoon pageName="Pacientes" />;
+            case 'prescribers': return <ComingSoon pageName="Prescritores" />;
+            case 'documents': return <ComingSoon pageName="Documentos" />;
+            case 'orders': return <ComingSoon pageName="Pedidos" />;
+            case 'expenses': return <ComingSoon pageName="Despesas" />;
+            case 'reports': return <ComingSoon pageName="Relatórios" />;
+            // Isis
+            case 'prompt': return <PromptPage />;
+            case 'apiHistory': return <ApiHistoryPage />;
+            case 'advanced': return <AdvancedPage />;
+            default: return <AssociationPage />;
         }
     };
 
+    if (!auth.user) return <div className="flex h-full items-center justify-center"><Loader /></div>;
+
     return (
         <div className="flex h-full">
-            <SeishatSidebar activePage={activePage} setActivePage={setActivePage} />
+            <SeishatSidebar 
+                activePage={activePage}
+                setActivePage={setActivePage}
+                onLogout={onLogout}
+                userRole={auth.user.role}
+                formState={formState}
+                setFormState={setFormState}
+            />
             <div className="flex-grow p-4 sm:p-6 md:p-8 overflow-y-auto bg-[#131314]">
                 {renderPage()}
+            </div>
+             <div 
+                className={`fixed bottom-8 right-0 left-0 flex justify-center md:right-8 z-50 transition-all duration-300 ease-in-out ${
+                (hasUnsavedChanges || showSavedToast || showErrorToast) ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-5 pointer-events-none'
+                }`}
+            >
+                <div className="relative">
+                    {hasUnsavedChanges && !showErrorToast && (
+                        <button
+                            onClick={handleSave}
+                            disabled={isSaving}
+                            className="flex items-center justify-center w-14 h-14 bg-green-600 text-white rounded-full shadow-2xl hover:bg-green-700 transition-transform hover:scale-105 disabled:opacity-70 disabled:cursor-wait"
+                            aria-label="Salvar alterações"
+                        >
+                            {isSaving ? <Loader /> : <CheckSquareIcon className="w-7 h-7" />}
+                        </button>
+                    )}
+                    {showSavedToast && (
+                        <div className="flex items-center gap-3 bg-gray-800 text-white px-6 py-3 rounded-lg shadow-2xl border border-green-500/50" role="status">
+                            <CheckCircleIcon className="w-5 h-5 text-green-400" />
+                            <span className="font-semibold text-sm">Alterações salvas!</span>
+                        </div>
+                    )}
+                    {showErrorToast && (
+                        <div className="flex items-center gap-3 bg-red-800 text-white px-6 py-3 rounded-lg shadow-2xl border border-red-500/50" role="alert">
+                            <AlertTriangleIcon className="w-5 h-5 text-red-300" />
+                            <span className="font-semibold text-sm">Corrija os erros antes de salvar.</span>
+                        </div>
+                    )}
+                </div>
             </div>
         </div>
     );
 };
 
-
-// This component contains the logic to trigger notifications.
-// It's placed inside the App component to have access to all necessary contexts.
 const NotificationTrigger: React.FC = () => {
     const { reminders } = useReminders();
     const { showNotification, permission, isEnabled } = useNotifications();
@@ -180,7 +369,6 @@ const NotificationTrigger: React.FC = () => {
                     
                     showNotification(title, { body });
 
-                    // Update notified list
                     const updatedNotifiedIds = [...notifiedIds, ...newOverdueReminders.map(r => r.id)];
                     localStorage.setItem(NOTIFIED_REMINDERS_KEY, JSON.stringify(updatedNotifiedIds));
                 }
@@ -190,19 +378,13 @@ const NotificationTrigger: React.FC = () => {
         }
     }, [reminders, permission, isEnabled, showNotification]);
 
-    return null; // This component doesn't render anything visible
+    return null;
 };
 
 const LoadingScreen: React.FC<{ message: string; mode: AppMode }> = ({ message, mode }) => {
     const modeDetails = {
-        isis: {
-            name: 'Isis Chat',
-            icon: <SparklesIcon className="w-5 h-5 text-gray-400" />
-        },
-        seishat: {
-            name: 'Seishat CRM',
-            icon: <BriefcaseIcon className="w-5 h-5 text-gray-400" />
-        }
+        isis: { name: 'Isis Chat', icon: <SparklesIcon className="w-5 h-5 text-gray-400" /> },
+        seishat: { name: 'Seishat CRM', icon: <BriefcaseIcon className="w-5 h-5 text-gray-400" /> }
     };
     const currentModeDetails = modeDetails[mode];
 
@@ -237,13 +419,8 @@ const AppContent: React.FC = () => {
         _setCurrentMode(mode);
     };
     
-    // Effect to enforce Isis mode availability
     React.useEffect(() => {
-        if (
-            !settings.isIsisAiEnabled &&
-            auth.user?.role !== 'admin' &&
-            currentMode === 'isis'
-        ) {
+        if (!settings.isIsisAiEnabled && auth.user?.role !== 'admin' && currentMode === 'isis') {
             setCurrentMode('seishat');
         }
     }, [settings.isIsisAiEnabled, auth.user, currentMode]);
@@ -253,27 +430,15 @@ const AppContent: React.FC = () => {
     }
 
     if (auth.isLoading) {
-        return (
-            <div className="flex h-full items-center justify-center">
-                <Loader />
-            </div>
-        );
+        return <div className="flex h-full items-center justify-center"><Loader /></div>;
     }
 
     if (!auth.isAdminSetup) {
-        return (
-            <div className="flex h-full items-center justify-center p-4">
-                <AdminRegistration onRegistrationSuccess={auth.checkSetup} />
-            </div>
-        );
+        return <div className="flex h-full items-center justify-center p-4"><AdminRegistration onRegistrationSuccess={auth.checkSetup} /></div>;
     }
 
     if (!auth.isAuthenticated) {
-        return (
-            <div className="flex h-full items-center justify-center p-4">
-                <AdminLogin />
-            </div>
-        );
+        return <div className="flex h-full items-center justify-center p-4"><AdminLogin /></div>;
     }
 
     const handleOnboardingComplete = (dontShowAgain: boolean) => {
@@ -294,7 +459,7 @@ const AppContent: React.FC = () => {
             );
         }
         if (currentMode === 'seishat') {
-            return <SeishatLayout />;
+            return <SeishatLayout onLogout={auth.logout} />;
         }
         return null;
     };
