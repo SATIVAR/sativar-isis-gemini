@@ -7,9 +7,6 @@ import { Chat } from './Chat.tsx';
 import { useChatHistory } from '../hooks/useChatHistory.ts';
 import { ChatHistoryTabs } from './ChatHistoryTabs.tsx';
 import { Loader } from './Loader.tsx';
-import { useAuth } from '../hooks/useAuth.ts';
-import { AdminLogin } from './AdminLogin.tsx';
-import { AdminRegistration } from './AdminRegistration.tsx';
 import { useTokenUsage } from '../hooks/useTokenUsage.ts';
 
 interface FilePreviewModalProps {
@@ -107,7 +104,6 @@ interface QuoteGeneratorProps {
 }
 
 export const QuoteGenerator: React.FC<QuoteGeneratorProps> = ({ isMobileHistoryOpen, setIsMobileHistoryOpen }) => {
-    const auth = useAuth();
     const { isLoaded, sativarSeishatProducts, systemPrompt, wpConfig, settings } = useSettings();
     const {
         messages, setMessages, addMessage,
@@ -373,30 +369,6 @@ export const QuoteGenerator: React.FC<QuoteGeneratorProps> = ({ isMobileHistoryO
     const handleOpenFilePreview = (file: { url: string; type: string; name: string }) => {
         setPreviewFile(file);
     };
-
-    if (auth.isLoading) {
-        return (
-            <div className="flex h-full items-center justify-center">
-                <Loader />
-            </div>
-        );
-    }
-
-    if (!auth.isAdminSetup) {
-        return (
-            <div className="flex h-full items-center justify-center p-4">
-                <AdminRegistration onRegistrationSuccess={auth.checkSetup} />
-            </div>
-        );
-    }
-
-    if (!auth.isAuthenticated) {
-        return (
-            <div className="flex h-full items-center justify-center p-4">
-                <AdminLogin />
-            </div>
-        );
-    }
 
     const isChatClosed = activeConversation?.is_closed === true;
     const isChatDisabled = showSettingsWarning || apiKeyMissing || wpConfigMissing || isChatClosed;

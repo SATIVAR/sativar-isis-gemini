@@ -18,6 +18,8 @@ import { AlertTriangleIcon, BookIcon, BookOpenIcon, BriefcaseIcon, CalendarIcon,
 import { AuthProvider, useAuth } from './hooks/useAuth.ts';
 import { TokenUsageProvider } from './hooks/useTokenUsage.ts';
 import { OnboardingGuide } from './components/OnboardingGuide.tsx';
+import { AdminRegistration } from './components/AdminRegistration.tsx';
+import { AdminLogin } from './components/AdminLogin.tsx';
 
 export type Page = 'main' | 'settings';
 export type AppMode = 'isis' | 'seishat';
@@ -228,6 +230,30 @@ const AppContent: React.FC = () => {
     
     if (isInitialSyncing) {
         return <LoadingScreen message={initialSyncMessage} mode={currentMode} />;
+    }
+
+    if (auth.isLoading) {
+        return (
+            <div className="flex h-full items-center justify-center">
+                <Loader />
+            </div>
+        );
+    }
+
+    if (!auth.isAdminSetup) {
+        return (
+            <div className="flex h-full items-center justify-center p-4">
+                <AdminRegistration onRegistrationSuccess={auth.checkSetup} />
+            </div>
+        );
+    }
+
+    if (!auth.isAuthenticated) {
+        return (
+            <div className="flex h-full items-center justify-center p-4">
+                <AdminLogin />
+            </div>
+        );
     }
 
     const handleOnboardingComplete = () => {
