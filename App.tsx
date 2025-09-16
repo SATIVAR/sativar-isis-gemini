@@ -13,7 +13,7 @@ import { Loader } from './components/Loader.tsx';
 import { ChatHistoryProvider } from './hooks/useChatHistory.ts';
 import { ModalProvider, useModal } from './hooks/useModal.ts';
 import { Modal } from './components/Modal.tsx';
-import { AlertTriangleIcon, BarChart2Icon, BellIcon, BriefcaseIcon, CheckCircleIcon, CheckSquareIcon, ChevronDownIcon, ClockIcon, DollarSignIcon, FileCodeIcon, FileTextIcon, LogOutIcon, PlusIcon, SettingsIcon, ShoppingCartIcon, SparklesIcon, StoreIcon, UsersIcon, DatabaseIcon } from './components/icons.tsx';
+import { AlertTriangleIcon, BarChart2Icon, BellIcon, BriefcaseIcon, CheckCircleIcon, CheckSquareIcon, ChevronDownIcon, ClockIcon, DollarSignIcon, FileCodeIcon, FileTextIcon, LogOutIcon, PlusIcon, SettingsIcon, ShoppingCartIcon, SparklesIcon, StoreIcon, UsersIcon } from './components/icons.tsx';
 import { AuthProvider, useAuth } from './hooks/useAuth.ts';
 import { TokenUsageProvider } from './hooks/useTokenUsage.ts';
 import { OnboardingGuide } from './components/OnboardingGuide.tsx';
@@ -30,6 +30,7 @@ import { AdvancedPage } from './components/settings/ClientsPage.tsx';
 import { PromptPage } from './components/settings/PromptPage.tsx';
 import { ApiHistoryPage } from './components/settings/ApiHistoryPage.tsx';
 import { AssociatesPage } from './components/settings/AssociatesPage.tsx';
+import { ApiUsagePage } from './components/settings/ApiUsagePage.tsx';
 
 
 export type AppMode = 'isis' | 'seishat';
@@ -42,7 +43,9 @@ export type SeishatPageName =
     // Seishat
     | 'products' | 'associates' | 'prescribers' | 'documents' | 'orders' | 'expenses' | 'reports'
     // Isis
-    | 'prompt' | 'apiHistory' | 'advanced';
+    | 'prompt' | 'apiHistory' | 'apiUsage'
+    // Standalone
+    | 'advancedSettings';
 
 interface NavItemProps {
   pageName: SeishatPageName;
@@ -66,8 +69,6 @@ const NavItem: React.FC<NavItemProps> = ({ pageName, label, icon, activePage, on
       aria-current={activePage === pageName ? 'page' : undefined}
       disabled={disabled}
     >
-      {/* FIX: The icon is now passed with its className, so we can render it directly
-      instead of using React.cloneElement, which caused a type error. */}
       {icon}
       <span>{label}</span>
       {disabled && <span className="text-xs text-gray-500 ml-auto">(Em breve)</span>}
@@ -125,16 +126,12 @@ const SeishatSidebar: React.FC<SeishatSidebarProps> = ({ activePage, setActivePa
     };
     
     const generalItems = [
-        // FIX: Added className to icons to avoid using React.cloneElement and fix a type error.
-        // FIX: Added 'disabled' property to ensure consistent object shape and fix TypeScript error.
         { page: 'association' as SeishatPageName, label: 'Associação', icon: <UsersIcon className="w-5 h-5" />, roles: ['admin', 'manager', 'user'], disabled: false },
         { page: 'users' as SeishatPageName, label: 'Usuários do Sistema', icon: <UsersIcon className="w-5 h-5" />, roles: ['admin'], disabled: false },
         { page: 'notifications' as SeishatPageName, label: 'Notificações', icon: <BellIcon className="w-5 h-5" />, roles: ['admin', 'manager', 'user'], disabled: false },
     ];
     
     const seishatItems = [
-        // FIX: Added className to icons to avoid using React.cloneElement and fix a type error.
-        // FIX: Added 'disabled' property to ensure consistent object shape and fix TypeScript error.
         { page: 'products' as SeishatPageName, label: 'Produtos', icon: <StoreIcon className="w-5 h-5" />, roles: ['admin', 'manager'], disabled: false },
         { page: 'associates' as SeishatPageName, label: 'Associados', icon: <UsersIcon className="w-5 h-5" />, roles: ['admin', 'manager'], disabled: false },
         { page: 'prescribers' as SeishatPageName, label: 'Prescritores', icon: <UsersIcon className="w-5 h-5" />, roles: ['admin', 'manager'], disabled: true },
@@ -145,11 +142,9 @@ const SeishatSidebar: React.FC<SeishatSidebarProps> = ({ activePage, setActivePa
     ];
     
     const isisItems = [
-        // FIX: Added className to icons to avoid using React.cloneElement and fix a type error.
-        // FIX: Added 'disabled' property to ensure consistent object shape and fix TypeScript error.
         { page: 'prompt' as SeishatPageName, label: 'Prompt do Sistema', icon: <FileCodeIcon className="w-5 h-5" />, roles: ['admin'], disabled: false },
         { page: 'apiHistory' as SeishatPageName, label: 'Log de Chamadas', icon: <ClockIcon className="w-5 h-5" />, roles: ['admin'], disabled: false },
-        { page: 'advanced' as SeishatPageName, label: 'Avançado', icon: <DatabaseIcon className="w-5 h-5" />, roles: ['admin'], disabled: false },
+        { page: 'apiUsage' as SeishatPageName, label: 'Uso da API Gemini', icon: <BarChart2Icon className="w-5 h-5" />, roles: ['admin'], disabled: false },
     ];
 
     const handleAccordionClick = (name: AccordionName) => {
@@ -159,12 +154,15 @@ const SeishatSidebar: React.FC<SeishatSidebarProps> = ({ activePage, setActivePa
     const isGeneralSectionActive = useMemo(() => generalItems.some(item => item.page === activePage), [activePage]);
     const isSeishatSectionActive = useMemo(() => seishatItems.some(item => item.page === activePage), [activePage]);
     const isIsisSectionActive = useMemo(() => isisItems.some(item => item.page === activePage), [activePage]);
+    const isAdvancedSettingsActive = activePage === 'advancedSettings';
 
     useEffect(() => {
-        if (isGeneralSectionActive) setOpenAccordion('general');
+        if (isAdvancedSettingsActive) {
+            setOpenAccordion('none');
+        } else if (isGeneralSectionActive) setOpenAccordion('general');
         else if (isSeishatSectionActive) setOpenAccordion('seishat');
         else if (isIsisSectionActive) setOpenAccordion('isis');
-    }, [isGeneralSectionActive, isSeishatSectionActive, isIsisSectionActive]);
+    }, [isGeneralSectionActive, isSeishatSectionActive, isIsisSectionActive, isAdvancedSettingsActive]);
     
     return (
         <aside className="w-64 flex-shrink-0 bg-[#2d2d30] p-3 flex flex-col font-sans">
@@ -177,8 +175,6 @@ const SeishatSidebar: React.FC<SeishatSidebarProps> = ({ activePage, setActivePa
                     onClick={() => handleAccordionClick('general')}
                     isActiveSection={isGeneralSectionActive}
                 >
-                    {/* FIX: Pass props to NavItem explicitly to match the NavItemProps interface (page -> pageName)
-                    and avoid spreading unnecessary props like 'roles'. */}
                     {generalItems.filter(i => i.roles.includes(userRole)).map(item => (
                         <NavItem key={item.page} pageName={item.page} label={item.label} icon={item.icon} disabled={item.disabled} activePage={activePage} onClick={setActivePage} />
                     ))}
@@ -191,8 +187,6 @@ const SeishatSidebar: React.FC<SeishatSidebarProps> = ({ activePage, setActivePa
                     onClick={() => handleAccordionClick('seishat')}
                     isActiveSection={isSeishatSectionActive}
                 >
-                    {/* FIX: Pass props to NavItem explicitly to match the NavItemProps interface (page -> pageName)
-                    and avoid spreading unnecessary props like 'roles'. */}
                     {seishatItems.filter(i => i.roles.includes(userRole)).map(item => (
                         <NavItem key={item.page} pageName={item.page} label={item.label} icon={item.icon} disabled={item.disabled} activePage={activePage} onClick={setActivePage} />
                     ))}
@@ -206,8 +200,6 @@ const SeishatSidebar: React.FC<SeishatSidebarProps> = ({ activePage, setActivePa
                         onClick={() => handleAccordionClick('isis')}
                         isActiveSection={isIsisSectionActive}
                     >
-                         {/* FIX: Pass props to NavItem explicitly to match the NavItemProps interface (page -> pageName)
-                         and avoid spreading unnecessary props like 'roles'. */}
                          {isisItems.filter(i => i.roles.includes(userRole)).map(item => (
                             <NavItem key={item.page} pageName={item.page} label={item.label} icon={item.icon} disabled={item.disabled} activePage={activePage} onClick={setActivePage} />
                         ))}
@@ -232,6 +224,20 @@ const SeishatSidebar: React.FC<SeishatSidebarProps> = ({ activePage, setActivePa
                     </AccordionItem>
                 )}
             </nav>
+
+            {userRole === 'admin' && (
+                <div className="mt-auto pt-2">
+                    <div className="my-2 border-t border-gray-600/50"></div>
+                    <NavItem 
+                        pageName="advancedSettings" 
+                        label="Configurações Avançadas" 
+                        icon={<SettingsIcon className="w-5 h-5" />} 
+                        activePage={activePage} 
+                        onClick={setActivePage}
+                    />
+                </div>
+            )}
+
             <button onClick={onLogout} className="w-full mt-4 flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-400 hover:bg-red-900/40 hover:text-red-300 transition-colors">
                 <LogOutIcon className="w-5 h-5" />
                 Sair
@@ -292,7 +298,9 @@ const SeishatLayout: React.FC<{ onLogout: () => void; }> = ({ onLogout }) => {
             // Isis
             case 'prompt': return <PromptPage />;
             case 'apiHistory': return <ApiHistoryPage />;
-            case 'advanced': return <AdvancedPage />;
+            case 'apiUsage': return <ApiUsagePage />;
+            // Standalone
+            case 'advancedSettings': return <AdvancedPage />;
             default: return <AssociationPage />;
         }
     };
