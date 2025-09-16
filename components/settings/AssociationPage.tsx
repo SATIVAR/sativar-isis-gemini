@@ -1,10 +1,11 @@
 
 
 
+
 import React from 'react';
 import { useSettings } from '../../hooks/useSettings.ts';
 import { useAuth } from '../../hooks/useAuth.ts';
-import { UsersIcon, SparklesIcon } from '../icons.tsx';
+import { UsersIcon } from '../icons.tsx';
 
 // Renamed from SystemStatusPage to AssociationPage
 export const AssociationPage: React.FC = () => {
@@ -14,10 +15,6 @@ export const AssociationPage: React.FC = () => {
   // A simple handler that can be reused
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
-    setFormState(prev => ({ ...prev, [name]: value }));
-  };
-
-  const handleToggleChange = (name: string, value: boolean) => {
     setFormState(prev => ({ ...prev, [name]: value }));
   };
   
@@ -125,32 +122,6 @@ export const AssociationPage: React.FC = () => {
             </div>
           </div>
           
-          {user?.role === 'admin' && (
-             <div className="space-y-6 p-6 bg-[#303134]/50 border border-gray-700/50 rounded-lg">
-                <h3 className="text-lg font-semibold text-fuchsia-300">Controle de Módulos</h3>
-                <div className="flex items-center justify-between p-4 bg-[#202124] rounded-lg border border-gray-600/50">
-                    <label htmlFor="isis-toggle" className="flex-grow">
-                        <div className="flex items-center gap-3">
-                            <SparklesIcon className="w-6 h-6 text-fuchsia-300"/>
-                            <div>
-                                <p className="font-semibold text-white">Habilitar Modo Isis (IA)</p>
-                                <p className="text-xs text-gray-400">Permite que os usuários acessem as funcionalidades de inteligência artificial.</p>
-                            </div>
-                        </div>
-                    </label>
-                    <button
-                        type="button"
-                        id="isis-toggle"
-                        onClick={() => handleToggleChange('isIsisAiEnabled', !formState.isIsisAiEnabled)}
-                        className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-fuchsia-500 focus:ring-offset-2 focus:ring-offset-[#202124] ${formState.isIsisAiEnabled ? 'bg-green-600' : 'bg-gray-600'}`}
-                        role="switch"
-                        aria-checked={formState.isIsisAiEnabled}
-                    >
-                        <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${formState.isIsisAiEnabled ? 'translate-x-5' : 'translate-x-0'}`} />
-                    </button>
-                </div>
-            </div>
-          )}
       </form>
     </div>
   );

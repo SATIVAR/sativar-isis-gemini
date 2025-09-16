@@ -112,45 +112,6 @@ export interface Settings {
     isIsisAiEnabled: boolean;
 }
 
-// From hooks/useSettings.ts and components/settings/ApiConfigPage.tsx and services/wpApiService.ts
-export interface WpConfig {
-    url: string;
-    consumerKey: string;
-    consumerSecret: string;
-    username?: string;
-    applicationPassword?: string;
-}
-
-export interface SativarSeishatProductImage {
-    id: number;
-    src: string;
-    name: string;
-}
-
-export interface SativarSeishatProductCategory {
-    id: number;
-    name: string;
-    slug: string;
-}
-
-export interface SativarSeishatProduct {
-    id: number;
-    name: string;
-    price: string;
-    short_description: string;
-    stock_quantity: number | null;
-    images: SativarSeishatProductImage[];
-    categories: SativarSeishatProductCategory[];
-}
-
-export interface SativarSeishatCategory {
-    id: number;
-    name: string;
-    slug: string;
-    count: number;
-}
-
-
 // From services/database/repositories/interfaces.ts
 export interface Task {
     id: string;
@@ -168,21 +129,6 @@ export interface Reminder {
     isCompleted: boolean;
     recurrence: 'none' | 'daily' | 'weekly' | 'monthly';
     priority: 'low' | 'medium' | 'high';
-}
-
-// From services/wpApiService.ts (SATIVAR Users)
-export interface SativarUser {
-    id: number;
-    display_name: string;
-    email: string;
-    acf_fields: {
-        cpf?: string;
-        telefone?: string;
-        tipo_associacao?: string;
-        nome_completo_responc?: string;
-        cpf_responsavel?: string;
-        nome_completo?: string;
-    };
 }
 
 // From hooks/useChatHistory.ts

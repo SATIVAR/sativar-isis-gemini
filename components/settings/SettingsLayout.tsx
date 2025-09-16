@@ -73,8 +73,6 @@ export const SettingsLayout: React.FC<SettingsLayoutProps> = ({ onLogout }) => {
         return <UsersPage />;
       case 'products':
         return <SeishatProductsPage />;
-      case 'api':
-        return <ApiConfigPage />;
       case 'notifications':
         return <NotificationsPage />;
       case 'advanced':

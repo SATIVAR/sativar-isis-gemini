@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useEffect } from 'react';
 import { 
     DatabaseIcon, ServerIcon, StoreIcon, FileCodeIcon, 
@@ -7,6 +6,7 @@ import {
     BriefcaseIcon, SparklesIcon, ChevronDownIcon 
 } from '../icons.tsx';
 import type { UserRole } from '../../types.ts';
+import { useSettings } from '../../hooks/useSettings.ts';
 
 export type SettingsPageName = 'association' | 'users' | 'api' | 'products' | 'notifications' | 'advanced' | 'prompt' | 'apiHistory' | 'patients' | 'prescribers' | 'documents' | 'orders' | 'expenses' | 'reports';
 
@@ -91,6 +91,11 @@ interface NavItemConfig {
 
 export const SettingsSidebar: React.FC<SettingsSidebarProps> = ({ currentPage, setCurrentPage, onLogout, userRole }) => {
     const [openAccordion, setOpenAccordion] = useState<AccordionName>('none');
+    const { formState, setFormState } = useSettings();
+
+    const handleToggleChange = (name: string, value: boolean) => {
+        setFormState(prev => ({ ...prev, [name]: value }));
+    };
     
     const generalItems: NavItemConfig[] = [
         { page: 'association', label: 'Associação', icon: <UsersIcon className="w-5 h-5" />, roles: ['admin', 'manager'] },
@@ -109,7 +114,6 @@ export const SettingsSidebar: React.FC<SettingsSidebarProps> = ({ currentPage, s
     ];
     
     const isisItems: NavItemConfig[] = [
-        { page: 'api', label: 'Configuração da API', icon: <ServerIcon className="w-5 h-5" />, roles: ['admin'] },
         { page: 'prompt', label: 'Prompt do Sistema', icon: <FileCodeIcon className="w-5 h-5" />, roles: ['admin'] },
         { page: 'apiHistory', label: 'Log de Chamadas', icon: <ClockIcon className="w-5 h-5" />, roles: ['admin'] },
         { page: 'advanced', label: 'Avançado', icon: <DatabaseIcon className="w-5 h-5" />, roles: ['admin'] },
@@ -194,6 +198,27 @@ export const SettingsSidebar: React.FC<SettingsSidebarProps> = ({ currentPage, s
                                     disabled={item.disabled}
                                 />
                             ))}
+                            {userRole === 'admin' && (
+                                <div className="mt-2 pt-2 border-t border-gray-600/50 space-y-1">
+                                    <div className="px-3 pt-1 text-xs font-semibold text-gray-500 uppercase tracking-wider">Controle de Módulos</div>
+                                    <div className="flex items-center justify-between p-2 rounded-lg text-sm" title="Permite que os usuários acessem as funcionalidades de inteligência artificial.">
+                                        <label htmlFor="isis-toggle-sidebar" className="flex items-center gap-3 cursor-pointer flex-grow">
+                                            <SparklesIcon className="w-5 h-5 text-gray-400" />
+                                            <span className="font-medium text-gray-300">Habilitar Isis</span>
+                                        </label>
+                                        <button
+                                            type="button"
+                                            id="isis-toggle-sidebar"
+                                            onClick={() => handleToggleChange('isIsisAiEnabled', !formState.isIsisAiEnabled)}
+                                            className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-fuchsia-500 focus:ring-offset-2 focus:ring-offset-[#202124] ${formState.isIsisAiEnabled ? 'bg-green-600' : 'bg-gray-600'}`}
+                                            role="switch"
+                                            aria-checked={formState.isIsisAiEnabled}
+                                        >
+                                            <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${formState.isIsisAiEnabled ? 'translate-x-5' : 'translate-x-0'}`} />
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
                         </AccordionItem>
                     </div>
                 )}

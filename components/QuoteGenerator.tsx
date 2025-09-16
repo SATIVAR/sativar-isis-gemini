@@ -104,7 +104,7 @@ interface QuoteGeneratorProps {
 }
 
 export const QuoteGenerator: React.FC<QuoteGeneratorProps> = ({ isMobileHistoryOpen, setIsMobileHistoryOpen }) => {
-    const { isLoaded, sativarSeishatProducts, systemPrompt, wpConfig, settings } = useSettings();
+    const { isLoaded, systemPrompt, settings } = useSettings();
     const {
         messages, setMessages, addMessage,
         conversations, activeConversationId,
@@ -117,7 +117,6 @@ export const QuoteGenerator: React.FC<QuoteGeneratorProps> = ({ isMobileHistoryO
     const [isSending, setIsSending] = useState(false);
     const [loadingAction, setLoadingAction] = useState<'file' | 'text' | null>(null);
     const [showSettingsWarning, setShowSettingsWarning] = useState(false);
-    const [wpConfigMissing, setWpConfigMissing] = useState(false);
     const [processingAction, setProcessingAction] = useState<{ messageId: string; payload: string; text?: string } | null>(null);
     
     // State for file previews
@@ -144,10 +143,9 @@ export const QuoteGenerator: React.FC<QuoteGeneratorProps> = ({ isMobileHistoryO
     useEffect(() => {
         if (!isLoaded) return;
         
-        setWpConfigMissing(!wpConfig || !wpConfig.url);
         setShowSettingsWarning(settings.associationName.includes("[Insira") || settings.pixKey.includes("[Insira"));
 
-    }, [isLoaded, settings, wpConfig]);
+    }, [isLoaded, settings]);
 
 
     const handleAction = useCallback(async (messageId: string, payload: string) => {
@@ -230,14 +228,8 @@ export const QuoteGenerator: React.FC<QuoteGeneratorProps> = ({ isMobileHistoryO
         let followUpMessages: ChatMessage[] = [];
         
         switch (payload) {
-            case 'start_user_lookup':
-                followUpMessages.push({ id: `ai-resp-${Date.now()}`, sender: 'ai', content: { type: 'user_search' }, timestamp: new Date().toISOString() });
-                break;
             case 'general_info':
                 followUpMessages.push({ id: `ai-resp-${Date.now()}`, sender: 'ai', content: { type: 'actions', text: 'Claro! Sobre o que você gostaria de saber?', actions: [ { label: 'Horário de funcionamento', payload: 'info_hours' }, { label: 'Formas de pagamento', payload: 'info_payment' }, { label: 'Outra dúvida', payload: 'info_other' }, ] }, timestamp: new Date().toISOString() });
-                break;
-            case 'info_products':
-                followUpMessages.push({ id: `ai-resp-${Date.now()}`, sender: 'ai', content: { type: 'product_search' }, timestamp: new Date().toISOString() });
                 break;
             case 'info_hours':
                 followUpMessages.push({ id: `ai-resp-${Date.now()}`, sender: 'ai', content: { type: 'text', text: `Nosso horário de funcionamento é: ${settings.operatingHours || 'Não informado.'}` }, timestamp: new Date().toISOString() });
@@ -262,7 +254,7 @@ export const QuoteGenerator: React.FC<QuoteGeneratorProps> = ({ isMobileHistoryO
     }, [messages, settings, addMessage, setMessages, addTokens]);
 
     const runFileAnalysis = useCallback(async (file: File) => {
-        if (showSettingsWarning || apiKeyMissing || wpConfigMissing) return;
+        if (showSettingsWarning || apiKeyMissing) return;
 
         const fileURL = URL.createObjectURL(file);
         objectUrls.current.push(fileURL);
@@ -316,7 +308,7 @@ export const QuoteGenerator: React.FC<QuoteGeneratorProps> = ({ isMobileHistoryO
             setIsSending(false);
             setLoadingAction(null);
         }
-    }, [systemPrompt, showSettingsWarning, apiKeyMissing, wpConfigMissing, setMessages, addMessage, activeConversationId, updateConversationTitle, addTokens]);
+    }, [systemPrompt, showSettingsWarning, apiKeyMissing, setMessages, addMessage, activeConversationId, updateConversationTitle, addTokens]);
 
     const handleSendText = useCallback(async (text: string) => {
         if (apiKeyMissing) return;
@@ -371,12 +363,11 @@ export const QuoteGenerator: React.FC<QuoteGeneratorProps> = ({ isMobileHistoryO
     };
 
     const isChatClosed = activeConversation?.is_closed === true;
-    const isChatDisabled = !settings.isIsisAiEnabled || showSettingsWarning || apiKeyMissing || wpConfigMissing || isChatClosed;
+    const isChatDisabled = !settings.isIsisAiEnabled || showSettingsWarning || apiKeyMissing || isChatClosed;
     
     let disabledReason = "";
     if (!settings.isIsisAiEnabled) disabledReason = "O Modo Isis (IA) está desativado nas configurações da associação.";
     else if (apiKeyMissing) disabledReason = "Ação necessária: A Chave da API do Gemini não foi configurada no ambiente.";
-    else if (wpConfigMissing) disabledReason = "Ação necessária: Configure a API do Sativar_WP_API nas Configurações.";
     else if (showSettingsWarning) disabledReason = "Complete as configurações da associação para habilitar o envio de receitas.";
     else if (isChatClosed) disabledReason = "Chat encerrado. Inicie uma nova análise para continuar.";
 
@@ -436,14 +427,6 @@ export const QuoteGenerator: React.FC<QuoteGeneratorProps> = ({ isMobileHistoryO
                                     A aplicação está em modo de funcionalidade limitada. Para habilitar a análise de receitas, um administrador deve configurar a variável de ambiente <code>VITE_GEMINI_API_KEY</code> no painel de controle do ambiente de hospedagem.
                                 </p>
                             </div>
-                        </div>
-                    </div>
-                )}
-                {(wpConfigMissing && !apiKeyMissing) && (
-                     <div className="flex-shrink-0 p-2">
-                        <div className="mx-auto max-w-4xl rounded-md bg-yellow-900/50 p-3 text-sm text-yellow-300 flex items-center gap-3 border border-yellow-700/50">
-                            <AlertTriangleIcon className="h-5 w-5 flex-shrink-0" />
-                            <span>A conexão com o sistema Sativar_WP_API ainda não foi configurada. Visite a página de 'Configurações' para habilitar a integração.</span>
                         </div>
                     </div>
                 )}
