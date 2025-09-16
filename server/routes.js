@@ -458,4 +458,79 @@ router.delete('/users/:id', async (req, res, next) => {
     }
 });
 
+// --- Seishat Associates CRUD Routes ---
+
+// GET /api/seishat/associates
+router.get('/seishat/associates', async (req, res, next) => {
+    const { search } = req.query;
+    try {
+        let associates;
+        if (search) {
+            const searchTerm = `%${search}%`;
+            associates = await seishatQuery('SELECT id, full_name, cpf, whatsapp, type FROM associates WHERE full_name LIKE ? OR cpf LIKE ? ORDER BY full_name ASC', [searchTerm, searchTerm]);
+        } else {
+            associates = await seishatQuery('SELECT id, full_name, cpf, whatsapp, type FROM associates ORDER BY full_name ASC');
+        }
+        res.json(associates);
+    } catch (err) {
+        console.error(chalk.red(`[${req.method} ${req.originalUrl}] Error fetching associates:`), err.message);
+        next(err);
+    }
+});
+
+// POST /api/seishat/associates
+router.post('/seishat/associates', async (req, res, next) => {
+    try {
+        const { full_name, cpf, whatsapp, password, type } = req.body;
+        if (!full_name || !password || !type) {
+            return res.status(400).json({ error: 'Full name, password, and type are required.' });
+        }
+        const newAssociateId = crypto.randomUUID();
+        await seishatQuery('INSERT INTO associates (id, full_name, cpf, whatsapp, password, type) VALUES (?, ?, ?, ?, ?, ?)', [newAssociateId, full_name, cpf, whatsapp, password, type]);
+        res.status(201).json({ id: newAssociateId, full_name, cpf, whatsapp, type });
+    } catch (err) {
+        if (err.code === 'SQLITE_CONSTRAINT_UNIQUE') {
+            return res.status(409).json({ error: 'An associate with this CPF already exists.' });
+        }
+        console.error(chalk.red(`[${req.method} ${req.originalUrl}] Error creating associate:`), err.message);
+        next(err);
+    }
+});
+
+// PUT /api/seishat/associates/:id
+router.put('/seishat/associates/:id', async (req, res, next) => {
+    const { id } = req.params;
+    const { full_name, cpf, whatsapp, password, type } = req.body;
+    if (!full_name || !type) {
+        return res.status(400).json({ error: 'Full name and type are required.' });
+    }
+    try {
+        if (password) {
+            await seishatQuery('UPDATE associates SET full_name = ?, cpf = ?, whatsapp = ?, password = ?, type = ? WHERE id = ?', [full_name, cpf, whatsapp, password, type, id]);
+        } else {
+            await seishatQuery('UPDATE associates SET full_name = ?, cpf = ?, whatsapp = ?, type = ? WHERE id = ?', [full_name, cpf, whatsapp, type, id]);
+        }
+        res.status(200).json({ id, full_name, cpf, whatsapp, type });
+    } catch (err) {
+        if (err.code === 'SQLITE_CONSTRAINT_UNIQUE') {
+            return res.status(409).json({ error: 'An associate with this CPF already exists.' });
+        }
+        console.error(chalk.red(`[${req.method} ${req.originalUrl}] Error updating associate:`), err.message);
+        next(err);
+    }
+});
+
+// DELETE /api/seishat/associates/:id
+router.delete('/seishat/associates/:id', async (req, res, next) => {
+    const { id } = req.params;
+    try {
+        await seishatQuery('DELETE FROM associates WHERE id = ?', [id]);
+        res.status(204).send();
+    } catch (err) {
+        console.error(chalk.red(`[${req.method} ${req.originalUrl}] Error deleting associate:`), err.message);
+        next(err);
+    }
+});
+
+
 module.exports = router;

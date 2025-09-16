@@ -129,6 +129,17 @@ CREATE TABLE IF NOT EXISTS products (
   updated_at TEXT DEFAULT (datetime('now', 'localtime'))
 );
 
+CREATE TABLE IF NOT EXISTS associates (
+  id TEXT PRIMARY KEY,
+  full_name TEXT NOT NULL,
+  cpf TEXT UNIQUE,
+  whatsapp TEXT,
+  password TEXT NOT NULL,
+  type TEXT NOT NULL CHECK(type IN ('paciente', 'responsavel', 'tutor', 'colaborador')),
+  created_at TEXT DEFAULT (datetime('now', 'localtime')),
+  updated_at TEXT DEFAULT (datetime('now', 'localtime'))
+);
+
 CREATE TRIGGER IF NOT EXISTS products_update_trigger
 AFTER UPDATE ON products
 FOR EACH ROW
@@ -136,7 +147,16 @@ BEGIN
   UPDATE products SET updated_at = datetime('now', 'localtime') WHERE id = OLD.id;
 END;
 
+CREATE TRIGGER IF NOT EXISTS associates_update_trigger
+AFTER UPDATE ON associates
+FOR EACH ROW
+BEGIN
+  UPDATE associates SET updated_at = datetime('now', 'localtime') WHERE id = OLD.id;
+END;
+
 CREATE INDEX IF NOT EXISTS idx_products_name ON products(name);
+CREATE INDEX IF NOT EXISTS idx_associates_full_name ON associates(full_name);
+CREATE INDEX IF NOT EXISTS idx_associates_cpf ON associates(cpf);
 `;
 
 

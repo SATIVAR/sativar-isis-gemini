@@ -29,6 +29,7 @@ import { NotificationsPage } from './components/settings/NotificationsPage.tsx';
 import { AdvancedPage } from './components/settings/ClientsPage.tsx';
 import { PromptPage } from './components/settings/PromptPage.tsx';
 import { ApiHistoryPage } from './components/settings/ApiHistoryPage.tsx';
+import { AssociatesPage } from './components/settings/AssociatesPage.tsx';
 
 
 export type AppMode = 'isis' | 'seishat';
@@ -39,7 +40,7 @@ export type SeishatPageName =
     // General
     | 'association' | 'users' | 'notifications'
     // Seishat
-    | 'products' | 'patients' | 'prescribers' | 'documents' | 'orders' | 'expenses' | 'reports'
+    | 'products' | 'associates' | 'prescribers' | 'documents' | 'orders' | 'expenses' | 'reports'
     // Isis
     | 'prompt' | 'apiHistory' | 'advanced';
 
@@ -135,7 +136,7 @@ const SeishatSidebar: React.FC<SeishatSidebarProps> = ({ activePage, setActivePa
         // FIX: Added className to icons to avoid using React.cloneElement and fix a type error.
         // FIX: Added 'disabled' property to ensure consistent object shape and fix TypeScript error.
         { page: 'products' as SeishatPageName, label: 'Produtos', icon: <StoreIcon className="w-5 h-5" />, roles: ['admin', 'manager'], disabled: false },
-        { page: 'patients' as SeishatPageName, label: 'Pacientes', icon: <UsersIcon className="w-5 h-5" />, roles: ['admin', 'manager'], disabled: true },
+        { page: 'associates' as SeishatPageName, label: 'Associados', icon: <UsersIcon className="w-5 h-5" />, roles: ['admin', 'manager'], disabled: false },
         { page: 'prescribers' as SeishatPageName, label: 'Prescritores', icon: <UsersIcon className="w-5 h-5" />, roles: ['admin', 'manager'], disabled: true },
         { page: 'documents' as SeishatPageName, label: 'Documentos', icon: <FileTextIcon className="w-5 h-5" />, roles: ['admin', 'manager'], disabled: true },
         { page: 'orders' as SeishatPageName, label: 'Pedidos', icon: <ShoppingCartIcon className="w-5 h-5" />, roles: ['admin', 'manager'], disabled: true },
@@ -282,7 +283,7 @@ const SeishatLayout: React.FC<{ onLogout: () => void; }> = ({ onLogout }) => {
             case 'notifications': return <NotificationsPage />;
             // Seishat
             case 'products': return <SeishatProductsPage />;
-            case 'patients': return <ComingSoon pageName="Pacientes" />;
+            case 'associates': return <AssociatesPage />;
             case 'prescribers': return <ComingSoon pageName="Prescritores" />;
             case 'documents': return <ComingSoon pageName="Documentos" />;
             case 'orders': return <ComingSoon pageName="Pedidos" />;

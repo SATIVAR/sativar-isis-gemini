@@ -151,6 +151,18 @@ export interface User {
     // Password should not be part of the client-side type
 }
 
+// From Seishat Associates Feature
+export type AssociateType = 'paciente' | 'responsavel' | 'tutor' | 'colaborador';
+
+export interface Associate {
+  id: string;
+  full_name: string;
+  cpf?: string;
+  whatsapp?: string;
+  type: AssociateType;
+  // Password is not stored on the client
+}
+
 
 // FIX: Add Vite client types to fix import.meta.env errors across the application.
 // This avoids the need for triple-slash directives in multiple files and provides type safety.
