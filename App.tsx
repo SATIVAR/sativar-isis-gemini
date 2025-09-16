@@ -203,7 +203,7 @@ const SeishatCrm: React.FC = () => {
 
 
 const AppContent: React.FC = () => {
-    const { isInitialSyncing, initialSyncMessage } = useSettings();
+    const { isInitialSyncing, initialSyncMessage, settings } = useSettings();
     const [currentMode, _setCurrentMode] = useState<AppMode>(
         () => (localStorage.getItem('sativar_app_mode') as AppMode) || 'isis'
     );
@@ -216,6 +216,8 @@ const AppContent: React.FC = () => {
         localStorage.setItem('sativar_app_mode', mode);
         _setCurrentMode(mode);
     };
+    
+    const isIsisModeEnabled = settings.modeSettings?.isIsisModeEnabled ?? true;
 
     React.useEffect(() => {
         // If the user role is 'user' and they are trying to access settings, redirect them to main page.
@@ -223,6 +225,13 @@ const AppContent: React.FC = () => {
             setCurrentPage('main');
         }
     }, [currentPage, auth.isAuthenticated, auth.user?.role]);
+    
+    // Effect to handle managers being forced out of a disabled isis mode.
+    React.useEffect(() => {
+        if (auth.isAuthenticated && auth.user?.role === 'manager' && currentMode === 'isis' && !isIsisModeEnabled) {
+            setCurrentMode('seishat');
+        }
+    }, [auth.isAuthenticated, auth.user?.role, currentMode, isIsisModeEnabled, setCurrentMode]);
 
     const handleLogout = () => {
         setCurrentPage('main'); // Redirect to main page on logout
@@ -266,6 +275,29 @@ const AppContent: React.FC = () => {
             <AuthWrapper>
                 <AdminLogin />
             </AuthWrapper>
+        );
+    }
+    
+    // Handle 'user' role access when Isis mode is disabled
+    if (auth.isAuthenticated && auth.user?.role === 'user' && !isIsisModeEnabled) {
+        return (
+            <div className="flex h-screen flex-col bg-[#131314] font-sans text-gray-200">
+                <Header 
+                    setCurrentPage={setCurrentPage} 
+                    currentPage={currentPage} 
+                    currentMode={currentMode}
+                    setCurrentMode={setCurrentMode}
+                />
+                <main className="flex-grow flex flex-col items-center justify-center text-center p-4">
+                    <AlertTriangleIcon className="w-12 h-12 text-yellow-400 mb-4" />
+                    <h2 className="text-xl font-bold text-white">Acesso Indisponível</h2>
+                    <p className="text-gray-400 mt-2 max-w-md">
+                        O modo de análise por IA (Isis) está temporariamente desativado pelo administrador. Como esta é a sua tela principal, seu acesso está pausado.
+                        <br />
+                        Por favor, entre em contato com um gerente para mais informações.
+                    </p>
+                </main>
+            </div>
         );
     }
 

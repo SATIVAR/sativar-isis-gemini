@@ -1,8 +1,8 @@
 import React from 'react';
-import { DatabaseIcon, ServerIcon, StoreIcon, FileCodeIcon, LogOutIcon, UsersIcon, ClockIcon, BellIcon, BarChart2Icon } from '../icons.tsx';
+import { DatabaseIcon, ServerIcon, StoreIcon, FileCodeIcon, LogOutIcon, UsersIcon, ClockIcon, BellIcon, BarChart2Icon, RepeatIcon } from '../icons.tsx';
 import type { UserRole } from '../../types.ts';
 
-export type SettingsPageName = 'association' | 'users' | 'api' | 'products' | 'notifications' | 'advanced' | 'prompt' | 'apiHistory';
+export type SettingsPageName = 'association' | 'users' | 'api' | 'products' | 'notifications' | 'advanced' | 'prompt' | 'apiHistory' | 'modes';
 
 interface NavItemProps {
   pageName: SettingsPageName;
@@ -39,6 +39,7 @@ export const SettingsSidebar: React.FC<SettingsSidebarProps> = ({ currentPage, s
     { page: 'association', label: 'Associação', icon: <UsersIcon className="w-5 h-5" />, roles: ['admin', 'manager'] },
     { page: 'users', label: 'Usuários do Sistema', icon: <UsersIcon className="w-5 h-5" />, roles: ['admin'] },
     { page: 'api', label: 'Configuração da API', icon: <ServerIcon className="w-5 h-5" />, roles: ['admin'] },
+    { page: 'modes', label: 'Modos de Operação', icon: <RepeatIcon className="w-5 h-5" />, roles: ['admin'] },
     { page: 'notifications', label: 'Notificações', icon: <BellIcon className="w-5 h-5" />, roles: ['admin', 'manager'] },
     { page: 'advanced', label: 'Avançado', icon: <DatabaseIcon className="w-5 h-5" />, roles: ['admin'] },
     { page: 'apiHistory', label: 'Log de Chamadas', icon: <ClockIcon className="w-5 h-5" />, roles: ['admin'] },

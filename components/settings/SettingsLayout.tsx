@@ -6,6 +6,7 @@ import { AdvancedPage } from './ClientsPage.tsx';
 import { PromptPage } from './PromptPage.tsx';
 import { ApiHistoryPage } from './ApiHistoryPage.tsx';
 import { NotificationsPage } from './NotificationsPage.tsx';
+import { ModeManagementPage } from './ModeManagementPage.tsx';
 import { AdminLogin } from '../AdminLogin.tsx';
 import { AdminRegistration } from '../AdminRegistration.tsx';
 import { Loader } from '../Loader.tsx';
@@ -72,6 +73,8 @@ export const SettingsLayout: React.FC<SettingsLayoutProps> = ({ onLogout }) => {
         return <UsersPage />;
       case 'api':
         return <ApiConfigPage />;
+      case 'modes':
+        return <ModeManagementPage />;
       case 'notifications':
         return <NotificationsPage />;
       case 'advanced':

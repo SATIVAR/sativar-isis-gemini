@@ -91,6 +91,10 @@ export interface Product {
     icon?: string;
 }
 
+export interface ModeSettings {
+    isIsisModeEnabled: boolean;
+}
+
 export interface Settings {
     associationName: string;
     about: string;
@@ -107,6 +111,7 @@ export interface Settings {
     prescriptionValidityMonths: string;
     shippingContext: string;
     paymentContext: string;
+    modeSettings: ModeSettings;
 }
 
 // From hooks/useSettings.ts and components/settings/ApiConfigPage.tsx and services/wpApiService.ts

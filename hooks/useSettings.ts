@@ -272,6 +272,9 @@ const defaultSettings: Settings = {
   prescriptionValidityMonths: '1',
   shippingContext: "O frete padrão é de R$ 50,00.",
   paymentContext: "Aceitamos pagamento via PIX ou Cartão de Crédito (com uma taxa de processamento de 3,98%). É só escolher a opção que preferir.",
+  modeSettings: {
+    isIsisModeEnabled: true,
+  },
 };
 
 const defaultWpConfig: WpConfig = {
@@ -367,7 +370,15 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
                 const localData = localStorage.getItem(LOCAL_SETTINGS_KEY);
                 if (localData) loadedSettings = JSON.parse(localData);
             }
-            const finalSettings = { ...defaultSettings, ...(loadedSettings || {}) };
+            // Correctly merge settings, ensuring nested objects like modeSettings have defaults.
+            const finalSettings = {
+                ...defaultSettings,
+                ...(loadedSettings || {}),
+                modeSettings: {
+                    ...defaultSettings.modeSettings,
+                    ...(loadedSettings?.modeSettings || {}),
+                },
+            };
             setSettings(finalSettings);
             setFormState(finalSettings);
             
