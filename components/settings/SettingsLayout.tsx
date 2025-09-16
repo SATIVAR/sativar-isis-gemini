@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { SettingsSidebar, type SettingsPageName } from './SettingsSidebar.tsx';
 import { AssociationPage } from './AssociationPage.tsx';
 import { ProductsPage } from './ProductsPage.tsx';
-import { AdvancedPage } from './ClientsPage.tsx';
+import { SystemSyncPage } from './SystemSyncPage.tsx';
 import { PromptPage } from './PromptPage.tsx';
 import { ApiHistoryPage } from './ApiHistoryPage.tsx';
 import { NotificationsPage } from './NotificationsPage.tsx';
@@ -14,6 +14,7 @@ import { useSettings } from '../../hooks/useSettings.ts';
 import { CheckCircleIcon, AlertTriangleIcon, CheckIcon } from '../icons.tsx';
 import { useAuth } from '../../hooks/useAuth.ts';
 import { UsersPage } from './UsersPage.tsx';
+import { ApiIntegrationPage } from './ApiIntegrationPage.tsx';
 
 interface SettingsLayoutProps {
   onLogout: () => void;
@@ -73,12 +74,14 @@ export const SettingsLayout: React.FC<SettingsLayoutProps> = ({ onLogout }) => {
         return <UsersPage />;
       case 'products':
         return <ProductsPage />;
+      case 'api':
+        return <ApiIntegrationPage />;
       case 'modes':
         return <ModeManagementPage />;
       case 'notifications':
         return <NotificationsPage />;
-      case 'advanced':
-        return <AdvancedPage />;
+      case 'systemSync':
+        return <SystemSyncPage />;
       case 'apiHistory':
         return <ApiHistoryPage />;
       case 'prompt':

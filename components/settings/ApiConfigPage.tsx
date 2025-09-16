@@ -296,7 +296,7 @@ const ApiSearchComponent: React.FC = () => {
 };
 
 
-export const ApiConfigPage: React.FC = () => {
+export const ApiIntegrationPage: React.FC = () => {
   const { wpConfig, saveWpConfig } = useSettings();
   const modal = useModal();
   const [formState, setFormState] = useState<WpConfig>(wpConfig);
@@ -405,7 +405,7 @@ export const ApiConfigPage: React.FC = () => {
         <div className="bg-[#202124] rounded-xl border border-gray-700 shadow-2xl p-6 sm:p-8">
           <div className="flex items-center gap-4 mb-2">
             <ServerIcon className="w-8 h-8 text-fuchsia-300" />
-            <h2 className="text-2xl font-bold text-white">Configuração da API</h2>
+            <h2 className="text-2xl font-bold text-white">Integração com API Externa</h2>
           </div>
           <p className="mt-2 text-gray-400 mb-8">
             Insira os dados de conexão da sua API Sativar_WP_API/Sativar - Seishat para integrar o sistema.
