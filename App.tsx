@@ -203,7 +203,7 @@ const SeishatCrm: React.FC = () => {
 const AppContent: React.FC = () => {
     const { isInitialSyncing, initialSyncMessage } = useSettings();
     const [currentMode, _setCurrentMode] = useState<AppMode>(
-        () => (localStorage.getItem('sativar_app_mode') as AppMode) || 'isis'
+        () => (localStorage.getItem('sativar_app_mode') as AppMode) || 'seishat'
     );
     const [currentPage, setCurrentPage] = useState<Page>('main');
     const [isMobileHistoryOpen, setIsMobileHistoryOpen] = useState(false);
