@@ -13,7 +13,7 @@ import { Loader } from './components/Loader.tsx';
 import { ChatHistoryProvider } from './hooks/useChatHistory.ts';
 import { ModalProvider, useModal } from './hooks/useModal.ts';
 import { Modal } from './components/Modal.tsx';
-import { AlertTriangleIcon, BarChart2Icon, BellIcon, BriefcaseIcon, CheckCircleIcon, CheckSquareIcon, ChevronDownIcon, ClockIcon, DollarSignIcon, FileCodeIcon, FileTextIcon, LogOutIcon, PlusIcon, SettingsIcon, ShoppingCartIcon, SparklesIcon, StoreIcon, UsersIcon } from './components/icons.tsx';
+import { AlertTriangleIcon, BarChart2Icon, BellIcon, BriefcaseIcon, CheckCircleIcon, CheckSquareIcon, ChevronDownIcon, ClockIcon, DollarSignIcon, FileCodeIcon, FileTextIcon, HomeIcon, LogOutIcon, PlusIcon, SettingsIcon, ShoppingCartIcon, SparklesIcon, StoreIcon, UsersIcon } from './components/icons.tsx';
 import { AuthProvider, useAuth } from './hooks/useAuth.ts';
 import { TokenUsageProvider } from './hooks/useTokenUsage.ts';
 import { OnboardingGuide } from './components/OnboardingGuide.tsx';
@@ -31,6 +31,7 @@ import { PromptPage } from './components/settings/PromptPage.tsx';
 import { ApiHistoryPage } from './components/settings/ApiHistoryPage.tsx';
 import { AssociatesPage } from './components/settings/AssociatesPage.tsx';
 import { ApiUsagePage } from './components/settings/ApiUsagePage.tsx';
+import { DashboardPage } from './components/settings/DashboardPage.tsx';
 
 
 export type AppMode = 'isis' | 'seishat';
@@ -38,6 +39,7 @@ export type AppMode = 'isis' | 'seishat';
 // --- Seishat CRM / Settings Components ---
 
 export type SeishatPageName = 
+    'dashboard'
     // General
     | 'association' | 'users' | 'notifications'
     // Seishat
@@ -150,23 +152,31 @@ const SeishatSidebar: React.FC<SeishatSidebarProps> = ({ activePage, setActivePa
       setOpenAccordion(prev => (prev === name ? 'none' : name));
     };
 
+    const isDashboardActive = activePage === 'dashboard';
     const isGeneralSectionActive = useMemo(() => generalItems.some(item => item.page === activePage), [activePage]);
     const isSeishatSectionActive = useMemo(() => seishatItems.some(item => item.page === activePage), [activePage]);
     const isIsisSectionActive = useMemo(() => isisItems.some(item => item.page === activePage), [activePage]);
     const isAdvancedSettingsActive = activePage === 'advancedSettings';
 
     useEffect(() => {
-        if (isAdvancedSettingsActive) {
+        if (isAdvancedSettingsActive || isDashboardActive) {
             setOpenAccordion('none');
         } else if (isGeneralSectionActive) setOpenAccordion('general');
         else if (isSeishatSectionActive) setOpenAccordion('seishat');
         else if (isIsisSectionActive) setOpenAccordion('isis');
-    }, [isGeneralSectionActive, isSeishatSectionActive, isIsisSectionActive, isAdvancedSettingsActive]);
+    }, [isGeneralSectionActive, isSeishatSectionActive, isIsisSectionActive, isAdvancedSettingsActive, isDashboardActive]);
     
     return (
         <aside className="w-64 flex-shrink-0 bg-[#2d2d30] p-3 flex flex-col font-sans">
             <h2 className="text-lg font-bold text-white px-2 mb-4">Painel de Controle</h2>
             <nav className="flex-grow space-y-3">
+                 <NavItem
+                    pageName="dashboard"
+                    label="Dashboard"
+                    icon={<HomeIcon className="w-5 h-5" />}
+                    activePage={activePage}
+                    onClick={setActivePage}
+                />
                  <AccordionItem
                     label="Geral"
                     icon={<SettingsIcon className="w-5 h-5" />}
@@ -257,7 +267,7 @@ const SeishatLayout: React.FC<{ onLogout: () => void; }> = ({ onLogout }) => {
     const auth = useAuth();
     const { formState, setFormState, saveSettings, hasUnsavedChanges, validateSettings } = useSettings();
     
-    const [activePage, setActivePage] = useState<SeishatPageName>('association');
+    const [activePage, setActivePage] = useState<SeishatPageName>('dashboard');
     const [isSaving, setIsSaving] = useState(false);
     const [showSavedToast, setShowSavedToast] = useState(false);
     const [showErrorToast, setShowErrorToast] = useState(false);
@@ -282,6 +292,7 @@ const SeishatLayout: React.FC<{ onLogout: () => void; }> = ({ onLogout }) => {
         if (!auth.user) return <Loader />;
 
         switch (activePage) {
+            case 'dashboard': return <DashboardPage />;
             // General
             case 'association': return <AssociationPage />;
             case 'users': return <UsersPage />;
@@ -300,7 +311,7 @@ const SeishatLayout: React.FC<{ onLogout: () => void; }> = ({ onLogout }) => {
             case 'apiUsage': return <ApiUsagePage />;
             // Standalone
             case 'advancedSettings': return <AdvancedPage />;
-            default: return <AssociationPage />;
+            default: return <DashboardPage />;
         }
     };
 
