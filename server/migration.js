@@ -120,6 +120,10 @@ CREATE INDEX IF NOT EXISTS idx_users_role ON users(role);
 const SEISHAT_DB_MIGRATION_SQL = `
 PRAGMA foreign_keys = ON;
 
+DROP TABLE IF EXISTS associate_type_form_config;
+DROP TABLE IF EXISTS form_layouts;
+DROP TABLE IF EXISTS form_fields;
+
 CREATE TABLE IF NOT EXISTS products (
   id TEXT PRIMARY KEY,
   name TEXT NOT NULL,
@@ -141,22 +145,24 @@ CREATE TABLE IF NOT EXISTS associates (
   updated_at TEXT DEFAULT (datetime('now', 'localtime'))
 );
 
-CREATE TABLE IF NOT EXISTS form_fields (
+CREATE TABLE form_fields (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     field_name TEXT NOT NULL UNIQUE,
     label TEXT NOT NULL,
-    field_type TEXT NOT NULL CHECK(field_type IN ('text', 'email', 'select', 'password')),
-    is_base_field INTEGER NOT NULL DEFAULT 0,
+    field_type TEXT NOT NULL CHECK(field_type IN ('text', 'email', 'select', 'password', 'textarea', 'checkbox', 'radio')),
+    is_core_field INTEGER NOT NULL DEFAULT 0,
+    is_deletable INTEGER NOT NULL DEFAULT 0,
     options TEXT
 );
 
-CREATE TABLE IF NOT EXISTS associate_type_form_config (
+CREATE TABLE form_layouts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
     associate_type TEXT NOT NULL,
     field_id INTEGER NOT NULL,
-    PRIMARY KEY (associate_type, field_id),
+    display_order INTEGER NOT NULL,
+    is_required INTEGER NOT NULL DEFAULT 0,
     FOREIGN KEY (field_id) REFERENCES form_fields(id) ON DELETE CASCADE
 );
-
 
 CREATE TRIGGER IF NOT EXISTS products_update_trigger
 AFTER UPDATE ON products
@@ -175,14 +181,16 @@ END;
 CREATE INDEX IF NOT EXISTS idx_products_name ON products(name);
 CREATE INDEX IF NOT EXISTS idx_associates_full_name ON associates(full_name);
 CREATE INDEX IF NOT EXISTS idx_associates_cpf ON associates(cpf);
+CREATE INDEX IF NOT EXISTS idx_form_layouts_associate_type ON form_layouts(associate_type);
 
--- Pre-populate form_fields
-INSERT OR IGNORE INTO form_fields (id, field_name, label, field_type, is_base_field) VALUES
-(1, 'full_name', 'Nome Completo', 'text', 1),
-(2, 'password', 'Senha', 'password', 1),
-(3, 'type', 'Tipo de Associado', 'select', 1),
-(4, 'cpf', 'CPF', 'text', 0),
-(5, 'whatsapp', 'WhatsApp', 'text', 0);
+
+-- Pre-populate form_fields with core, non-deletable fields
+INSERT OR IGNORE INTO form_fields (id, field_name, label, field_type, is_core_field, is_deletable) VALUES
+(1, 'full_name', 'Nome Completo', 'text', 1, 0),
+(2, 'password', 'Senha', 'password', 1, 0),
+(3, 'type', 'Tipo de Associado', 'select', 1, 0),
+(4, 'cpf', 'CPF', 'text', 1, 0),
+(5, 'whatsapp', 'WhatsApp', 'text', 1, 0);
 `;
 
 const SEISHAT_DB_MIGRATION_MYSQL = `
@@ -211,15 +219,18 @@ CREATE TABLE IF NOT EXISTS form_fields (
   id INT AUTO_INCREMENT PRIMARY KEY,
   field_name VARCHAR(255) NOT NULL UNIQUE,
   label VARCHAR(255) NOT NULL,
-  field_type ENUM('text', 'email', 'select', 'password') NOT NULL,
-  is_base_field BOOLEAN NOT NULL DEFAULT FALSE,
-  options TEXT
+  field_type ENUM('text', 'email', 'select', 'password', 'textarea', 'checkbox', 'radio') NOT NULL,
+  is_core_field BOOLEAN NOT NULL DEFAULT FALSE,
+  is_deletable BOOLEAN NOT NULL DEFAULT FALSE,
+  options TEXT -- For select fields, store as JSON string
 );
 
-CREATE TABLE IF NOT EXISTS associate_type_form_config (
+CREATE TABLE IF NOT EXISTS form_layouts (
+  id INT AUTO_INCREMENT PRIMARY KEY,
   associate_type VARCHAR(255) NOT NULL,
   field_id INT NOT NULL,
-  PRIMARY KEY (associate_type, field_id),
+  display_order INT NOT NULL,
+  is_required BOOLEAN NOT NULL DEFAULT FALSE,
   FOREIGN KEY (field_id) REFERENCES form_fields(id) ON DELETE CASCADE
 );
 
@@ -231,29 +242,29 @@ const runSeishatMysqlMigration = async (pool) => {
     const connection = await pool.getConnection();
     try {
         console.log(chalk.magenta('[Migration] Running SEISHAT database migrations for MySQL...'));
+        
+        await connection.query('DROP TABLE IF EXISTS associate_type_form_config, form_layouts, form_fields;');
+        
         const statements = SEISHAT_DB_MIGRATION_MYSQL.split(';').filter(s => s.trim().length > 0);
         for (const statement of statements) {
             try {
                 await connection.query(statement);
             } catch (err) {
-                // MySQL error code for "Duplicate key name" is 1061. This makes the migration script idempotent.
-                if (err.errno === 1061) {
+                if (err.errno === 1061) { // Duplicate key name
                     console.log(chalk.yellow(`[Migration] Index already exists, skipping statement.`));
                 } else {
-                    // For any other error, we should fail the migration.
                     throw err;
                 }
             }
         }
         
-        // Populate form_fields for MySQL
         const populateSql = `
-            INSERT INTO form_fields (id, field_name, label, field_type, is_base_field) VALUES
-            (1, 'full_name', 'Nome Completo', 'text', 1),
-            (2, 'password', 'Senha', 'password', 1),
-            (3, 'type', 'Tipo de Associado', 'select', 1),
-            (4, 'cpf', 'CPF', 'text', 0),
-            (5, 'whatsapp', 'WhatsApp', 'text', 0)
+            INSERT INTO form_fields (id, field_name, label, field_type, is_core_field, is_deletable) VALUES
+            (1, 'full_name', 'Nome Completo', 'text', 1, 0),
+            (2, 'password', 'Senha', 'password', 1, 0),
+            (3, 'type', 'Tipo de Associado', 'select', 1, 0),
+            (4, 'cpf', 'CPF', 'text', 1, 0),
+            (5, 'whatsapp', 'WhatsApp', 'text', 1, 0)
             ON DUPLICATE KEY UPDATE label=VALUES(label);
         `;
         await connection.query(populateSql);
@@ -283,7 +294,6 @@ const runMigrations = async () => {
     console.log(chalk.yellow('✅ USER Database migration completed successfully.'));
 
     const seishatDb = getSeishatDb();
-    // This check ensures we only run SQLite migrations if the mode is SQLite
     if (seishatDb && seishatDb.constructor.name === 'Database') {
         console.log(chalk.magenta('[Migration] Running SEISHAT database migrations for SQLite...'));
         seishatDb.exec(SEISHAT_DB_MIGRATION_SQL);

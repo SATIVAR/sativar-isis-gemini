@@ -165,16 +165,23 @@ export interface Associate {
 }
 
 // From Seishat Forms Feature
+export type FormFieldType = 'text' | 'email' | 'select' | 'password' | 'textarea' | 'checkbox' | 'radio';
+
 export interface FormField {
     id: number;
     field_name: string;
     label: string;
-    field_type: 'text' | 'email' | 'select' | 'password';
-    is_base_field: boolean | number; // SQLite returns 0/1 for booleans
+    field_type: FormFieldType;
+    is_core_field: boolean | number;
+    is_deletable: boolean | number;
     options?: string; // JSON string for select options
 }
 
-export type FormConfig = string[]; // Array of field_name strings
+// Represents a field within a specific form's layout
+export interface FormLayoutField extends FormField {
+    display_order: number;
+    is_required: boolean | number;
+}
 
 
 // FIX: Add Vite client types to fix import.meta.env errors across the application.

@@ -1,4 +1,5 @@
 
+
 const express = require('express');
 const { query } = require('./db');
 const { chatQuery, getChatDb } = require('./chatDb');
@@ -11,7 +12,6 @@ const chalk = require('chalk');
 
 // --- Helper Functions ---
 
-// Helper to ensure 'tasks' field is a parsed array of objects.
 const parseReminderTasks = (reminder) => {
     if (!reminder) return null;
 
@@ -20,18 +20,26 @@ const parseReminderTasks = (reminder) => {
             reminder.tasks = JSON.parse(reminder.tasks);
         } catch (e) {
             console.error(`Failed to parse tasks JSON for reminder ID ${reminder.id}:`, reminder.tasks);
-            reminder.tasks = []; // Default to empty array on parse error for safety
+            reminder.tasks = [];
         }
     } else if (!reminder.tasks) {
-        reminder.tasks = []; // Ensure tasks is always an array, even if null/undefined from DB
+        reminder.tasks = [];
     }
     return reminder;
+};
+
+const slugify = (text) => {
+    return text.toString().toLowerCase()
+        .replace(/\s+/g, '_')           // Replace spaces with _
+        .replace(/[^\w-]+/g, '')       // Remove all non-word chars
+        .replace(/--+/g, '_')         // Replace multiple - with single _
+        .replace(/^-+/, '')             // Trim - from start of text
+        .replace(/-+$/, '');            // Trim - from end of text
 };
 
 
 // --- Settings Routes ---
 
-// GET /api/settings
 router.get('/settings', async (req, res, next) => {
   try {
     const settingsRows = await query('SELECT data FROM settings WHERE id = 1');
@@ -39,11 +47,9 @@ router.get('/settings', async (req, res, next) => {
     
     let settingsData = {};
     if (settingsRows.length > 0) {
-      // The `data` column no longer contains 'products'.
       settingsData = typeof settingsRows[0].data === 'string' ? JSON.parse(settingsRows[0].data) : settingsRows[0].data;
     }
     
-    // Inject products into the settings object before sending to client, maintaining the API contract.
     settingsData.products = productRows || [];
 
     res.json(settingsData);
@@ -53,17 +59,14 @@ router.get('/settings', async (req, res, next) => {
   }
 });
 
-// POST /api/settings
 router.post('/settings', async (req, res, next) => {
   const { products, ...settingsData } = req.body;
-  // Exclude DB mode from being overwritten by general save
   delete settingsData.seishat_database_mode;
   const settingsDataToStore = JSON.stringify(settingsData);
   
   const seishatDbConnection = getSeishatDb();
 
   try {
-    // Handling product saves needs to be bilingual
     if (seishatDbConnection.constructor.name === 'Database') { // better-sqlite3
         const saveProducts = seishatDbConnection.transaction((productList) => {
             seishatDbConnection.prepare('DELETE FROM products').run();
@@ -89,7 +92,6 @@ router.post('/settings', async (req, res, next) => {
         conn.release();
     }
 
-    // Save the rest of the settings to the main DB
     const settingsRows = await query('SELECT id FROM settings WHERE id = 1');
     if (settingsRows && settingsRows.length > 0) {
       await query('UPDATE settings SET data = ? WHERE id = 1', [settingsDataToStore]);
@@ -104,7 +106,6 @@ router.post('/settings', async (req, res, next) => {
   }
 });
 
-// GET /api/settings/seishat/db-mode
 router.get('/settings/seishat/db-mode', async (req, res, next) => {
     try {
         const settingsRows = await query('SELECT data FROM settings WHERE id = 1');
@@ -119,7 +120,6 @@ router.get('/settings/seishat/db-mode', async (req, res, next) => {
     }
 });
 
-// POST /api/settings/seishat/test-mysql
 router.post('/settings/seishat/test-mysql', async (req, res, next) => {
     let connection;
     try {
@@ -142,11 +142,9 @@ router.post('/settings/seishat/test-mysql', async (req, res, next) => {
     }
 });
 
-// POST /api/settings/seishat/activate-mysql
 router.post('/settings/seishat/activate-mysql', async (req, res, next) => {
     let pool;
     try {
-        // 1. Test connection again
         if (!process.env.DB_HOST) throw new Error("Variáveis de ambiente do MySQL não configuradas no servidor.");
         
         pool = mysql.createPool({
@@ -158,11 +156,9 @@ router.post('/settings/seishat/activate-mysql', async (req, res, next) => {
         });
         await pool.query('SELECT 1');
 
-        // 2. Run migrations
         await runSeishatMysqlMigration(pool);
         await pool.end();
 
-        // 3. Update main settings
         const settingsRows = await query('SELECT data FROM settings WHERE id = 1');
         let settings = {};
         if (settingsRows.length > 0 && settingsRows[0].data) {
@@ -171,7 +167,6 @@ router.post('/settings/seishat/activate-mysql', async (req, res, next) => {
         settings.seishat_database_mode = 'mysql';
         await query('UPDATE settings SET data = ? WHERE id = 1', [JSON.stringify(settings)]);
 
-        // 4. Tell the seishatDb module to switch
         await switchToMysql();
 
         res.json({ success: true, message: 'Banco de dados MySQL ativado e configurado com sucesso!' });
@@ -186,7 +181,6 @@ router.post('/settings/seishat/activate-mysql', async (req, res, next) => {
 
 // --- Reminders CRUD Routes ---
 
-// GET /api/reminders - Get all reminders
 router.get('/reminders', async (req, res, next) => {
   try {
     const rows = await query('SELECT * FROM reminders ORDER BY dueDate ASC');
@@ -197,10 +191,8 @@ router.get('/reminders', async (req, res, next) => {
   }
 });
 
-// POST /api/reminders - Create a new reminder
 router.post('/reminders', async (req, res, next) => {
   const { id, quoteId, patientName, dueDate, notes, tasks, recurrence, priority } = req.body;
-  // Ensure isCompleted has a value to prevent DB errors on NOT NULL constraint.
   const isCompleted = req.body.isCompleted ? 1 : 0;
   try {
     const insertQuery = `
@@ -219,7 +211,6 @@ router.post('/reminders', async (req, res, next) => {
   }
 });
 
-// PUT /api/reminders/:id - Update an existing reminder
 router.put('/reminders/:id', async (req, res, next) => {
   const { id } = req.params;
   const { quoteId, patientName, dueDate, notes, tasks, recurrence, priority } = req.body;
@@ -245,13 +236,12 @@ router.put('/reminders/:id', async (req, res, next) => {
   }
 });
 
-// DELETE /api/reminders/:id - Delete a reminder
 router.delete('/reminders/:id', async (req, res, next) => {
   const { id } = req.params;
   try {
     const deleteQuery = 'DELETE FROM reminders WHERE id = ?';
     await query(deleteQuery, [id]);
-    res.status(204).send(); // No content
+    res.status(204).send();
   } catch (err) {
     console.error(chalk.red(`[${req.method} ${req.originalUrl}] Error deleting reminder:`), err.message);
     next(err);
@@ -260,7 +250,6 @@ router.delete('/reminders/:id', async (req, res, next) => {
 
 // --- Chat History Routes ---
 
-// GET /api/chats - Get recent conversations
 router.get('/chats', async (req, res, next) => {
   try {
     const conversationsRaw = await chatQuery('SELECT * FROM conversations ORDER BY updated_at DESC');
@@ -275,14 +264,11 @@ router.get('/chats', async (req, res, next) => {
   }
 });
 
-// GET /api/chats/:id - Get messages for a conversation
 router.get('/chats/:id', async (req, res, next) => {
     const { id } = req.params;
     try {
         const rows = await chatQuery('SELECT * FROM messages WHERE conversation_id = ? ORDER BY timestamp ASC', [id]);
         
-        // Only parse the JSON content, pass other fields through as-is from the DB.
-        // The client-side hook will handle mapping snake_case to camelCase.
         const messages = rows.map(msg => {
             try {
                 return {
@@ -304,15 +290,12 @@ router.get('/chats/:id', async (req, res, next) => {
     }
 });
 
-// POST /api/chats - Create a new conversation with FIFO and closing logic
 router.post('/chats', async (req, res, next) => {
     try {
         const { id, title } = req.body;
         const chatDb = getChatDb();
 
-        // Using a transaction to ensure all operations succeed or fail together
         const createNewConvo = chatDb.transaction(() => {
-            // 1. Find and close the most recent active conversation (if one exists)
             const lastActiveConvo = chatDb.prepare(`
                 SELECT id FROM conversations 
                 WHERE is_closed = 0 
@@ -324,7 +307,6 @@ router.post('/chats', async (req, res, next) => {
                 chatDb.prepare('UPDATE conversations SET is_closed = 1 WHERE id = ?').run(lastActiveConvo.id);
             }
 
-            // 2. Enforce the conversation limit with FIFO
             const CONVERSATION_LIMIT = 5;
             const conversations = chatDb.prepare('SELECT id FROM conversations ORDER BY created_at ASC').all();
             if (conversations.length >= CONVERSATION_LIMIT) {
@@ -333,13 +315,11 @@ router.post('/chats', async (req, res, next) => {
                 console.log(chalk.yellow(`[FIFO] Removed least recent conversation: ${oldestConvoId}`));
             }
             
-            // 3. Insert the new conversation as active
             chatDb.prepare('INSERT INTO conversations (id, title, is_closed) VALUES (?, ?, 0)').run(id, title);
         });
 
         createNewConvo();
 
-        // Fetch the newly created conversation to return it
         const newConversationResult = await chatQuery('SELECT * FROM conversations WHERE id = ?', [id]);
         if (newConversationResult.length === 0) {
             throw new Error("Failed to create and retrieve new conversation.");
@@ -356,12 +336,10 @@ router.post('/chats', async (req, res, next) => {
     }
 });
 
-// POST /api/chats/:id/messages - Add a message to a conversation
 router.post('/chats/:id/messages', async (req, res, next) => {
     const { id: conversation_id } = req.params;
     const { id, sender, content, isActionComplete, tokenCount, duration } = req.body;
     
-    // The timestamp is crucial for ordering, let the server generate it for consistency
     const timestamp = new Date().toISOString();
 
     try {
@@ -392,7 +370,6 @@ router.post('/chats/:id/messages', async (req, res, next) => {
     }
 });
 
-// PUT /api/chats/:id/title - Update conversation title
 router.put('/chats/:id/title', async (req, res, next) => {
     const { id } = req.params;
     const { title } = req.body;
@@ -402,8 +379,6 @@ router.put('/chats/:id/title', async (req, res, next) => {
     }
 
     try {
-        // Also update the `updated_at` timestamp to ensure the conversation moves to the top of the list,
-        // matching the optimistic update behavior on the frontend.
         await chatQuery('UPDATE conversations SET title = ?, updated_at = datetime(\'now\', \'localtime\') WHERE id = ?', [title, id]);
         res.status(200).json({ success: true });
     } catch (err) {
@@ -412,7 +387,6 @@ router.put('/chats/:id/title', async (req, res, next) => {
     }
 });
 
-// DELETE /api/chats/:id - Delete a conversation
 router.delete('/chats/:id', async (req, res, next) => {
   const { id } = req.params;
   try {
@@ -421,7 +395,7 @@ router.delete('/chats/:id', async (req, res, next) => {
       return res.status(404).json({ error: 'Conversation not found.' });
     }
     console.log(chalk.yellow(`[DELETE] Removed conversation: ${id}`));
-    res.status(204).send(); // No Content
+    res.status(204).send();
   } catch (err) {
     console.error(chalk.red(`[${req.method} ${req.originalUrl}] Error deleting conversation:`), err.message);
     next(err);
@@ -430,7 +404,6 @@ router.delete('/chats/:id', async (req, res, next) => {
 
 // --- Auth & User Management Routes ---
 
-// GET /api/auth/setup-status - Check if an admin account exists
 router.get('/auth/setup-status', async (req, res, next) => {
   try {
     const rows = await userQuery("SELECT 1 FROM users WHERE role = 'admin' LIMIT 1");
@@ -441,7 +414,6 @@ router.get('/auth/setup-status', async (req, res, next) => {
   }
 });
 
-// POST /api/auth/register-admin - Create the first admin user
 router.post('/auth/register-admin', async (req, res, next) => {
   try {
     const existingAdmin = await userQuery("SELECT 1 FROM users WHERE role = 'admin' LIMIT 1");
@@ -461,7 +433,6 @@ router.post('/auth/register-admin', async (req, res, next) => {
   }
 });
 
-// POST /api/auth/login - Log a user in
 router.post('/auth/login', async (req, res, next) => {
   try {
     const { username, password } = req.body;
@@ -477,7 +448,6 @@ router.post('/auth/login', async (req, res, next) => {
   }
 });
 
-// GET /api/users - Get all users
 router.get('/users', async (req, res, next) => {
   try {
     const users = await userQuery('SELECT id, name, whatsapp, role FROM users ORDER BY name ASC');
@@ -488,7 +458,6 @@ router.get('/users', async (req, res, next) => {
   }
 });
 
-// POST /api/users - Create a new user
 router.post('/users', async (req, res, next) => {
   try {
     const { name, whatsapp, role, password } = req.body;
@@ -513,7 +482,6 @@ router.post('/users', async (req, res, next) => {
   }
 });
 
-// PUT /api/users/:id - Update a user
 router.put('/users/:id', async (req, res, next) => {
   const { id } = req.params;
   const { name, whatsapp, role, password } = req.body;
@@ -536,7 +504,6 @@ router.put('/users/:id', async (req, res, next) => {
   }
 });
 
-// DELETE /api/users/:id - Delete a user
 router.delete('/users/:id', async (req, res, next) => {
     const { id } = req.params;
     try {
@@ -554,7 +521,6 @@ router.delete('/users/:id', async (req, res, next) => {
 
 // --- Seishat Associates CRUD Routes ---
 
-// GET /api/seishat/associates
 router.get('/seishat/associates', async (req, res, next) => {
     const { search } = req.query;
     try {
@@ -572,7 +538,6 @@ router.get('/seishat/associates', async (req, res, next) => {
     }
 });
 
-// POST /api/seishat/associates
 router.post('/seishat/associates', async (req, res, next) => {
     try {
         const { full_name, cpf, whatsapp, password, type } = req.body;
@@ -591,7 +556,6 @@ router.post('/seishat/associates', async (req, res, next) => {
     }
 });
 
-// PUT /api/seishat/associates/:id
 router.put('/seishat/associates/:id', async (req, res, next) => {
     const { id } = req.params;
     const { full_name, cpf, whatsapp, password, type } = req.body;
@@ -614,7 +578,6 @@ router.put('/seishat/associates/:id', async (req, res, next) => {
     }
 });
 
-// DELETE /api/seishat/associates/:id
 router.delete('/seishat/associates/:id', async (req, res, next) => {
     const { id } = req.params;
     try {
@@ -626,12 +589,12 @@ router.delete('/seishat/associates/:id', async (req, res, next) => {
     }
 });
 
-// --- Admin / Forms Routes ---
+// --- Admin / Form Builder Routes ---
 
-// GET /api/admin/forms/associates/fields - Get all possible form fields
-router.get('/admin/forms/associates/fields', async (req, res, next) => {
+// GET /api/admin/fields - Get all possible form fields from the catalog
+router.get('/admin/fields', async (req, res, next) => {
     try {
-        const fields = await seishatQuery('SELECT * FROM form_fields ORDER BY is_base_field DESC, label ASC');
+        const fields = await seishatQuery('SELECT * FROM form_fields ORDER BY is_core_field DESC, label ASC');
         res.json(fields);
     } catch (err) {
         console.error(chalk.red(`[${req.method} ${req.originalUrl}] Error fetching form fields:`), err.message);
@@ -639,58 +602,88 @@ router.get('/admin/forms/associates/fields', async (req, res, next) => {
     }
 });
 
-// GET /api/admin/forms/associates/config/:type - Get active fields for an associate type
-router.get('/admin/forms/associates/config/:type', async (req, res, next) => {
-    const { type } = req.params;
+// POST /api/admin/fields - Create a new custom field in the catalog
+router.post('/admin/fields', async (req, res, next) => {
+    const { label, field_type, options } = req.body;
+    if (!label || !field_type) {
+        return res.status(400).json({ error: 'Label and field type are required.' });
+    }
+    
+    const field_name = slugify(label) + `_${Date.now()}`;
+
     try {
-        const config = await seishatQuery('SELECT field_id FROM associate_type_form_config WHERE associate_type = ?', [type]);
-        const fieldIds = config.map(c => c.field_id);
-        res.json(fieldIds);
+        const result = await seishatQuery(
+            'INSERT INTO form_fields (field_name, label, field_type, options, is_core_field, is_deletable) VALUES (?, ?, ?, ?, 0, 1)',
+            [field_name, label, field_type, options ? JSON.stringify(options) : null]
+        );
+        const insertId = result.insertId || result.lastInsertRowid;
+        const [newField] = await seishatQuery('SELECT * FROM form_fields WHERE id = ?', [insertId]);
+        res.status(201).json(newField);
     } catch (err) {
-        console.error(chalk.red(`[${req.method} ${req.originalUrl}] Error fetching form config for type ${type}:`), err.message);
+        console.error(chalk.red(`[${req.method} ${req.originalUrl}] Error creating custom field:`), err.message);
         next(err);
     }
 });
 
-// POST /api/admin/forms/associates/config/:type - Save active fields for an associate type
-router.post('/admin/forms/associates/config/:type', async (req, res, next) => {
+// GET /api/admin/layouts/:type - Get the form layout for an associate type
+router.get('/admin/layouts/:type', async (req, res, next) => {
     const { type } = req.params;
-    const { fieldIds } = req.body;
-
-    if (!Array.isArray(fieldIds)) {
-        return res.status(400).json({ error: 'fieldIds must be an array.' });
+    try {
+        const sql = `
+            SELECT
+                ff.id, ff.field_name, ff.label, ff.field_type, ff.options, ff.is_core_field, ff.is_deletable,
+                fl.display_order,
+                fl.is_required
+            FROM form_layouts fl
+            JOIN form_fields ff ON fl.field_id = ff.id
+            WHERE fl.associate_type = ?
+            ORDER BY fl.display_order ASC
+        `;
+        const layout = await seishatQuery(sql, [type]);
+        res.json(layout);
+    } catch (err) {
+        console.error(chalk.red(`[${req.method} ${req.originalUrl}] Error fetching form layout for type ${type}:`), err.message);
+        next(err);
     }
+});
 
+// PUT /api/admin/layouts/:type - Save the entire layout for an associate type
+router.put('/admin/layouts/:type', async (req, res, next) => {
+    const { type } = req.params;
+    const layout = req.body;
+
+    if (!Array.isArray(layout)) {
+        return res.status(400).json({ error: 'Request body must be an array of layout fields.' });
+    }
+    
     const db = getSeishatDb();
     
     try {
         if (db.constructor.name === 'Database') { // better-sqlite3
             const runTransaction = db.transaction(() => {
-                db.prepare('DELETE FROM associate_type_form_config WHERE associate_type = ?').run(type);
-                const insert = db.prepare('INSERT INTO associate_type_form_config (associate_type, field_id) VALUES (?, ?)');
-                for (const fieldId of fieldIds) {
-                    insert.run(type, fieldId);
+                db.prepare('DELETE FROM form_layouts WHERE associate_type = ?').run(type);
+                const insert = db.prepare('INSERT INTO form_layouts (associate_type, field_id, display_order, is_required) VALUES (?, ?, ?, ?)');
+                for (const field of layout) {
+                    insert.run(type, field.field_id, field.display_order, field.is_required ? 1 : 0);
                 }
             });
             runTransaction();
         } else { // mysql2
             const conn = await db.getConnection();
             await conn.beginTransaction();
-            await conn.query('DELETE FROM associate_type_form_config WHERE associate_type = ?', [type]);
-            if (fieldIds.length > 0) {
-                const values = fieldIds.map(id => [type, id]);
-                await conn.query('INSERT INTO associate_type_form_config (associate_type, field_id) VALUES ?', [values]);
+            await conn.query('DELETE FROM form_layouts WHERE associate_type = ?', [type]);
+            if (layout.length > 0) {
+                const values = layout.map(field => [type, field.field_id, field.display_order, field.is_required ? 1 : 0]);
+                await conn.query('INSERT INTO form_layouts (associate_type, field_id, display_order, is_required) VALUES ?', [values]);
             }
             await conn.commit();
             conn.release();
         }
-        res.status(200).json({ success: true, message: `Configuration for ${type} saved.` });
+        res.status(200).json({ success: true, message: `Layout for ${type} saved.` });
     } catch (err) {
-        console.error(chalk.red(`[${req.method} ${req.originalUrl}] Error saving form config for type ${type}:`), err.message);
+        console.error(chalk.red(`[${req.method} ${req.originalUrl}] Error saving form layout for type ${type}:`), err.message);
         next(err);
     }
 });
-
-
 
 module.exports = router;

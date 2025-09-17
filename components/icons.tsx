@@ -1,3 +1,4 @@
+
 import React from 'react';
 
 // Props for all icons
@@ -251,6 +252,17 @@ export const WifiOffIcon: React.FC<IconProps> = (props) => (
     <path d="M8.53 16.11a6 6 0 0 1 6.95 0" />
     <line x1="12" y1="20" x2="12.01" y2="20" />
   </svg>
+);
+
+export const GripVerticalIcon: React.FC<IconProps> = (props) => (
+    <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="9" cy="12" r="1" />
+        <circle cx="9" cy="5" r="1" />
+        <circle cx="9" cy="19" r="1" />
+        <circle cx="15" cy="12" r="1" />
+        <circle cx="15" cy="5" r="1" />
+        <circle cx="15" cy="19" r="1" />
+    </svg>
 );
 
 export const GaugeCircleIcon: React.FC<IconProps> = (props) => (
