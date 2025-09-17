@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { EyeIcon, EyeOffIcon } from './icons.tsx';
 import { useModal } from '../hooks/useModal.ts';
@@ -64,7 +63,7 @@ export const AdminRegistration: React.FC<AdminRegistrationProps> = ({ onRegistra
               id="username"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              className="w-full bg-[#303134] border border-gray-600/50 text-white rounded-lg px-3 py-2 focus:ring-2 focus:ring-fuchsia-500 focus:border-fuchsia-500 outline-none transition"
+              className="w-full bg-[#202124] border border-gray-600/50 text-white rounded-lg px-3 py-2 focus:ring-2 focus:ring-fuchsia-500 focus:border-fuchsia-500 outline-none transition"
               required
               autoComplete="username"
             />
@@ -79,7 +78,7 @@ export const AdminRegistration: React.FC<AdminRegistrationProps> = ({ onRegistra
                   id="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full bg-[#303134] border border-gray-600/50 text-white rounded-lg px-3 py-2 focus:ring-2 focus:ring-fuchsia-500 focus:border-fuchsia-500 outline-none transition pr-10"
+                  className="w-full bg-[#202124] border border-gray-600/50 text-white rounded-lg px-3 py-2 focus:ring-2 focus:ring-fuchsia-500 focus:border-fuchsia-500 outline-none transition pr-10"
                   required
                   autoComplete="new-password"
                 />
@@ -103,7 +102,7 @@ export const AdminRegistration: React.FC<AdminRegistrationProps> = ({ onRegistra
                   id="confirmPassword"
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
-                  className="w-full bg-[#303134] border border-gray-600/50 text-white rounded-lg px-3 py-2 focus:ring-2 focus:ring-fuchsia-500 focus:border-fuchsia-500 outline-none transition pr-10"
+                  className="w-full bg-[#202124] border border-gray-600/50 text-white rounded-lg px-3 py-2 focus:ring-2 focus:ring-fuchsia-500 focus:border-fuchsia-500 outline-none transition pr-10"
                   required
                   autoComplete="new-password"
                 />

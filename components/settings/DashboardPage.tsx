@@ -108,7 +108,7 @@ export const DashboardPage: React.FC = () => {
                                     <p className="text-xs text-gray-500">{template.author}</p>
                                 </div>
                             </div>
-                            <div className="w-full h-24 bg-[#303134] rounded-lg mt-3 flex items-center justify-center">
+                            <div className="w-full h-24 bg-[#202124] rounded-lg mt-3 flex items-center justify-center">
                                 <span className="text-xs text-gray-600">Preview</span>
                             </div>
                         </div>

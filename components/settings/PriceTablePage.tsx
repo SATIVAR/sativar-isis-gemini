@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo } from 'react';
 import { useSettings } from '../../hooks/useSettings.ts';
 import type { Product } from '../../types.ts';
@@ -155,14 +154,14 @@ export const PriceTablePage: React.FC = () => {
                         placeholder="Buscar produtos..."
                         value={productSearch}
                         onChange={e => setProductSearch(e.target.value)}
-                        className="w-full bg-[#303134] border border-gray-600/50 text-gray-300 rounded-lg py-2 pl-9 pr-3 text-sm focus:ring-2 focus:ring-fuchsia-500 outline-none transition shadow-inner"
+                        className="w-full bg-[#202124] border border-gray-600/50 text-gray-300 rounded-lg py-2 pl-9 pr-3 text-sm focus:ring-2 focus:ring-fuchsia-500 outline-none transition shadow-inner"
                         aria-label="Buscar produtos de fallback"
                     />
                 </div>
 
                 <div className="overflow-x-auto">
                     <table className="w-full text-sm text-left">
-                        <thead className="text-xs text-gray-400 uppercase bg-[#303134]">
+                        <thead className="text-xs text-gray-400 uppercase bg-[#202124]">
                             <tr>
                                 <SortableHeader sortKey="name">Produto</SortableHeader>
                                 <SortableHeader sortKey="price">Preço (R$)</SortableHeader>
@@ -173,7 +172,7 @@ export const PriceTablePage: React.FC = () => {
                         <tbody>
                             {sortedAndFilteredProducts.length > 0 ? (
                                 sortedAndFilteredProducts.map(p => (
-                                    <tr key={p.id} className="border-b border-gray-700 hover:bg-[#303134]/50">
+                                    <tr key={p.id} className="border-b border-gray-700 hover:bg-[#202124]/50">
                                         <td className="px-4 py-3 font-medium text-white">
                                             <div className="flex items-center gap-3">
                                                 <ProductIcon icon={p.icon} />

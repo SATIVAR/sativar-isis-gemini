@@ -85,7 +85,7 @@ export const UsersPage: React.FC = () => {
         return (
             <div className="overflow-x-auto">
                 <table className="w-full text-sm text-left">
-                    <thead className="text-xs text-gray-400 uppercase bg-[#303134]">
+                    <thead className="text-xs text-gray-400 uppercase bg-[#202124]">
                         <tr>
                             <th scope="col" className="px-4 py-3">Nome</th>
                             <th scope="col" className="px-4 py-3">WhatsApp</th>
@@ -95,7 +95,7 @@ export const UsersPage: React.FC = () => {
                     </thead>
                     <tbody>
                         {filteredUsers.map(user => (
-                            <tr key={user.id} className="border-b border-gray-700 hover:bg-[#303134]/50">
+                            <tr key={user.id} className="border-b border-gray-700 hover:bg-[#202124]/50">
                                 <td className="px-4 py-3 font-medium text-white">{user.name}</td>
                                 <td className="px-4 py-3 text-gray-300">{user.whatsapp || 'N/A'}</td>
                                 <td className="px-4 py-3">
@@ -148,7 +148,7 @@ export const UsersPage: React.FC = () => {
                         value={search}
                         onChange={e => setSearch(e.target.value)}
                         placeholder="Buscar por nome ou WhatsApp..."
-                        className="w-full bg-[#303134] border border-gray-600/50 text-gray-300 rounded-lg py-2 pl-9 pr-3 text-sm focus:ring-2 focus:ring-fuchsia-500 outline-none"
+                        className="w-full bg-[#202124] border border-gray-600/50 text-gray-300 rounded-lg py-2 pl-9 pr-3 text-sm focus:ring-2 focus:ring-fuchsia-500 outline-none"
                     />
                 </div>
                 {renderContent()}

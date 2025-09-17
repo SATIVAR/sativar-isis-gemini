@@ -64,7 +64,7 @@ export const Modal: React.FC<ModalProps> = ({ title, children, onClose, footer, 
           {children}
         </main>
         {footer && (
-          <footer className="flex-shrink-0 p-4 border-t border-gray-700/50 flex justify-end gap-3 bg-[#303134]/30 rounded-b-xl">
+          <footer className="flex-shrink-0 p-4 border-t border-gray-700/50 flex justify-end gap-3 bg-[#202124]/30 rounded-b-xl">
             {footer}
           </footer>
         )}

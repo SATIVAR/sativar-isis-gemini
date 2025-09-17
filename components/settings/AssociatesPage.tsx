@@ -81,7 +81,7 @@ export const AssociatesPage: React.FC = () => {
         return (
             <div className="overflow-x-auto">
                 <table className="w-full text-sm text-left">
-                    <thead className="text-xs text-gray-400 uppercase bg-[#303134]">
+                    <thead className="text-xs text-gray-400 uppercase bg-[#202124]">
                         <tr>
                             <th scope="col" className="px-4 py-3">Nome Completo</th>
                             <th scope="col" className="px-4 py-3">CPF</th>
@@ -92,7 +92,7 @@ export const AssociatesPage: React.FC = () => {
                     </thead>
                     <tbody>
                         {associates.map(associate => (
-                            <tr key={associate.id} className="border-b border-gray-700 hover:bg-[#303134]/50">
+                            <tr key={associate.id} className="border-b border-gray-700 hover:bg-[#202124]/50">
                                 <td className="px-4 py-3 font-medium text-white">{associate.full_name}</td>
                                 <td className="px-4 py-3 text-gray-300 font-mono">{associate.cpf || 'N/A'}</td>
                                 <td className="px-4 py-3 text-gray-300">{associate.whatsapp || 'N/A'}</td>
@@ -146,7 +146,7 @@ export const AssociatesPage: React.FC = () => {
                         value={search}
                         onChange={e => setSearch(e.target.value)}
                         placeholder="Buscar por nome ou CPF..."
-                        className="w-full bg-[#303134] border border-gray-600/50 text-gray-300 rounded-lg py-2 pl-9 pr-3 text-sm focus:ring-2 focus:ring-fuchsia-500 outline-none"
+                        className="w-full bg-[#202124] border border-gray-600/50 text-gray-300 rounded-lg py-2 pl-9 pr-3 text-sm focus:ring-2 focus:ring-fuchsia-500 outline-none"
                     />
                 </div>
                 {renderContent()}

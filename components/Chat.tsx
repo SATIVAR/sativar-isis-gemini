@@ -46,7 +46,7 @@ const ChatInput: React.FC<ChatInputProps> = ({
 
     return (
         <div className="mx-auto w-full max-w-4xl">
-            <div className="flex items-center gap-2 rounded-xl bg-[#303134] p-2">
+            <div className="flex items-center gap-2 rounded-xl bg-[#202124] p-2">
                 <button
                     onClick={onAttachClick}
                     className="flex h-10 w-10 items-center justify-center rounded-full p-2 transition-colors hover:bg-gray-700 disabled:cursor-not-allowed disabled:opacity-50"
@@ -519,7 +519,7 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({ message, onAction, proces
             <div className={`flex flex-col gap-1 max-w-xl ${isAI ? 'items-start' : 'items-end'}`}>
                 <div className={`group relative rounded-2xl px-4 py-3 shadow-md ${
                     isAI 
-                    ? 'bg-[#303134] rounded-bl-none' 
+                    ? 'bg-[#202124] rounded-bl-none' 
                     : 'bg-brand-primary text-white rounded-br-none'
                 }`}>
                     {canBeCopied && (

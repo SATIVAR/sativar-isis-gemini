@@ -69,7 +69,7 @@ export const SeishatProductsPage: React.FC = () => {
                     Gerencie os produtos manuais. Estes produtos são usados pela IA como catálogo principal para gerar orçamentos.
                 </p>
 
-                <div className="space-y-4 p-6 bg-[#303134]/50 border border-gray-700/50 rounded-lg">
+                <div className="space-y-4 p-6 bg-[#202124]/50 border border-gray-700/50 rounded-lg">
                     <div className="flex justify-between items-center">
                         <h3 className="text-lg font-semibold text-fuchsia-300">Produtos Manuais (Catálogo Principal)</h3>
                         <button type="button" onClick={handleAddProduct} className="flex items-center gap-2 px-3 py-2 bg-green-600 text-sm text-white font-semibold rounded-lg shadow-md hover:bg-green-700 transition-colors">
@@ -86,7 +86,7 @@ export const SeishatProductsPage: React.FC = () => {
                             placeholder="Buscar por nome, preço ou descrição..."
                             value={productSearch}
                             onChange={e => setProductSearch(e.target.value)}
-                            className="w-full bg-[#303134] border border-gray-600/50 text-gray-300 rounded-lg py-2 pl-9 pr-3 text-sm focus:ring-2 focus:ring-fuchsia-500 outline-none"
+                            className="w-full bg-[#202124] border border-gray-600/50 text-gray-300 rounded-lg py-2 pl-9 pr-3 text-sm focus:ring-2 focus:ring-fuchsia-500 outline-none"
                         />
                     </div>
 
@@ -104,7 +104,7 @@ export const SeishatProductsPage: React.FC = () => {
                             <tbody>
                                 {filteredProducts.length > 0 ? (
                                     filteredProducts.map(p => (
-                                    <tr key={p.id} className="border-b border-gray-700 hover:bg-[#303134]">
+                                    <tr key={p.id} className="border-b border-gray-700 hover:bg-[#202124]">
                                             <td className="px-4 py-3 text-gray-400 font-mono text-xs whitespace-nowrap">{p.id}</td>
                                             <td className="px-4 py-3 font-medium text-white">
                                             <div className="flex items-center gap-3">

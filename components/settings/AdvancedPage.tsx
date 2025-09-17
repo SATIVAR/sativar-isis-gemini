@@ -1,6 +1,3 @@
-
-
-
 import React from 'react';
 import { useSettings } from '../../hooks/useSettings.ts';
 import { useReminders } from '../../hooks/useReminders.ts';
@@ -40,7 +37,7 @@ export const AdvancedPage: React.FC = () => {
                 </p>
             </div>
 
-            <div className="space-y-6 p-6 bg-[#303134]/50 border border-gray-700/50 rounded-lg">
+            <div className="space-y-6 p-6 bg-[#202124]/50 border border-gray-700/50 rounded-lg">
                 <div className="flex justify-between items-start">
                     <div className="flex items-center gap-3">
                         <ServerIcon className="w-6 h-6 text-fuchsia-300"/>
