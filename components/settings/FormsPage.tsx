@@ -10,6 +10,7 @@ import { Canvas } from './form-builder/Canvas.tsx';
 import { Palette } from './form-builder/Palette.tsx';
 import { PropertiesPanel } from './form-builder/PropertiesPanel.tsx';
 import { FloatingSaveButton } from './form-builder/FloatingSaveButton.tsx';
+import { useModal } from '../../hooks/useModal.ts';
 
 const associateTypes: { id: AssociateType; label: string }[] = [
     { id: 'paciente', label: 'Paciente' },
@@ -30,6 +31,7 @@ export const FormsPage: React.FC = () => {
     const [error, setError] = useState<string | null>(null);
     const [showSavedToast, setShowSavedToast] = useState(false);
     const [isModalOpen, setIsModalOpen] = useState(false);
+    const modal = useModal();
 
     const hasUnsavedChanges = JSON.stringify(layout) !== JSON.stringify(initialLayout);
     const selectedField = layout.find(f => f.id === selectedFieldId) || null;
@@ -109,6 +111,30 @@ export const FormsPage: React.FC = () => {
         setLayout(prev => prev.map(f => f.id === updatedField.id ? updatedField : f));
     };
 
+    const handleDeleteFieldFromPalette = async (fieldId: number) => {
+        const fieldToDelete = allFields.find(f => f.id === fieldId);
+        if (!fieldToDelete) return;
+
+        const confirmed = await modal.confirm({
+            title: 'Confirmar Exclusão Permanente',
+            message: `Tem certeza que deseja excluir o campo "${fieldToDelete.label}" da paleta? Esta ação é permanente e removerá o campo de TODOS os layouts de formulário.`,
+            confirmLabel: 'Excluir da Paleta',
+            danger: true,
+        });
+
+        if (confirmed) {
+            setIsLoading(true);
+            setError(null);
+            try {
+                await apiClient.delete(`/admin/fields/${fieldId}`);
+                await fetchAllData();
+            } catch (err) {
+                setError(err instanceof Error ? err.message : 'Falha ao excluir o campo.');
+                setIsLoading(false);
+            }
+        }
+    };
+
     return (
         <DndProvider backend={HTML5Backend}>
             {isModalOpen && <FieldEditorModal onClose={() => setIsModalOpen(false)} onSaveSuccess={fetchAllData} />}
@@ -167,7 +193,11 @@ export const FormsPage: React.FC = () => {
                                     onClose={() => setSelectedFieldId(null)}
                                 />
                              ) : (
-                                <Palette allFields={allFields} layout={layout} />
+                                <Palette
+                                    allFields={allFields}
+                                    layout={layout}
+                                    onDeleteField={handleDeleteFieldFromPalette}
+                                />
                              )}
                         </div>
                     </div>

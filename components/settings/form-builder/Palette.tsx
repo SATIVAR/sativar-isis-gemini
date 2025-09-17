@@ -1,45 +1,14 @@
 import React from 'react';
-import { useDrag } from 'react-dnd';
 import type { FormField, FormLayoutField } from '../../../types.ts';
-
-const ItemTypes = {
-    PALETTE_FIELD: 'paletteField',
-};
-
-const PaletteField: React.FC<{ field: FormField }> = ({ field }) => {
-    // FIX: Apply react-dnd drag connector via a ref object to resolve TypeScript error with React 18 types.
-    const dragRef = React.useRef<HTMLDivElement>(null);
-    const [{ isDragging }, drag] = useDrag(() => ({
-        type: ItemTypes.PALETTE_FIELD,
-        item: { type: ItemTypes.PALETTE_FIELD, field },
-        collect: (monitor) => ({
-            isDragging: monitor.isDragging(),
-        }),
-    }));
-    drag(dragRef);
-
-    return (
-        <div
-            ref={dragRef}
-            style={{ opacity: isDragging ? 0.5 : 1 }}
-            className="flex items-center gap-3 p-3 rounded-lg bg-[#303134]/50 border border-gray-700 cursor-grab hover:bg-gray-700/50 hover:border-gray-600 transition-colors"
-        >
-            <div className="flex-grow">
-                <p className="font-medium text-white">{field.label}</p>
-                 <p className="text-xs text-gray-400 font-mono">
-                    {field.field_name} ({field.field_type})
-                </p>
-            </div>
-        </div>
-    );
-};
+import { PaletteField } from './PaletteField.tsx';
 
 interface PaletteProps {
     allFields: FormField[];
     layout: FormLayoutField[];
+    onDeleteField: (id: number) => void;
 }
 
-export const Palette: React.FC<PaletteProps> = ({ allFields, layout }) => {
+export const Palette: React.FC<PaletteProps> = ({ allFields, layout, onDeleteField }) => {
     const availableFields = allFields.filter(
         field => !layout.some(layoutField => layoutField.id === field.id)
     );
@@ -49,7 +18,13 @@ export const Palette: React.FC<PaletteProps> = ({ allFields, layout }) => {
              <h3 className="text-lg font-semibold text-gray-300 px-2">Paleta de Campos</h3>
              <div className="space-y-2 max-h-[50vh] overflow-y-auto pr-2">
                 {availableFields.length > 0 ? (
-                    availableFields.map(field => <PaletteField key={field.id} field={field} />)
+                    availableFields.map(field => (
+                        <PaletteField
+                            key={field.id}
+                            field={field}
+                            onDelete={onDeleteField}
+                        />
+                    ))
                 ) : (
                     <div className="text-center text-gray-500 py-10">
                         <p>Todos os campos disponíveis já estão no formulário.</p>

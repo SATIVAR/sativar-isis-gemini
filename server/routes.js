@@ -632,6 +632,32 @@ router.post('/admin/fields', async (req, res, next) => {
     }
 });
 
+// DELETE /api/admin/fields/:id - Delete a custom field from the catalog
+router.delete('/admin/fields/:id', async (req, res, next) => {
+    const { id } = req.params;
+    try {
+        // First, check if the field is deletable
+        const [field] = await seishatQuery('SELECT is_deletable FROM form_fields WHERE id = ?', [id]);
+
+        if (!field) {
+            return res.status(404).json({ error: 'Campo não encontrado.' });
+        }
+
+        if (!field.is_deletable) {
+            return res.status(403).json({ error: 'Este campo é essencial e não pode ser excluído.' });
+        }
+        
+        // If it is, proceed with deletion. ON DELETE CASCADE will handle form_layouts.
+        await seishatQuery('DELETE FROM form_fields WHERE id = ?', [id]);
+        
+        res.status(204).send();
+    } catch (err) {
+        console.error(chalk.red(`[DELETE /admin/fields/${id}] Error deleting custom field:`), err.message);
+        next(err);
+    }
+});
+
+
 // GET /api/admin/layouts/:type - Get the form layout for an associate type
 router.get('/admin/layouts/:type', async (req, res, next) => {
     const { type } = req.params;
