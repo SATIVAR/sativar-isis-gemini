@@ -31,6 +31,7 @@ import { ApiHistoryPage } from './components/settings/ApiHistoryPage.tsx';
 import { AssociatesPage } from './components/settings/AssociatesPage.tsx';
 import { ApiUsagePage } from './components/settings/ApiUsagePage.tsx';
 import { DashboardPage } from './components/settings/DashboardPage.tsx';
+import { FormsPage } from './components/settings/FormsPage.tsx';
 
 
 export type AppMode = 'isis' | 'seishat';
@@ -45,6 +46,8 @@ export type SeishatPageName =
     | 'products' | 'associates' | 'prescribers' | 'documents' | 'orders' | 'expenses' | 'reports'
     // Isis
     | 'prompt' | 'apiHistory' | 'apiUsage'
+    // Admin
+    | 'forms'
     // Standalone
     | 'advancedSettings';
 
@@ -76,7 +79,7 @@ const NavItem: React.FC<NavItemProps> = ({ pageName, label, icon, activePage, on
     </button>
 );
 
-type AccordionName = 'general' | 'seishat' | 'isis' | 'none';
+type AccordionName = 'general' | 'seishat' | 'isis' | 'admin' | 'none';
 
 const AccordionItem: React.FC<{
   label: string;
@@ -147,6 +150,10 @@ const SeishatSidebar: React.FC<SeishatSidebarProps> = ({ activePage, setActivePa
         { page: 'apiHistory' as SeishatPageName, label: 'Log e Uso da API', icon: <ClockIcon className="w-5 h-5" />, roles: ['admin'], disabled: false },
     ];
 
+    const adminItems = [
+        { page: 'forms' as SeishatPageName, label: 'Formulários', icon: <CheckSquareIcon className="w-5 h-5" />, roles: ['admin'], disabled: false },
+    ];
+
     const handleAccordionClick = (name: AccordionName) => {
       setOpenAccordion(prev => (prev === name ? 'none' : name));
     };
@@ -155,6 +162,7 @@ const SeishatSidebar: React.FC<SeishatSidebarProps> = ({ activePage, setActivePa
     const isGeneralSectionActive = useMemo(() => generalItems.some(item => item.page === activePage), [activePage]);
     const isSeishatSectionActive = useMemo(() => seishatItems.some(item => item.page === activePage), [activePage]);
     const isIsisSectionActive = useMemo(() => isisItems.some(item => item.page === activePage), [activePage]);
+    const isAdminSectionActive = useMemo(() => adminItems.some(item => item.page === activePage), [activePage]);
     const isAdvancedSettingsActive = activePage === 'advancedSettings';
 
     useEffect(() => {
@@ -163,7 +171,8 @@ const SeishatSidebar: React.FC<SeishatSidebarProps> = ({ activePage, setActivePa
         } else if (isGeneralSectionActive) setOpenAccordion('general');
         else if (isSeishatSectionActive) setOpenAccordion('seishat');
         else if (isIsisSectionActive) setOpenAccordion('isis');
-    }, [isGeneralSectionActive, isSeishatSectionActive, isIsisSectionActive, isAdvancedSettingsActive, isDashboardActive]);
+        else if (isAdminSectionActive) setOpenAccordion('admin');
+    }, [isGeneralSectionActive, isSeishatSectionActive, isIsisSectionActive, isAdminSectionActive, isAdvancedSettingsActive, isDashboardActive]);
     
     return (
         <aside className="w-64 flex-shrink-0 bg-[#202124] p-3 flex flex-col font-sans">
@@ -229,6 +238,19 @@ const SeishatSidebar: React.FC<SeishatSidebarProps> = ({ activePage, setActivePa
                                 </button>
                             </div>
                         </div>
+                    </AccordionItem>
+                )}
+                 {userRole === 'admin' && (
+                     <AccordionItem
+                        label="Administração"
+                        icon={<BriefcaseIcon className="w-5 h-5" />}
+                        isOpen={openAccordion === 'admin'}
+                        onClick={() => handleAccordionClick('admin')}
+                        isActiveSection={isAdminSectionActive}
+                    >
+                         {adminItems.filter(i => i.roles.includes(userRole)).map(item => (
+                            <NavItem key={item.page} pageName={item.page} label={item.label} icon={item.icon} disabled={item.disabled} activePage={activePage} onClick={setActivePage} />
+                        ))}
                     </AccordionItem>
                 )}
             </nav>
@@ -308,6 +330,8 @@ const SeishatLayout: React.FC<{ onLogout: () => void; }> = ({ onLogout }) => {
             case 'prompt': return <PromptPage />;
             case 'apiHistory': return <ApiHistoryPage />;
             case 'apiUsage': return <ApiUsagePage />;
+            // Admin
+            case 'forms': return <FormsPage />;
             // Standalone
             case 'advancedSettings': return <AdvancedPage />;
             default: return <DashboardPage />;

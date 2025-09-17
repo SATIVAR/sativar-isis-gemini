@@ -626,5 +626,71 @@ router.delete('/seishat/associates/:id', async (req, res, next) => {
     }
 });
 
+// --- Admin / Forms Routes ---
+
+// GET /api/admin/forms/associates/fields - Get all possible form fields
+router.get('/admin/forms/associates/fields', async (req, res, next) => {
+    try {
+        const fields = await seishatQuery('SELECT * FROM form_fields ORDER BY is_base_field DESC, label ASC');
+        res.json(fields);
+    } catch (err) {
+        console.error(chalk.red(`[${req.method} ${req.originalUrl}] Error fetching form fields:`), err.message);
+        next(err);
+    }
+});
+
+// GET /api/admin/forms/associates/config/:type - Get active fields for an associate type
+router.get('/admin/forms/associates/config/:type', async (req, res, next) => {
+    const { type } = req.params;
+    try {
+        const config = await seishatQuery('SELECT field_id FROM associate_type_form_config WHERE associate_type = ?', [type]);
+        const fieldIds = config.map(c => c.field_id);
+        res.json(fieldIds);
+    } catch (err) {
+        console.error(chalk.red(`[${req.method} ${req.originalUrl}] Error fetching form config for type ${type}:`), err.message);
+        next(err);
+    }
+});
+
+// POST /api/admin/forms/associates/config/:type - Save active fields for an associate type
+router.post('/admin/forms/associates/config/:type', async (req, res, next) => {
+    const { type } = req.params;
+    const { fieldIds } = req.body;
+
+    if (!Array.isArray(fieldIds)) {
+        return res.status(400).json({ error: 'fieldIds must be an array.' });
+    }
+
+    const db = getSeishatDb();
+    
+    try {
+        if (db.constructor.name === 'Database') { // better-sqlite3
+            const runTransaction = db.transaction(() => {
+                db.prepare('DELETE FROM associate_type_form_config WHERE associate_type = ?').run(type);
+                const insert = db.prepare('INSERT INTO associate_type_form_config (associate_type, field_id) VALUES (?, ?)');
+                for (const fieldId of fieldIds) {
+                    insert.run(type, fieldId);
+                }
+            });
+            runTransaction();
+        } else { // mysql2
+            const conn = await db.getConnection();
+            await conn.beginTransaction();
+            await conn.query('DELETE FROM associate_type_form_config WHERE associate_type = ?', [type]);
+            if (fieldIds.length > 0) {
+                const values = fieldIds.map(id => [type, id]);
+                await conn.query('INSERT INTO associate_type_form_config (associate_type, field_id) VALUES ?', [values]);
+            }
+            await conn.commit();
+            conn.release();
+        }
+        res.status(200).json({ success: true, message: `Configuration for ${type} saved.` });
+    } catch (err) {
+        console.error(chalk.red(`[${req.method} ${req.originalUrl}] Error saving form config for type ${type}:`), err.message);
+        next(err);
+    }
+});
+
+
 
 module.exports = router;

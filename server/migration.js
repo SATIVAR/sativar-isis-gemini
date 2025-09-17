@@ -1,3 +1,4 @@
+
 // server/migration.js
 const { getDb } = require('./db');
 const { getChatDb } = require('./chatDb');
@@ -140,6 +141,23 @@ CREATE TABLE IF NOT EXISTS associates (
   updated_at TEXT DEFAULT (datetime('now', 'localtime'))
 );
 
+CREATE TABLE IF NOT EXISTS form_fields (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    field_name TEXT NOT NULL UNIQUE,
+    label TEXT NOT NULL,
+    field_type TEXT NOT NULL CHECK(field_type IN ('text', 'email', 'select', 'password')),
+    is_base_field INTEGER NOT NULL DEFAULT 0,
+    options TEXT
+);
+
+CREATE TABLE IF NOT EXISTS associate_type_form_config (
+    associate_type TEXT NOT NULL,
+    field_id INTEGER NOT NULL,
+    PRIMARY KEY (associate_type, field_id),
+    FOREIGN KEY (field_id) REFERENCES form_fields(id) ON DELETE CASCADE
+);
+
+
 CREATE TRIGGER IF NOT EXISTS products_update_trigger
 AFTER UPDATE ON products
 FOR EACH ROW
@@ -157,6 +175,14 @@ END;
 CREATE INDEX IF NOT EXISTS idx_products_name ON products(name);
 CREATE INDEX IF NOT EXISTS idx_associates_full_name ON associates(full_name);
 CREATE INDEX IF NOT EXISTS idx_associates_cpf ON associates(cpf);
+
+-- Pre-populate form_fields
+INSERT OR IGNORE INTO form_fields (id, field_name, label, field_type, is_base_field) VALUES
+(1, 'full_name', 'Nome Completo', 'text', 1),
+(2, 'password', 'Senha', 'password', 1),
+(3, 'type', 'Tipo de Associado', 'select', 1),
+(4, 'cpf', 'CPF', 'text', 0),
+(5, 'whatsapp', 'WhatsApp', 'text', 0);
 `;
 
 const SEISHAT_DB_MIGRATION_MYSQL = `
@@ -181,6 +207,22 @@ CREATE TABLE IF NOT EXISTS associates (
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
 
+CREATE TABLE IF NOT EXISTS form_fields (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  field_name VARCHAR(255) NOT NULL UNIQUE,
+  label VARCHAR(255) NOT NULL,
+  field_type ENUM('text', 'email', 'select', 'password') NOT NULL,
+  is_base_field BOOLEAN NOT NULL DEFAULT FALSE,
+  options TEXT
+);
+
+CREATE TABLE IF NOT EXISTS associate_type_form_config (
+  associate_type VARCHAR(255) NOT NULL,
+  field_id INT NOT NULL,
+  PRIMARY KEY (associate_type, field_id),
+  FOREIGN KEY (field_id) REFERENCES form_fields(id) ON DELETE CASCADE
+);
+
 CREATE INDEX idx_products_name ON products(name);
 CREATE INDEX idx_associates_full_name ON associates(full_name);
 `;
@@ -203,6 +245,19 @@ const runSeishatMysqlMigration = async (pool) => {
                 }
             }
         }
+        
+        // Populate form_fields for MySQL
+        const populateSql = `
+            INSERT INTO form_fields (id, field_name, label, field_type, is_base_field) VALUES
+            (1, 'full_name', 'Nome Completo', 'text', 1),
+            (2, 'password', 'Senha', 'password', 1),
+            (3, 'type', 'Tipo de Associado', 'select', 1),
+            (4, 'cpf', 'CPF', 'text', 0),
+            (5, 'whatsapp', 'WhatsApp', 'text', 0)
+            ON DUPLICATE KEY UPDATE label=VALUES(label);
+        `;
+        await connection.query(populateSql);
+
         console.log(chalk.magenta('✅ SEISHAT MySQL migration completed successfully.'));
     } finally {
         connection.release();

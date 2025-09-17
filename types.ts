@@ -1,3 +1,4 @@
+
 import type { GoogleGenAI } from '@google/genai';
 
 // From services/geminiService.ts and components/Chat.tsx
@@ -162,6 +163,18 @@ export interface Associate {
   type: AssociateType;
   // Password is not stored on the client
 }
+
+// From Seishat Forms Feature
+export interface FormField {
+    id: number;
+    field_name: string;
+    label: string;
+    field_type: 'text' | 'email' | 'select' | 'password';
+    is_base_field: boolean | number; // SQLite returns 0/1 for booleans
+    options?: string; // JSON string for select options
+}
+
+export type FormConfig = string[]; // Array of field_name strings
 
 
 // FIX: Add Vite client types to fix import.meta.env errors across the application.
