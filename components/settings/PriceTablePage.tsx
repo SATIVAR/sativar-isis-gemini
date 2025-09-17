@@ -161,7 +161,7 @@ export const PriceTablePage: React.FC = () => {
 
                 <div className="overflow-x-auto">
                     <table className="w-full text-sm text-left">
-                        <thead className="text-xs text-gray-400 uppercase bg-[#202124]">
+                        <thead className="text-xs text-gray-400 uppercase bg-[#303134]">
                             <tr>
                                 <SortableHeader sortKey="name">Produto</SortableHeader>
                                 <SortableHeader sortKey="price">Preço (R$)</SortableHeader>

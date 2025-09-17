@@ -81,7 +81,7 @@ export const AssociatesPage: React.FC = () => {
         return (
             <div className="overflow-x-auto">
                 <table className="w-full text-sm text-left">
-                    <thead className="text-xs text-gray-400 uppercase bg-[#202124]">
+                    <thead className="text-xs text-gray-400 uppercase bg-[#303134]">
                         <tr>
                             <th scope="col" className="px-4 py-3">Nome Completo</th>
                             <th scope="col" className="px-4 py-3">CPF</th>
