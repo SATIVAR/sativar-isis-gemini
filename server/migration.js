@@ -159,6 +159,47 @@ CREATE INDEX IF NOT EXISTS idx_associates_full_name ON associates(full_name);
 CREATE INDEX IF NOT EXISTS idx_associates_cpf ON associates(cpf);
 `;
 
+const SEISHAT_DB_MIGRATION_MYSQL = `
+CREATE TABLE IF NOT EXISTS products (
+  id VARCHAR(36) PRIMARY KEY,
+  name VARCHAR(255) NOT NULL,
+  price VARCHAR(255) NOT NULL,
+  description TEXT,
+  icon VARCHAR(255),
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS associates (
+  id VARCHAR(36) PRIMARY KEY,
+  full_name VARCHAR(255) NOT NULL,
+  cpf VARCHAR(14) UNIQUE,
+  whatsapp VARCHAR(255),
+  password VARCHAR(255) NOT NULL,
+  type ENUM('paciente', 'responsavel', 'tutor', 'colaborador') NOT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_products_name ON products(name);
+CREATE INDEX idx_associates_full_name ON associates(full_name);
+CREATE INDEX idx_associates_cpf ON associates(cpf);
+`;
+
+const runSeishatMysqlMigration = async (pool) => {
+    const connection = await pool.getConnection();
+    try {
+        console.log(chalk.magenta('[Migration] Running SEISHAT database migrations for MySQL...'));
+        const statements = SEISHAT_DB_MIGRATION_MYSQL.split(';').filter(s => s.trim().length > 0);
+        for (const statement of statements) {
+            await connection.query(statement);
+        }
+        console.log(chalk.magenta('✅ SEISHAT MySQL migration completed successfully.'));
+    } finally {
+        connection.release();
+    }
+};
+
 
 const runMigrations = async () => {
   try {
@@ -189,4 +230,4 @@ const runMigrations = async () => {
   }
 };
 
-module.exports = { runMigrations };
+module.exports = { runMigrations, runSeishatMysqlMigration };

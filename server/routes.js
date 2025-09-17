@@ -4,7 +4,9 @@ const express = require('express');
 const { query } = require('./db');
 const { chatQuery, getChatDb } = require('./chatDb');
 const { userQuery } = require('./userDb');
-const { seishatQuery, getSeishatDb } = require('./seishatDb');
+const { seishatQuery, switchToMysql } = require('./seishatDb');
+const { runSeishatMysqlMigration } = require('./migration');
+const mysql = require('mysql2/promise');
 const router = express.Router();
 const chalk = require('chalk');
 
@@ -55,24 +57,38 @@ router.get('/settings', async (req, res, next) => {
 // POST /api/settings
 router.post('/settings', async (req, res, next) => {
   const { products, ...settingsData } = req.body;
+  // Exclude DB mode from being overwritten by general save
+  delete settingsData.seishat_database_mode;
   const settingsDataToStore = JSON.stringify(settingsData);
   
-  const seishatDb = getSeishatDb();
+  const seishatDbConnection = getSeishatDb();
 
   try {
-    // Transaction for saving products to the Seishat DB
-    const saveProducts = seishatDb.transaction((productList) => {
-        seishatDb.prepare('DELETE FROM products').run();
-        if (productList && productList.length > 0) {
-            const insert = seishatDb.prepare('INSERT INTO products (id, name, price, description, icon) VALUES (@id, @name, @price, @description, @icon)');
-            for (const product of productList) {
-                // The frontend can send products without an ID if they are new.
-                const id = product.id ?? crypto.randomUUID();
-                insert.run({ ...product, id });
+    // Handling product saves needs to be bilingual
+    if (seishatDbConnection.constructor.name === 'Database') { // better-sqlite3
+        const saveProducts = seishatDbConnection.transaction((productList) => {
+            seishatDbConnection.prepare('DELETE FROM products').run();
+            if (productList && productList.length > 0) {
+                const insert = seishatDbConnection.prepare('INSERT INTO products (id, name, price, description, icon) VALUES (@id, @name, @price, @description, @icon)');
+                for (const product of productList) {
+                    const id = product.id ?? crypto.randomUUID();
+                    insert.run({ ...product, id });
+                }
             }
+        });
+        saveProducts(products);
+    } else { // mysql2
+        const conn = await seishatDbConnection.getConnection();
+        await conn.beginTransaction();
+        await conn.query('DELETE FROM products');
+        if (products && products.length > 0) {
+            const insertQuery = 'INSERT INTO products (id, name, price, description, icon) VALUES ?';
+            const values = products.map(p => [p.id ?? crypto.randomUUID(), p.name, p.price, p.description, p.icon]);
+            if (values.length > 0) await conn.query(insertQuery, [values]);
         }
-    });
-    saveProducts(products);
+        await conn.commit();
+        conn.release();
+    }
 
     // Save the rest of the settings to the main DB
     const settingsRows = await query('SELECT id FROM settings WHERE id = 1');
@@ -87,6 +103,85 @@ router.post('/settings', async (req, res, next) => {
     console.error(chalk.red(`[${req.method} ${req.originalUrl}] Error saving settings:`), err.message);
     next(err);
   }
+});
+
+// GET /api/settings/seishat/db-mode
+router.get('/settings/seishat/db-mode', async (req, res, next) => {
+    try {
+        const settingsRows = await query('SELECT data FROM settings WHERE id = 1');
+        let settings = {};
+        if (settingsRows.length > 0 && settingsRows[0].data) {
+            settings = JSON.parse(settingsRows[0].data);
+        }
+        res.json({ mode: settings.seishat_database_mode || 'sqlite' });
+    } catch (err) {
+        console.error(chalk.red(`[GET /settings/seishat/db-mode] Error fetching db mode:`), err.message);
+        next(err);
+    }
+});
+
+// POST /api/settings/seishat/test-mysql
+router.post('/settings/seishat/test-mysql', async (req, res, next) => {
+    let connection;
+    try {
+        if (!process.env.DB_HOST) {
+            throw new Error("Variáveis de ambiente do MySQL não configuradas no servidor.");
+        }
+        connection = await mysql.createConnection({
+            host: process.env.DB_HOST,
+            user: process.env.DB_USER,
+            password: process.env.DB_PASSWORD,
+            database: process.env.DB_DATABASE,
+        });
+        await connection.ping();
+        res.json({ success: true, message: 'Conexão com MySQL bem-sucedida!' });
+    } catch (err) {
+        console.error(chalk.red(`[POST /settings/seishat/test-mysql] Error testing MySQL connection:`), err.message);
+        res.status(500).json({ success: false, message: `Falha na conexão com o MySQL: ${err.message}` });
+    } finally {
+        if (connection) await connection.end();
+    }
+});
+
+// POST /api/settings/seishat/activate-mysql
+router.post('/settings/seishat/activate-mysql', async (req, res, next) => {
+    let pool;
+    try {
+        // 1. Test connection again
+        if (!process.env.DB_HOST) throw new Error("Variáveis de ambiente do MySQL não configuradas no servidor.");
+        
+        pool = mysql.createPool({
+            host: process.env.DB_HOST,
+            user: process.env.DB_USER,
+            password: process.env.DB_PASSWORD,
+            database: process.env.DB_DATABASE,
+            connectionLimit: 1
+        });
+        await pool.query('SELECT 1');
+
+        // 2. Run migrations
+        await runSeishatMysqlMigration(pool);
+        await pool.end();
+
+        // 3. Update main settings
+        const settingsRows = await query('SELECT data FROM settings WHERE id = 1');
+        let settings = {};
+        if (settingsRows.length > 0 && settingsRows[0].data) {
+            settings = JSON.parse(settingsRows[0].data);
+        }
+        settings.seishat_database_mode = 'mysql';
+        await query('UPDATE settings SET data = ? WHERE id = 1', [JSON.stringify(settings)]);
+
+        // 4. Tell the seishatDb module to switch
+        await switchToMysql();
+
+        res.json({ success: true, message: 'Banco de dados MySQL ativado e configurado com sucesso!' });
+
+    } catch (err) {
+        if (pool) await pool.end();
+        console.error(chalk.red(`[POST /settings/seishat/activate-mysql] Error activating MySQL:`), err.message);
+        res.status(500).json({ success: false, message: `Falha ao ativar o MySQL: ${err.message}` });
+    }
 });
 
 
@@ -489,7 +584,7 @@ router.post('/seishat/associates', async (req, res, next) => {
         await seishatQuery('INSERT INTO associates (id, full_name, cpf, whatsapp, password, type) VALUES (?, ?, ?, ?, ?, ?)', [newAssociateId, full_name, cpf, whatsapp, password, type]);
         res.status(201).json({ id: newAssociateId, full_name, cpf, whatsapp, type });
     } catch (err) {
-        if (err.code === 'SQLITE_CONSTRAINT_UNIQUE') {
+        if (err.code === 'SQLITE_CONSTRAINT_UNIQUE' || (err.code && err.code.includes('ER_DUP_ENTRY'))) {
             return res.status(409).json({ error: 'An associate with this CPF already exists.' });
         }
         console.error(chalk.red(`[${req.method} ${req.originalUrl}] Error creating associate:`), err.message);
@@ -512,7 +607,7 @@ router.put('/seishat/associates/:id', async (req, res, next) => {
         }
         res.status(200).json({ id, full_name, cpf, whatsapp, type });
     } catch (err) {
-        if (err.code === 'SQLITE_CONSTRAINT_UNIQUE') {
+        if (err.code === 'SQLITE_CONSTRAINT_UNIQUE' || (err.code && err.code.includes('ER_DUP_ENTRY'))) {
             return res.status(409).json({ error: 'An associate with this CPF already exists.' });
         }
         console.error(chalk.red(`[${req.method} ${req.originalUrl}] Error updating associate:`), err.message);
