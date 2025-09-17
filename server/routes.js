@@ -1,5 +1,4 @@
 
-
 const express = require('express');
 const { query } = require('./db');
 const { chatQuery, getChatDb } = require('./chatDb');
@@ -131,7 +130,7 @@ router.post('/settings/seishat/test-mysql', async (req, res, next) => {
             host: process.env.DB_HOST,
             user: process.env.DB_USER,
             password: process.env.DB_PASSWORD,
-            database: process.env.DB_DATABASE,
+            database: process.env.DB_DATABASE || process.env.DB_NAME,
         });
         await connection.ping();
         res.json({ success: true, message: 'Conexão com MySQL bem-sucedida!' });
@@ -154,7 +153,7 @@ router.post('/settings/seishat/activate-mysql', async (req, res, next) => {
             host: process.env.DB_HOST,
             user: process.env.DB_USER,
             password: process.env.DB_PASSWORD,
-            database: process.env.DB_DATABASE,
+            database: process.env.DB_DATABASE || process.env.DB_NAME,
             connectionLimit: 1
         });
         await pool.query('SELECT 1');

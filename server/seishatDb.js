@@ -1,3 +1,4 @@
+
 // server/seishatDb.js
 const Database = require('better-sqlite3');
 const mysql = require('mysql2/promise');
@@ -41,7 +42,7 @@ const initializeMysql = async () => {
                 host: process.env.DB_HOST,
                 user: process.env.DB_USER,
                 password: process.env.DB_PASSWORD,
-                database: process.env.DB_DATABASE,
+                database: process.env.DB_DATABASE || process.env.DB_NAME,
                 waitForConnections: true,
                 connectionLimit: 10,
                 queueLimit: 0
@@ -69,7 +70,7 @@ const initializeSeishatDatabase = async () => {
 
         if (dbMode === 'mysql') {
             await initializeMysql();
-            console.log(chalk.magenta.bold(`✅ SEISHAT module connected to MySQL database: ${process.env.DB_DATABASE}`));
+            console.log(chalk.magenta.bold(`✅ SEISHAT module connected to MySQL database: ${process.env.DB_DATABASE || process.env.DB_NAME}`));
         } else {
             initializeSqlite();
             console.log(chalk.magenta.bold(`✅ SEISHAT module connected to SQLite database at ${sqliteDbPath}`));
