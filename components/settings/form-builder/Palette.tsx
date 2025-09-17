@@ -12,15 +12,18 @@ interface PaletteProps {
 }
 
 const StepSeparatorPaletteItem = () => {
+    // FIX: Correctly connect the drag source to a ref to resolve the TypeScript error.
+    const dragRef = React.useRef<HTMLDivElement>(null);
     const [{ isDragging }, drag] = useDrag(() => ({
         type: ItemTypes.STEP_SEPARATOR,
         item: { type: ItemTypes.STEP_SEPARATOR },
         collect: (monitor) => ({ isDragging: monitor.isDragging() }),
     }));
+    drag(dragRef);
 
     return (
         <div
-            ref={drag}
+            ref={dragRef}
             style={{ opacity: isDragging ? 0.5 : 1 }}
             className="flex items-center gap-3 p-3 rounded-lg bg-fuchsia-900/40 border border-fuchsia-600/50 cursor-grab hover:bg-fuchsia-900/60 transition-colors"
         >

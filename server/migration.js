@@ -148,7 +148,7 @@ CREATE TABLE IF NOT EXISTS form_fields (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     field_name TEXT NOT NULL UNIQUE,
     label TEXT NOT NULL,
-    field_type TEXT NOT NULL CHECK(field_type IN ('text', 'email', 'select', 'password', 'textarea', 'checkbox', 'radio')),
+    field_type TEXT NOT NULL CHECK(field_type IN ('text', 'email', 'select', 'password', 'textarea', 'checkbox', 'radio', 'separator')),
     is_base_field INTEGER NOT NULL DEFAULT 0,
     is_deletable INTEGER NOT NULL DEFAULT 0,
     options TEXT
@@ -226,7 +226,7 @@ CREATE TABLE IF NOT EXISTS form_fields (
   id INT AUTO_INCREMENT PRIMARY KEY,
   field_name VARCHAR(255) NOT NULL UNIQUE,
   label VARCHAR(255) NOT NULL,
-  field_type ENUM('text', 'email', 'select', 'password', 'textarea', 'checkbox', 'radio') NOT NULL,
+  field_type ENUM('text', 'email', 'select', 'password', 'textarea', 'checkbox', 'radio', 'separator') NOT NULL,
   is_base_field BOOLEAN NOT NULL DEFAULT FALSE,
   is_deletable BOOLEAN NOT NULL DEFAULT FALSE,
   options TEXT

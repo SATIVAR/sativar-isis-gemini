@@ -1,4 +1,3 @@
-
 # SATIVAR-ISIS Backend Server
 
 This directory contains the Node.js/Express backend for the SATIVAR-ISIS application. Its primary responsibilities are:
@@ -62,7 +61,11 @@ If you wish to use MySQL for the Seishat module, you must perform these steps *b
 2.  Create a database (e.g., `sativar_seishat_db`).
 3.  Create a user with privileges for that database.
 4.  Update your `server/.env` file with the correct credentials.
-5.  Connect to your new database and run the following SQL script to create the necessary tables for the Seishat module:
+5.  Connect to your new database and run the following SQL script.
+
+    **🚨 ATENÇÃO: SCHEMA ATUALIZADO 🚨**
+
+    Se você já possui um banco de dados MySQL de uma versão anterior, **você deve executar este script completo novamente**. Ele foi atualizado para incluir as novas tabelas (`form_fields`, `form_steps`, `form_layout_fields`) necessárias para o **Construtor de Formulários**. Os comandos `CREATE TABLE IF NOT EXISTS` e `INSERT ... ON DUPLICATE KEY UPDATE` garantirão que sua estrutura seja atualizada sem perda de dados nas tabelas existentes.
 
 ```sql
 -- Creates the 'products' table for the Seishat CRM module.
@@ -88,18 +91,20 @@ CREATE TABLE IF NOT EXISTS associates (
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
 
--- NEW: Table for the central catalog of all possible form fields.
+-- Table for the central catalog of all possible form fields.
+-- This table is part of the new Form Builder feature.
 CREATE TABLE IF NOT EXISTS form_fields (
   id INT AUTO_INCREMENT PRIMARY KEY,
   field_name VARCHAR(255) NOT NULL UNIQUE,
   label VARCHAR(255) NOT NULL,
-  field_type ENUM('text', 'email', 'select', 'password', 'textarea', 'checkbox', 'radio') NOT NULL,
+  field_type ENUM('text', 'email', 'select', 'password', 'textarea', 'checkbox', 'radio', 'separator') NOT NULL,
   is_base_field BOOLEAN NOT NULL DEFAULT FALSE,
   is_deletable BOOLEAN NOT NULL DEFAULT FALSE,
   options TEXT -- For select/radio fields, store as JSON string
 );
 
--- NEW: Table for the steps/pages within a form.
+-- Table for the steps/pages within a form.
+-- This table is part of the new Form Builder feature.
 CREATE TABLE IF NOT EXISTS form_steps (
   id INT AUTO_INCREMENT PRIMARY KEY,
   associate_type VARCHAR(255) NOT NULL,
@@ -107,7 +112,8 @@ CREATE TABLE IF NOT EXISTS form_steps (
   step_order INT NOT NULL
 );
 
--- NEW: Table that links fields to steps to define a form's layout.
+-- Table that links fields to steps to define a form's layout.
+-- This table is part of the new Form Builder feature.
 CREATE TABLE IF NOT EXISTS form_layout_fields (
   id INT AUTO_INCREMENT PRIMARY KEY,
   step_id INT NOT NULL,
@@ -119,13 +125,13 @@ CREATE TABLE IF NOT EXISTS form_layout_fields (
 );
 
 -- Adds indexes for better performance.
-CREATE INDEX idx_products_name ON products(name);
-CREATE INDEX idx_associates_full_name ON associates(full_name);
-CREATE INDEX idx_associates_cpf ON associates(cpf);
-CREATE INDEX idx_form_steps_associate_type ON form_steps(associate_type);
-CREATE INDEX idx_form_layout_fields_step_id ON form_layout_fields(step_id);
+CREATE INDEX IF NOT EXISTS idx_products_name ON products(name);
+CREATE INDEX IF NOT EXISTS idx_associates_full_name ON associates(full_name);
+CREATE INDEX IF NOT EXISTS idx_associates_cpf ON associates(cpf);
+CREATE INDEX IF NOT EXISTS idx_form_steps_associate_type ON form_steps(associate_type);
+CREATE INDEX IF NOT EXISTS idx_form_layout_fields_step_id ON form_layout_fields(step_id);
 
--- NEW: Pre-populates the 'form_fields' table with core, non-deletable fields.
+-- Pre-populates the 'form_fields' table with core, non-deletable fields.
 -- This ensures the application starts with a functional base configuration.
 INSERT INTO form_fields (id, field_name, label, field_type, is_base_field, is_deletable, options) VALUES
 (1, 'full_name', 'Nome Completo', 'text', TRUE, FALSE, NULL),
