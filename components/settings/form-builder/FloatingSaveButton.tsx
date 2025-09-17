@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { CheckSquareIcon, CheckCircleIcon } from '../../icons.tsx';
 import { Loader } from '../../Loader.tsx';
@@ -22,7 +21,7 @@ export const FloatingSaveButton: React.FC<FloatingSaveButtonProps> = ({
         }`}
     >
         <div className="relative">
-            {hasUnsavedChanges && (
+            {hasUnsavedChanges && !showSavedToast && (
                 <button
                     onClick={onSave}
                     disabled={isSaving}

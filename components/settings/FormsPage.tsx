@@ -1,10 +1,10 @@
-
 import React, { useState, useEffect, useCallback } from 'react';
+import { DndProvider } from 'react-dnd';
+import { HTML5Backend } from 'react-dnd-html5-backend';
 import { CheckSquareIcon, PlusCircleIcon } from '../icons.tsx';
 import { Loader } from '../Loader.tsx';
 import { apiClient } from '../../services/database/apiClient.ts';
 import type { FormField, AssociateType, FormLayoutField } from '../../types.ts';
-import { useModal } from '../../hooks/useModal.ts';
 import { FieldEditorModal } from './form-builder/FieldEditorModal.tsx';
 import { Canvas } from './form-builder/Canvas.tsx';
 import { Palette } from './form-builder/Palette.tsx';
@@ -30,8 +30,6 @@ export const FormsPage: React.FC = () => {
     const [error, setError] = useState<string | null>(null);
     const [showSavedToast, setShowSavedToast] = useState(false);
     const [isModalOpen, setIsModalOpen] = useState(false);
-    
-    const modal = useModal();
 
     const hasUnsavedChanges = JSON.stringify(layout) !== JSON.stringify(initialLayout);
     const selectedField = layout.find(f => f.id === selectedFieldId) || null;
@@ -91,14 +89,14 @@ export const FormsPage: React.FC = () => {
         setLayout(prev => [...prev, newFieldInLayout]);
     };
 
-    const handleFieldReorder = (dragIndex: number, hoverIndex: number) => {
+    const handleFieldReorder = useCallback((dragIndex: number, hoverIndex: number) => {
         setLayout(prev => {
             const newLayout = [...prev];
             const [draggedItem] = newLayout.splice(dragIndex, 1);
             newLayout.splice(hoverIndex, 0, draggedItem);
-            return newLayout.map((f, i) => ({ ...f, display_order: i }));
+            return newLayout;
         });
-    };
+    }, []);
     
     const handleRemoveField = (fieldId: number) => {
         setLayout(prev => prev.filter(f => f.id !== fieldId));
@@ -112,9 +110,9 @@ export const FormsPage: React.FC = () => {
     };
 
     return (
-        <>
+        <DndProvider backend={HTML5Backend}>
             {isModalOpen && <FieldEditorModal onClose={() => setIsModalOpen(false)} onSaveSuccess={fetchAllData} />}
-            <div className="max-w-6xl mx-auto p-4 md:p-6 lg:p-8">
+            <div className="max-w-7xl mx-auto">
                 <div className="flex flex-col sm:flex-row justify-between sm:items-start gap-4 mb-6">
                     <div>
                         <div className="flex items-center gap-4 mb-2">
@@ -181,6 +179,6 @@ export const FormsPage: React.FC = () => {
                 showSavedToast={showSavedToast}
                 onSave={handleSaveLayout}
             />
-        </>
+        </DndProvider>
     );
 };

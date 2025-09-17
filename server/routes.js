@@ -1,5 +1,3 @@
-
-
 const express = require('express');
 const { query } = require('./db');
 const { chatQuery, getChatDb } = require('./chatDb');
@@ -612,13 +610,22 @@ router.post('/admin/fields', async (req, res, next) => {
     const field_name = slugify(label) + `_${Date.now()}`;
 
     try {
-        const result = await seishatQuery(
-            'INSERT INTO form_fields (field_name, label, field_type, options, is_core_field, is_deletable) VALUES (?, ?, ?, ?, 0, 1)',
-            [field_name, label, field_type, options ? JSON.stringify(options) : null]
-        );
-        const insertId = result.insertId || result.lastInsertRowid;
-        const [newField] = await seishatQuery('SELECT * FROM form_fields WHERE id = ?', [insertId]);
-        res.status(201).json(newField);
+        const db = getSeishatDb();
+        if (db.constructor.name === 'Database') { // better-sqlite3
+            const result = await seishatQuery(
+                'INSERT INTO form_fields (field_name, label, field_type, options, is_core_field, is_deletable) VALUES (?, ?, ?, ?, 0, 1)',
+                [field_name, label, field_type, options ? JSON.stringify(options) : null]
+            );
+            const [newField] = await seishatQuery('SELECT * FROM form_fields WHERE id = ?', [result.lastInsertRowid]);
+            res.status(201).json(newField);
+        } else { // mysql2
+            const result = await seishatQuery(
+                'INSERT INTO form_fields (field_name, label, field_type, options, is_core_field, is_deletable) VALUES (?, ?, ?, ?, 0, 1)',
+                [field_name, label, field_type, options ? JSON.stringify(options) : null]
+            );
+            const [newField] = await seishatQuery('SELECT * FROM form_fields WHERE id = ?', [result.insertId]);
+            res.status(201).json(newField);
+        }
     } catch (err) {
         console.error(chalk.red(`[${req.method} ${req.originalUrl}] Error creating custom field:`), err.message);
         next(err);
@@ -634,18 +641,38 @@ router.get('/admin/layouts/:type', async (req, res, next) => {
                 ff.id, ff.field_name, ff.label, ff.field_type, ff.options, ff.is_core_field, ff.is_deletable,
                 fl.display_order,
                 fl.is_required
-            FROM form_layouts fl
-            JOIN form_fields ff ON fl.field_id = ff.id
-            WHERE fl.associate_type = ?
-            ORDER BY fl.display_order ASC
+            FROM form_fields ff
+            LEFT JOIN form_layouts fl ON ff.id = fl.field_id AND fl.associate_type = ?
+            WHERE fl.associate_type = ? OR ff.is_core_field = 1
+            ORDER BY fl.display_order ASC, ff.id ASC
         `;
-        const layout = await seishatQuery(sql, [type]);
-        res.json(layout);
+
+        // This query is more complex now to handle core fields that might not be in the layout table yet.
+        const allFieldsForType = await seishatQuery(sql, [type, type]);
+        
+        // Post-processing to ensure all core fields are present and handle null orders/requirements
+        const coreFields = allFieldsForType.filter(f => f.is_core_field);
+        let layoutFields = allFieldsForType.filter(f => f.display_order !== null);
+        
+        coreFields.forEach(coreField => {
+            if (!layoutFields.some(lf => lf.id === coreField.id)) {
+                 layoutFields.push({
+                    ...coreField,
+                    display_order: -1, // Will be sorted to the top
+                    is_required: 1, // Core fields are always required
+                });
+            }
+        });
+
+        layoutFields.sort((a,b) => a.display_order - b.display_order);
+
+        res.json(layoutFields);
     } catch (err) {
         console.error(chalk.red(`[${req.method} ${req.originalUrl}] Error fetching form layout for type ${type}:`), err.message);
         next(err);
     }
 });
+
 
 // PUT /api/admin/layouts/:type - Save the entire layout for an associate type
 router.put('/admin/layouts/:type', async (req, res, next) => {
@@ -662,9 +689,11 @@ router.put('/admin/layouts/:type', async (req, res, next) => {
         if (db.constructor.name === 'Database') { // better-sqlite3
             const runTransaction = db.transaction(() => {
                 db.prepare('DELETE FROM form_layouts WHERE associate_type = ?').run(type);
-                const insert = db.prepare('INSERT INTO form_layouts (associate_type, field_id, display_order, is_required) VALUES (?, ?, ?, ?)');
-                for (const field of layout) {
-                    insert.run(type, field.field_id, field.display_order, field.is_required ? 1 : 0);
+                if (layout.length > 0) {
+                    const insert = db.prepare('INSERT INTO form_layouts (associate_type, field_id, display_order, is_required) VALUES (?, ?, ?, ?)');
+                    for (const field of layout) {
+                        insert.run(type, field.field_id, field.display_order, field.is_required ? 1 : 0);
+                    }
                 }
             });
             runTransaction();
@@ -685,5 +714,6 @@ router.put('/admin/layouts/:type', async (req, res, next) => {
         next(err);
     }
 });
+
 
 module.exports = router;

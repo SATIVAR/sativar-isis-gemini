@@ -1,6 +1,5 @@
-
 import React, { useState } from 'react';
-import { apiClient } from '../../services/database/apiClient.ts';
+import { apiClient } from '../../../services/database/apiClient.ts';
 import type { FormField, FormFieldType } from '../../../types.ts';
 import { Modal } from '../../Modal.tsx';
 import { PlusCircleIcon } from '../../icons.tsx';
@@ -62,9 +61,7 @@ export const FieldEditorModal: React.FC<FieldEditorModalProps> = ({ field, onClo
 
         try {
             if (isEditing) {
-                // await apiClient.put(`/admin/fields/${field.id}`, fieldData);
-                // NOTE: Editing existing fields is not part of the current spec to avoid complexity.
-                // This can be added later. For now, we only support creation.
+                // Editing existing fields is not part of the current spec to avoid complexity.
             } else {
                 await apiClient.post('/admin/fields', fieldData);
             }

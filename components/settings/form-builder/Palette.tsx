@@ -1,18 +1,24 @@
-
 import React from 'react';
+import { useDrag } from 'react-dnd';
 import type { FormField, FormLayoutField } from '../../../types.ts';
 
+const ItemTypes = {
+    PALETTE_FIELD: 'paletteField',
+};
+
 const PaletteField: React.FC<{ field: FormField }> = ({ field }) => {
-    
-    const handleDragStart = (e: React.DragEvent) => {
-        e.dataTransfer.setData('application/json', JSON.stringify(field));
-        e.dataTransfer.effectAllowed = 'copy';
-    };
+    const [{ isDragging }, drag] = useDrag(() => ({
+        type: ItemTypes.PALETTE_FIELD,
+        item: { type: ItemTypes.PALETTE_FIELD, field },
+        collect: (monitor) => ({
+            isDragging: monitor.isDragging(),
+        }),
+    }));
 
     return (
         <div
-            draggable
-            onDragStart={handleDragStart}
+            ref={drag}
+            style={{ opacity: isDragging ? 0.5 : 1 }}
             className="flex items-center gap-3 p-3 rounded-lg bg-[#303134]/50 border border-gray-700 cursor-grab hover:bg-gray-700/50 hover:border-gray-600 transition-colors"
         >
             <div className="flex-grow">

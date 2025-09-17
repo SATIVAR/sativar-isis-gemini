@@ -1,5 +1,5 @@
-
 import React from 'react';
+import { useDrop } from 'react-dnd';
 import type { FormLayoutField, FormField } from '../../../types.ts';
 import { FieldCard } from './FieldCard.tsx';
 
@@ -12,6 +12,11 @@ interface CanvasProps {
     selectedFieldId: number | null;
 }
 
+const ItemTypes = {
+    PALETTE_FIELD: 'paletteField',
+    CANVAS_FIELD: 'canvasField',
+};
+
 export const Canvas: React.FC<CanvasProps> = ({
     layout,
     onFieldDrop,
@@ -20,44 +25,51 @@ export const Canvas: React.FC<CanvasProps> = ({
     onFieldRemove,
     selectedFieldId
 }) => {
-    const handleDragOver = (e: React.DragEvent) => {
-        e.preventDefault();
-    };
+    const [{ isOver, canDrop }, drop] = useDrop(() => ({
+        accept: [ItemTypes.PALETTE_FIELD, ItemTypes.CANVAS_FIELD],
+        drop: (item: { type: string; field?: FormField; index?: number }, monitor) => {
+            if (monitor.didDrop()) return;
 
-    const handleDrop = (e: React.DragEvent) => {
-        e.preventDefault();
-        const fieldData = e.dataTransfer.getData('application/json');
-        if (fieldData) {
-            const field: FormField = JSON.parse(fieldData);
-            onFieldDrop(field);
-        }
-    };
+            if (item.type === ItemTypes.PALETTE_FIELD && item.field) {
+                onFieldDrop(item.field);
+            }
+        },
+        collect: (monitor) => ({
+            isOver: monitor.isOver({ shallow: true }),
+            canDrop: monitor.canDrop(),
+        }),
+    }), [onFieldDrop]);
     
+    const isActive = isOver && canDrop;
+
     return (
-        <div 
-            onDragOver={handleDragOver}
-            onDrop={handleDrop}
-            className="bg-[#202124] rounded-xl border border-dashed border-gray-700 p-4 min-h-[60vh] space-y-3 transition-colors duration-300"
-            aria-label="Área do formulário. Arraste campos da paleta para cá."
-        >
-            <h3 className="text-lg font-semibold text-gray-300 px-2">Layout do Formulário</h3>
-            {layout.length === 0 ? (
-                <div className="flex flex-col items-center justify-center text-center text-gray-500 py-20">
-                    <p className="font-semibold">Arraste os campos da paleta à direita para começar a construir o formulário.</p>
-                </div>
-            ) : (
-                layout.map((field, index) => (
-                    <FieldCard
-                        key={field.id}
-                        index={index}
-                        field={field}
-                        isSelected={selectedFieldId === field.id}
-                        onSelect={() => onFieldSelect(field.id)}
-                        onRemove={() => onFieldRemove(field.id)}
-                        onMove={onFieldReorder}
-                    />
-                ))
-            )}
+        <div ref={drop}>
+            <h3 className="text-lg font-semibold text-gray-300 px-2 mb-3">Layout do Formulário</h3>
+            <div 
+                className={`bg-[#202124] rounded-xl border border-dashed p-4 min-h-[60vh] space-y-3 transition-colors duration-300 ${
+                    isActive ? 'border-fuchsia-500 bg-fuchsia-900/20' : 'border-gray-700'
+                }`}
+                aria-label="Área do formulário. Arraste campos da paleta para cá."
+            >
+                {layout.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center text-center text-gray-500 py-20">
+                        <p className="font-semibold">Arraste os campos da paleta à direita para começar a construir o formulário.</p>
+                    </div>
+                ) : (
+                    layout.map((field, index) => (
+                        <FieldCard
+                            key={field.id}
+                            index={index}
+                            field={field}
+                            isSelected={selectedFieldId === field.id}
+                            onSelect={() => onFieldSelect(field.id)}
+                            onRemove={() => onFieldRemove(field.id)}
+                            onMove={onFieldReorder}
+                            itemType={ItemTypes.CANVAS_FIELD}
+                        />
+                    ))
+                )}
+            </div>
         </div>
     );
 };

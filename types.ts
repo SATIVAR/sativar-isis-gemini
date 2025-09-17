@@ -1,4 +1,3 @@
-
 import type { GoogleGenAI } from '@google/genai';
 
 // From services/geminiService.ts and components/Chat.tsx
@@ -167,6 +166,7 @@ export interface Associate {
 // From Seishat Forms Feature
 export type FormFieldType = 'text' | 'email' | 'select' | 'password' | 'textarea' | 'checkbox' | 'radio';
 
+// Represents a field in the central catalog
 export interface FormField {
     id: number;
     field_name: string;
@@ -174,7 +174,7 @@ export interface FormField {
     field_type: FormFieldType;
     is_core_field: boolean | number;
     is_deletable: boolean | number;
-    options?: string; // JSON string for select options
+    options?: string; // JSON string for select/radio options
 }
 
 // Represents a field within a specific form's layout

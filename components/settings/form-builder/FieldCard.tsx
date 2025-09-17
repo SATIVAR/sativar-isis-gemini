@@ -1,5 +1,5 @@
-
 import React, { useRef } from 'react';
+import { useDrag, useDrop } from 'react-dnd';
 import type { FormLayoutField } from '../../../types.ts';
 import { GripVerticalIcon, Trash2Icon } from '../../icons.tsx';
 
@@ -10,6 +10,7 @@ interface FieldCardProps {
     onSelect: () => void;
     onRemove: () => void;
     onMove: (dragIndex: number, hoverIndex: number) => void;
+    itemType: string;
 }
 
 export const FieldCard: React.FC<FieldCardProps> = ({
@@ -18,46 +19,60 @@ export const FieldCard: React.FC<FieldCardProps> = ({
     isSelected,
     onSelect,
     onRemove,
-    onMove
+    onMove,
+    itemType
 }) => {
     const ref = useRef<HTMLDivElement>(null);
-    
-    const handleDragStart = (e: React.DragEvent) => {
-        e.dataTransfer.setData('application/json', JSON.stringify({ index }));
-        e.dataTransfer.effectAllowed = 'move';
-    };
 
-    const handleDragOver = (e: React.DragEvent) => {
-        e.preventDefault();
-        e.dataTransfer.dropEffect = 'move';
-    };
+    const [{ handlerId }, drop] = useDrop({
+        accept: itemType,
+        collect(monitor) {
+            return {
+                handlerId: monitor.getHandlerId(),
+            };
+        },
+        hover(item: { index: number }, monitor) {
+            if (!ref.current) return;
+            const dragIndex = item.index;
+            const hoverIndex = index;
+            if (dragIndex === hoverIndex) return;
 
-    const handleDrop = (e: React.DragEvent) => {
-        e.preventDefault();
-        const dragData = e.dataTransfer.getData('application/json');
-        if (dragData) {
-            const { index: dragIndex } = JSON.parse(dragData);
-            if (dragIndex !== index) {
-                onMove(dragIndex, index);
-            }
-        }
-    };
-    
+            const hoverBoundingRect = ref.current?.getBoundingClientRect();
+            const hoverMiddleY = (hoverBoundingRect.bottom - hoverBoundingRect.top) / 2;
+            const clientOffset = monitor.getClientOffset();
+            const hoverClientY = clientOffset!.y - hoverBoundingRect.top;
+            
+            if (dragIndex < hoverIndex && hoverClientY < hoverMiddleY) return;
+            if (dragIndex > hoverIndex && hoverClientY > hoverMiddleY) return;
+            
+            onMove(dragIndex, hoverIndex);
+            item.index = hoverIndex;
+        },
+    });
+
+    const [{ isDragging }, drag, preview] = useDrag({
+        type: itemType,
+        item: { index },
+        collect: (monitor) => ({
+            isDragging: monitor.isDragging(),
+        }),
+    });
+
+    drag(drop(ref));
+
     return (
         <div
             ref={ref}
-            draggable
-            onDragStart={handleDragStart}
-            onDragOver={handleDragOver}
-            onDrop={handleDrop}
+            data-handler-id={handlerId}
             onClick={onSelect}
+            style={{ opacity: isDragging ? 0.4 : 1 }}
             className={`group flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-all ${
                 isSelected 
                 ? 'bg-fuchsia-900/40 border-fuchsia-500 shadow-lg' 
                 : 'bg-[#303134]/50 border-gray-700 hover:bg-gray-700/50 hover:border-gray-600'
             }`}
         >
-            <div className="cursor-move text-gray-500">
+            <div ref={preview} className="cursor-move text-gray-500">
                 <GripVerticalIcon className="w-5 h-5" />
             </div>
             <div className="flex-grow">
@@ -68,7 +83,7 @@ export const FieldCard: React.FC<FieldCardProps> = ({
                     {field.field_name} ({field.field_type})
                 </p>
             </div>
-             {!field.is_core_field && (
+            {!field.is_core_field && (
                 <button
                     onClick={(e) => { e.stopPropagation(); onRemove(); }}
                     className="p-1 rounded-full text-gray-500 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity"

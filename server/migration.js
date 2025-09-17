@@ -1,4 +1,3 @@
-
 // server/migration.js
 const { getDb } = require('./db');
 const { getChatDb } = require('./chatDb');
@@ -120,6 +119,7 @@ CREATE INDEX IF NOT EXISTS idx_users_role ON users(role);
 const SEISHAT_DB_MIGRATION_SQL = `
 PRAGMA foreign_keys = ON;
 
+-- Drop old form tables to replace them
 DROP TABLE IF EXISTS associate_type_form_config;
 DROP TABLE IF EXISTS form_layouts;
 DROP TABLE IF EXISTS form_fields;
@@ -145,6 +145,7 @@ CREATE TABLE IF NOT EXISTS associates (
   updated_at TEXT DEFAULT (datetime('now', 'localtime'))
 );
 
+-- The new central catalog for all possible fields
 CREATE TABLE form_fields (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     field_name TEXT NOT NULL UNIQUE,
@@ -152,9 +153,10 @@ CREATE TABLE form_fields (
     field_type TEXT NOT NULL CHECK(field_type IN ('text', 'email', 'select', 'password', 'textarea', 'checkbox', 'radio')),
     is_core_field INTEGER NOT NULL DEFAULT 0,
     is_deletable INTEGER NOT NULL DEFAULT 0,
-    options TEXT
+    options TEXT -- Stored as JSON string for select/radio
 );
 
+-- The new table defining the layout of each form type
 CREATE TABLE form_layouts (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     associate_type TEXT NOT NULL,
@@ -185,12 +187,12 @@ CREATE INDEX IF NOT EXISTS idx_form_layouts_associate_type ON form_layouts(assoc
 
 
 -- Pre-populate form_fields with core, non-deletable fields
-INSERT OR IGNORE INTO form_fields (id, field_name, label, field_type, is_core_field, is_deletable) VALUES
-(1, 'full_name', 'Nome Completo', 'text', 1, 0),
-(2, 'password', 'Senha', 'password', 1, 0),
-(3, 'type', 'Tipo de Associado', 'select', 1, 0),
-(4, 'cpf', 'CPF', 'text', 1, 0),
-(5, 'whatsapp', 'WhatsApp', 'text', 1, 0);
+INSERT OR IGNORE INTO form_fields (id, field_name, label, field_type, is_core_field, is_deletable, options) VALUES
+(1, 'full_name', 'Nome Completo', 'text', 1, 0, NULL),
+(2, 'password', 'Senha', 'password', 1, 0, NULL),
+(3, 'type', 'Tipo de Associado', 'select', 1, 0, '["paciente", "responsavel", "tutor", "colaborador"]'),
+(4, 'cpf', 'CPF', 'text', 1, 0, NULL),
+(5, 'whatsapp', 'WhatsApp', 'text', 1, 0, NULL);
 `;
 
 const SEISHAT_DB_MIGRATION_MYSQL = `
@@ -243,7 +245,10 @@ const runSeishatMysqlMigration = async (pool) => {
     try {
         console.log(chalk.magenta('[Migration] Running SEISHAT database migrations for MySQL...'));
         
+        // Drop old tables before creating new ones
+        await connection.query('SET FOREIGN_KEY_CHECKS = 0;');
         await connection.query('DROP TABLE IF EXISTS associate_type_form_config, form_layouts, form_fields;');
+        await connection.query('SET FOREIGN_KEY_CHECKS = 1;');
         
         const statements = SEISHAT_DB_MIGRATION_MYSQL.split(';').filter(s => s.trim().length > 0);
         for (const statement of statements) {
@@ -259,12 +264,12 @@ const runSeishatMysqlMigration = async (pool) => {
         }
         
         const populateSql = `
-            INSERT INTO form_fields (id, field_name, label, field_type, is_core_field, is_deletable) VALUES
-            (1, 'full_name', 'Nome Completo', 'text', 1, 0),
-            (2, 'password', 'Senha', 'password', 1, 0),
-            (3, 'type', 'Tipo de Associado', 'select', 1, 0),
-            (4, 'cpf', 'CPF', 'text', 1, 0),
-            (5, 'whatsapp', 'WhatsApp', 'text', 1, 0)
+            INSERT INTO form_fields (id, field_name, label, field_type, is_core_field, is_deletable, options) VALUES
+            (1, 'full_name', 'Nome Completo', 'text', 1, 0, NULL),
+            (2, 'password', 'Senha', 'password', 1, 0, NULL),
+            (3, 'type', 'Tipo de Associado', 'select', 1, 0, '["paciente", "responsavel", "tutor", "colaborador"]'),
+            (4, 'cpf', 'CPF', 'text', 1, 0, NULL),
+            (5, 'whatsapp', 'WhatsApp', 'text', 1, 0, NULL)
             ON DUPLICATE KEY UPDATE label=VALUES(label);
         `;
         await connection.query(populateSql);
