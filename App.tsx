@@ -167,7 +167,7 @@ const SeishatSidebar: React.FC<SeishatSidebarProps> = ({ activePage, setActivePa
     }, [isGeneralSectionActive, isSeishatSectionActive, isIsisSectionActive, isAdvancedSettingsActive, isDashboardActive]);
     
     return (
-        <aside className="w-64 flex-shrink-0 bg-[#2d2d30] p-3 flex flex-col font-sans">
+        <aside className="w-64 flex-shrink-0 bg-[#202124] p-3 flex flex-col font-sans">
             <h2 className="text-lg font-bold text-white px-2 mb-4">Painel de Controle</h2>
             <nav className="flex-grow space-y-3">
                  <NavItem
