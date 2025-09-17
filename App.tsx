@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useEffect } from 'react';
 import { Header } from './components/Header.tsx';
 import { SettingsProvider, useSettings } from './hooks/useSettings.ts';
@@ -132,8 +133,8 @@ const SeishatSidebar: React.FC<SeishatSidebarProps> = ({ activePage, setActivePa
     ];
     
     const seishatItems = [
-        { page: 'products' as SeishatPageName, label: 'Produtos', icon: <StoreIcon className="w-5 h-5" />, roles: ['admin', 'manager'], disabled: false },
         { page: 'associates' as SeishatPageName, label: 'Associados', icon: <UsersIcon className="w-5 h-5" />, roles: ['admin', 'manager'], disabled: false },
+        { page: 'products' as SeishatPageName, label: 'Produtos', icon: <StoreIcon className="w-5 h-5" />, roles: ['admin', 'manager'], disabled: false },
         { page: 'prescribers' as SeishatPageName, label: 'Prescritores', icon: <UsersIcon className="w-5 h-5" />, roles: ['admin', 'manager'], disabled: true },
         { page: 'documents' as SeishatPageName, label: 'Documentos', icon: <FileTextIcon className="w-5 h-5" />, roles: ['admin', 'manager'], disabled: true },
         { page: 'orders' as SeishatPageName, label: 'Pedidos', icon: <ShoppingCartIcon className="w-5 h-5" />, roles: ['admin', 'manager'], disabled: true },
