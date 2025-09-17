@@ -636,7 +636,6 @@ router.post('/admin/fields', async (req, res, next) => {
 router.delete('/admin/fields/:id', async (req, res, next) => {
     const { id } = req.params;
     try {
-        // First, check if the field is deletable
         const [field] = await seishatQuery('SELECT is_deletable FROM form_fields WHERE id = ?', [id]);
 
         if (!field) {
@@ -647,7 +646,6 @@ router.delete('/admin/fields/:id', async (req, res, next) => {
             return res.status(403).json({ error: 'Este campo é essencial e não pode ser excluído.' });
         }
         
-        // If it is, proceed with deletion. ON DELETE CASCADE will handle form_layouts.
         await seishatQuery('DELETE FROM form_fields WHERE id = ?', [id]);
         
         res.status(204).send();
@@ -662,37 +660,21 @@ router.delete('/admin/fields/:id', async (req, res, next) => {
 router.get('/admin/layouts/:type', async (req, res, next) => {
     const { type } = req.params;
     try {
-        const sql = `
-            SELECT
-                ff.id, ff.field_name, ff.label, ff.field_type, ff.options, ff.is_base_field, ff.is_deletable,
-                fl.display_order,
-                fl.is_required
-            FROM form_fields ff
-            LEFT JOIN form_layouts fl ON ff.id = fl.field_id AND fl.associate_type = ?
-            WHERE fl.associate_type = ? OR ff.is_base_field = 1
-            ORDER BY fl.display_order ASC, ff.id ASC
-        `;
+        const steps = await seishatQuery('SELECT * FROM form_steps WHERE associate_type = ? ORDER BY step_order ASC', [type]);
 
-        // This query is more complex now to handle core fields that might not be in the layout table yet.
-        const allFieldsForType = await seishatQuery(sql, [type, type]);
-        
-        // Post-processing to ensure all core fields are present and handle null orders/requirements
-        const coreFields = allFieldsForType.filter(f => f.is_base_field);
-        let layoutFields = allFieldsForType.filter(f => f.display_order !== null);
-        
-        coreFields.forEach(coreField => {
-            if (!layoutFields.some(lf => lf.id === coreField.id)) {
-                 layoutFields.push({
-                    ...coreField,
-                    display_order: -1, // Will be sorted to the top
-                    is_required: 1, // Core fields are always required
-                });
-            }
-        });
+        for (const step of steps) {
+            const fieldsQuery = `
+                SELECT ff.*, flf.is_required, flf.display_order
+                FROM form_layout_fields flf
+                JOIN form_fields ff ON flf.field_id = ff.id
+                WHERE flf.step_id = ?
+                ORDER BY flf.display_order ASC
+            `;
+            const fields = await seishatQuery(fieldsQuery, [step.id]);
+            step.fields = fields;
+        }
 
-        layoutFields.sort((a,b) => a.display_order - b.display_order);
-
-        res.json(layoutFields);
+        res.json(steps);
     } catch (err) {
         console.error(chalk.red(`[${req.method} ${req.originalUrl}] Error fetching form layout for type ${type}:`), err.message);
         next(err);
@@ -703,10 +685,10 @@ router.get('/admin/layouts/:type', async (req, res, next) => {
 // PUT /api/admin/layouts/:type - Save the entire layout for an associate type
 router.put('/admin/layouts/:type', async (req, res, next) => {
     const { type } = req.params;
-    const layout = req.body;
+    const stepsLayout = req.body; // Expects an array of step objects
 
-    if (!Array.isArray(layout)) {
-        return res.status(400).json({ error: 'Request body must be an array of layout fields.' });
+    if (!Array.isArray(stepsLayout)) {
+        return res.status(400).json({ error: 'Request body must be an array of steps.' });
     }
     
     const db = getSeishatDb();
@@ -714,11 +696,21 @@ router.put('/admin/layouts/:type', async (req, res, next) => {
     try {
         if (db.constructor.name === 'Database') { // better-sqlite3
             const runTransaction = db.transaction(() => {
-                db.prepare('DELETE FROM form_layouts WHERE associate_type = ?').run(type);
-                if (layout.length > 0) {
-                    const insert = db.prepare('INSERT INTO form_layouts (associate_type, field_id, display_order, is_required) VALUES (?, ?, ?, ?)');
-                    for (const field of layout) {
-                        insert.run(type, field.field_id, field.display_order, field.is_required ? 1 : 0);
+                const existingSteps = db.prepare('SELECT id FROM form_steps WHERE associate_type = ?').all(type);
+                if (existingSteps.length > 0) {
+                    const stepIds = existingSteps.map(s => s.id);
+                    const placeholders = stepIds.map(() => '?').join(',');
+                    db.prepare(`DELETE FROM form_layout_fields WHERE step_id IN (${placeholders})`).run(...stepIds);
+                    db.prepare('DELETE FROM form_steps WHERE associate_type = ?').run(type);
+                }
+
+                const insertStepStmt = db.prepare('INSERT INTO form_steps (associate_type, title, step_order) VALUES (?, ?, ?)');
+                const insertFieldStmt = db.prepare('INSERT INTO form_layout_fields (step_id, field_id, display_order, is_required) VALUES (?, ?, ?, ?)');
+
+                for (const [stepIndex, step] of stepsLayout.entries()) {
+                    const { lastInsertRowid: stepId } = insertStepStmt.run(type, step.title, stepIndex);
+                    for (const [fieldIndex, field] of step.fields.entries()) {
+                        insertFieldStmt.run(stepId, field.id, fieldIndex, field.is_required ? 1 : 0);
                     }
                 }
             });
@@ -726,10 +718,21 @@ router.put('/admin/layouts/:type', async (req, res, next) => {
         } else { // mysql2
             const conn = await db.getConnection();
             await conn.beginTransaction();
-            await conn.query('DELETE FROM form_layouts WHERE associate_type = ?', [type]);
-            if (layout.length > 0) {
-                const values = layout.map(field => [type, field.field_id, field.display_order, field.is_required ? 1 : 0]);
-                await conn.query('INSERT INTO form_layouts (associate_type, field_id, display_order, is_required) VALUES ?', [values]);
+            const [existingSteps] = await conn.query('SELECT id FROM form_steps WHERE associate_type = ?', [type]);
+            if (existingSteps.length > 0) {
+                const stepIds = existingSteps.map(s => s.id);
+                await conn.query('DELETE FROM form_layout_fields WHERE step_id IN (?)', [stepIds]);
+                await conn.query('DELETE FROM form_steps WHERE associate_type = ?', [type]);
+            }
+
+            for (const [stepIndex, step] of stepsLayout.entries()) {
+                const [stepResult] = await conn.query('INSERT INTO form_steps (associate_type, title, step_order) VALUES (?, ?, ?)', [type, step.title, stepIndex]);
+                const stepId = stepResult.insertId;
+
+                if (step.fields && step.fields.length > 0) {
+                    const fieldValues = step.fields.map((field, fieldIndex) => [stepId, field.id, fieldIndex, field.is_required ? 1 : 0]);
+                    await conn.query('INSERT INTO form_layout_fields (step_id, field_id, display_order, is_required) VALUES ?', [fieldValues]);
+                }
             }
             await conn.commit();
             conn.release();

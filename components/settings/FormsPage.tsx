@@ -4,7 +4,7 @@ import { HTML5Backend } from 'react-dnd-html5-backend';
 import { CheckSquareIcon, PlusCircleIcon } from '../icons.tsx';
 import { Loader } from '../Loader.tsx';
 import { apiClient } from '../../services/database/apiClient.ts';
-import type { FormField, AssociateType, FormLayoutField } from '../../types.ts';
+import type { FormField, AssociateType, FormLayoutField, FormStep } from '../../types.ts';
 import { FieldEditorModal } from './form-builder/FieldEditorModal.tsx';
 import { Canvas } from './form-builder/Canvas.tsx';
 import { Palette } from './form-builder/Palette.tsx';
@@ -21,8 +21,8 @@ const associateTypes: { id: AssociateType; label: string }[] = [
 
 export const FormsPage: React.FC = () => {
     const [allFields, setAllFields] = useState<FormField[]>([]);
-    const [layout, setLayout] = useState<FormLayoutField[]>([]);
-    const [initialLayout, setInitialLayout] = useState<FormLayoutField[]>([]);
+    const [layout, setLayout] = useState<FormStep[]>([]);
+    const [initialLayout, setInitialLayout] = useState<FormStep[]>([]);
     const [selectedType, setSelectedType] = useState<AssociateType>('paciente');
     const [selectedFieldId, setSelectedFieldId] = useState<number | null>(null);
 
@@ -34,7 +34,7 @@ export const FormsPage: React.FC = () => {
     const modal = useModal();
 
     const hasUnsavedChanges = JSON.stringify(layout) !== JSON.stringify(initialLayout);
-    const selectedField = layout.find(f => f.id === selectedFieldId) || null;
+    const selectedField = layout.flatMap(s => s.fields).find(f => f.id === selectedFieldId) || null;
 
     const fetchAllData = useCallback(async () => {
         setIsLoading(true);
@@ -42,11 +42,19 @@ export const FormsPage: React.FC = () => {
         try {
             const [fields, layoutData] = await Promise.all([
                 apiClient.get<FormField[]>('/admin/fields'),
-                apiClient.get<FormLayoutField[]>(`/admin/layouts/${selectedType}`),
+                apiClient.get<FormStep[]>(`/admin/layouts/${selectedType}`),
             ]);
             setAllFields(fields);
-            setLayout(layoutData);
-            setInitialLayout(layoutData);
+            
+            if (layoutData.length === 0) {
+                const newLayout: FormStep[] = [{ id: crypto.randomUUID(), title: 'Informações Principais', step_order: 0, fields: [] }];
+                setLayout(newLayout);
+                setInitialLayout(newLayout);
+            } else {
+                setLayout(layoutData);
+                setInitialLayout(layoutData);
+            }
+
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Falha ao carregar dados do formulário.');
         } finally {
@@ -63,13 +71,7 @@ export const FormsPage: React.FC = () => {
         setIsSaving(true);
         setError(null);
         try {
-            const payload = layout.map((field, index) => ({
-                field_id: field.id,
-                display_order: index,
-                is_required: !!field.is_required,
-            }));
-
-            await apiClient.put(`/admin/layouts/${selectedType}`, payload);
+            await apiClient.put(`/admin/layouts/${selectedType}`, layout);
             setInitialLayout(layout);
             setShowSavedToast(true);
             setTimeout(() => setShowSavedToast(false), 2500);
@@ -80,18 +82,42 @@ export const FormsPage: React.FC = () => {
         }
     };
     
-    const handleFieldDrop = (field: FormField) => {
-        if (layout.some(f => f.id === field.id)) return; // Avoid duplicates
+    const handleFieldDrop = (field: FormField, stepIndex: number) => {
+        if (layout.flatMap(s => s.fields).some(f => f.id === field.id)) return;
         
-        const newFieldInLayout: FormLayoutField = {
-            ...field,
-            display_order: layout.length,
-            is_required: false,
+        const newFieldInLayout: FormLayoutField = { ...field, display_order: layout[stepIndex].fields.length, is_required: false };
+
+        setLayout(prev => {
+            const newLayout = [...prev];
+            newLayout[stepIndex].fields.push(newFieldInLayout);
+            return newLayout;
+        });
+    };
+    
+    const handleStepDrop = (dropIndex: number) => {
+        const newStep: FormStep = {
+            id: crypto.randomUUID(),
+            title: `Nova Etapa ${layout.length + 1}`,
+            step_order: dropIndex,
+            fields: []
         };
-        setLayout(prev => [...prev, newFieldInLayout]);
+        setLayout(prev => {
+            const newLayout = [...prev];
+            newLayout.splice(dropIndex, 0, newStep);
+            return newLayout;
+        });
     };
 
-    const handleFieldReorder = useCallback((dragIndex: number, hoverIndex: number) => {
+    const handleFieldReorder = useCallback((drag: { stepIndex: number, fieldIndex: number }, hover: { stepIndex: number, fieldIndex: number }) => {
+        setLayout(prev => {
+            const newLayout = JSON.parse(JSON.stringify(prev)); // Deep copy
+            const [draggedItem] = newLayout[drag.stepIndex].fields.splice(drag.fieldIndex, 1);
+            newLayout[hover.stepIndex].fields.splice(hover.fieldIndex, 0, draggedItem);
+            return newLayout;
+        });
+    }, []);
+    
+    const handleStepReorder = useCallback((dragIndex: number, hoverIndex: number) => {
         setLayout(prev => {
             const newLayout = [...prev];
             const [draggedItem] = newLayout.splice(dragIndex, 1);
@@ -101,14 +127,32 @@ export const FormsPage: React.FC = () => {
     }, []);
     
     const handleRemoveField = (fieldId: number) => {
-        setLayout(prev => prev.filter(f => f.id !== fieldId));
+        setLayout(prev => prev.map(step => ({
+            ...step,
+            fields: step.fields.filter(f => f.id !== fieldId)
+        })));
         if (selectedFieldId === fieldId) {
             setSelectedFieldId(null);
         }
     };
     
     const handleFieldUpdate = (updatedField: FormLayoutField) => {
-        setLayout(prev => prev.map(f => f.id === updatedField.id ? updatedField : f));
+        setLayout(prev => prev.map(step => ({
+            ...step,
+            fields: step.fields.map(f => f.id === updatedField.id ? updatedField : f)
+        })));
+    };
+    
+    const handleStepUpdate = (updatedStep: FormStep) => {
+        setLayout(prev => prev.map(s => s.id === updatedStep.id ? updatedStep : s));
+    };
+    
+    const handleStepRemove = (stepId: number | string) => {
+        if (layout.length <= 1) {
+            modal.alert({ title: 'Ação Inválida', message: 'O formulário deve ter pelo menos uma etapa.' });
+            return;
+        }
+        setLayout(prev => prev.filter(s => s.id !== stepId));
     };
 
     const handleDeleteFieldFromPalette = async (fieldId: number) => {
@@ -146,11 +190,11 @@ export const FormsPage: React.FC = () => {
                             <h2 className="text-2xl font-bold text-white">Construtor de Formulários</h2>
                         </div>
                         <p className="text-gray-400">
-                            Arraste, solte e configure os campos para montar o formulário de cada tipo de associado.
+                            Arraste, solte e configure os campos e etapas para montar o formulário.
                         </p>
                     </div>
                      <button onClick={() => setIsModalOpen(true)} className="flex-shrink-0 flex items-center gap-2 px-3 py-2 bg-gray-700 text-sm text-white font-semibold rounded-lg shadow-md hover:bg-gray-600">
-                        <PlusCircleIcon className="w-5 h-5" /> Adicionar Novo Campo à Paleta
+                        <PlusCircleIcon className="w-5 h-5" /> Adicionar Campo à Paleta
                     </button>
                 </div>
                 
@@ -178,9 +222,13 @@ export const FormsPage: React.FC = () => {
                            <Canvas
                                 layout={layout}
                                 onFieldDrop={handleFieldDrop}
+                                onStepDrop={handleStepDrop}
                                 onFieldReorder={handleFieldReorder}
+                                onStepReorder={handleStepReorder}
                                 onFieldSelect={setSelectedFieldId}
                                 onFieldRemove={handleRemoveField}
+                                onStepRemove={handleStepRemove}
+                                onStepUpdate={handleStepUpdate}
                                 selectedFieldId={selectedFieldId}
                            />
                         </div>

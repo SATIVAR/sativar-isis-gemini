@@ -2,10 +2,7 @@ import React from 'react';
 import { useDrag } from 'react-dnd';
 import type { FormField } from '../../../types.ts';
 import { Trash2Icon } from '../../icons.tsx';
-
-const ItemTypes = {
-    PALETTE_FIELD: 'paletteField',
-};
+import { ItemTypes } from './Canvas.tsx';
 
 interface PaletteFieldProps {
     field: FormField;

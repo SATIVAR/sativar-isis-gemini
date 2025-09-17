@@ -164,7 +164,7 @@ export interface Associate {
 }
 
 // From Seishat Forms Feature
-export type FormFieldType = 'text' | 'email' | 'select' | 'password' | 'textarea' | 'checkbox' | 'radio';
+export type FormFieldType = 'text' | 'email' | 'select' | 'password' | 'textarea' | 'checkbox' | 'radio' | 'separator';
 
 // Represents a field in the central catalog
 export interface FormField {
@@ -181,6 +181,14 @@ export interface FormField {
 export interface FormLayoutField extends FormField {
     display_order: number;
     is_required: boolean | number;
+}
+
+// Represents a single step in a multi-step form
+export interface FormStep {
+  id: number | string; // Use string for temporary client-side IDs
+  title: string;
+  step_order: number;
+  fields: FormLayoutField[];
 }
 
 

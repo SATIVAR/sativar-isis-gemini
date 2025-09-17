@@ -99,13 +99,22 @@ CREATE TABLE IF NOT EXISTS form_fields (
   options TEXT -- For select/radio fields, store as JSON string
 );
 
--- NEW: Table that defines the layout and rules for each form.
-CREATE TABLE IF NOT EXISTS form_layouts (
+-- NEW: Table for the steps/pages within a form.
+CREATE TABLE IF NOT EXISTS form_steps (
   id INT AUTO_INCREMENT PRIMARY KEY,
   associate_type VARCHAR(255) NOT NULL,
+  title VARCHAR(255) NOT NULL,
+  step_order INT NOT NULL
+);
+
+-- NEW: Table that links fields to steps to define a form's layout.
+CREATE TABLE IF NOT EXISTS form_layout_fields (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  step_id INT NOT NULL,
   field_id INT NOT NULL,
   display_order INT NOT NULL,
   is_required BOOLEAN NOT NULL DEFAULT FALSE,
+  FOREIGN KEY (step_id) REFERENCES form_steps(id) ON DELETE CASCADE,
   FOREIGN KEY (field_id) REFERENCES form_fields(id) ON DELETE CASCADE
 );
 
@@ -113,7 +122,8 @@ CREATE TABLE IF NOT EXISTS form_layouts (
 CREATE INDEX idx_products_name ON products(name);
 CREATE INDEX idx_associates_full_name ON associates(full_name);
 CREATE INDEX idx_associates_cpf ON associates(cpf);
-CREATE INDEX idx_form_layouts_associate_type ON form_layouts(associate_type);
+CREATE INDEX idx_form_steps_associate_type ON form_steps(associate_type);
+CREATE INDEX idx_form_layout_fields_step_id ON form_layout_fields(step_id);
 
 -- NEW: Pre-populates the 'form_fields' table with core, non-deletable fields.
 -- This ensures the application starts with a functional base configuration.

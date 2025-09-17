@@ -120,9 +120,8 @@ const SEISHAT_DB_MIGRATION_SQL = `
 PRAGMA foreign_keys = ON;
 
 -- Drop old form tables to replace them
-DROP TABLE IF EXISTS associate_type_form_config;
 DROP TABLE IF EXISTS form_layouts;
-DROP TABLE IF EXISTS form_fields;
+DROP TABLE IF EXISTS associate_type_form_config;
 
 CREATE TABLE IF NOT EXISTS products (
   id TEXT PRIMARY KEY,
@@ -145,26 +144,33 @@ CREATE TABLE IF NOT EXISTS associates (
   updated_at TEXT DEFAULT (datetime('now', 'localtime'))
 );
 
--- The new central catalog for all possible fields
-CREATE TABLE form_fields (
+CREATE TABLE IF NOT EXISTS form_fields (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     field_name TEXT NOT NULL UNIQUE,
     label TEXT NOT NULL,
     field_type TEXT NOT NULL CHECK(field_type IN ('text', 'email', 'select', 'password', 'textarea', 'checkbox', 'radio')),
     is_base_field INTEGER NOT NULL DEFAULT 0,
     is_deletable INTEGER NOT NULL DEFAULT 0,
-    options TEXT -- Stored as JSON string for select/radio
+    options TEXT
 );
 
--- The new table defining the layout of each form type
-CREATE TABLE form_layouts (
+CREATE TABLE IF NOT EXISTS form_steps (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     associate_type TEXT NOT NULL,
+    title TEXT NOT NULL,
+    step_order INTEGER NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS form_layout_fields (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    step_id INTEGER NOT NULL,
     field_id INTEGER NOT NULL,
     display_order INTEGER NOT NULL,
     is_required INTEGER NOT NULL DEFAULT 0,
+    FOREIGN KEY (step_id) REFERENCES form_steps(id) ON DELETE CASCADE,
     FOREIGN KEY (field_id) REFERENCES form_fields(id) ON DELETE CASCADE
 );
+
 
 CREATE TRIGGER IF NOT EXISTS products_update_trigger
 AFTER UPDATE ON products
@@ -183,10 +189,9 @@ END;
 CREATE INDEX IF NOT EXISTS idx_products_name ON products(name);
 CREATE INDEX IF NOT EXISTS idx_associates_full_name ON associates(full_name);
 CREATE INDEX IF NOT EXISTS idx_associates_cpf ON associates(cpf);
-CREATE INDEX IF NOT EXISTS idx_form_layouts_associate_type ON form_layouts(associate_type);
+CREATE INDEX IF NOT EXISTS idx_form_steps_associate_type ON form_steps(associate_type);
+CREATE INDEX IF NOT EXISTS idx_form_layout_fields_step_id ON form_layout_fields(step_id);
 
-
--- Pre-populate form_fields with core, non-deletable fields
 INSERT OR IGNORE INTO form_fields (id, field_name, label, field_type, is_base_field, is_deletable, options) VALUES
 (1, 'full_name', 'Nome Completo', 'text', 1, 0, NULL),
 (2, 'password', 'Senha', 'password', 1, 0, NULL),
@@ -224,22 +229,31 @@ CREATE TABLE IF NOT EXISTS form_fields (
   field_type ENUM('text', 'email', 'select', 'password', 'textarea', 'checkbox', 'radio') NOT NULL,
   is_base_field BOOLEAN NOT NULL DEFAULT FALSE,
   is_deletable BOOLEAN NOT NULL DEFAULT FALSE,
-  options TEXT -- For select fields, store as JSON string
+  options TEXT
 );
 
-CREATE TABLE IF NOT EXISTS form_layouts (
+CREATE TABLE IF NOT EXISTS form_steps (
   id INT AUTO_INCREMENT PRIMARY KEY,
   associate_type VARCHAR(255) NOT NULL,
+  title VARCHAR(255) NOT NULL,
+  step_order INT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS form_layout_fields (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  step_id INT NOT NULL,
   field_id INT NOT NULL,
   display_order INT NOT NULL,
   is_required BOOLEAN NOT NULL DEFAULT FALSE,
+  FOREIGN KEY (step_id) REFERENCES form_steps(id) ON DELETE CASCADE,
   FOREIGN KEY (field_id) REFERENCES form_fields(id) ON DELETE CASCADE
 );
 
 CREATE INDEX idx_products_name ON products(name);
 CREATE INDEX idx_associates_full_name ON associates(full_name);
 CREATE INDEX idx_associates_cpf ON associates(cpf);
-CREATE INDEX idx_form_layouts_associate_type ON form_layouts(associate_type);
+CREATE INDEX idx_form_steps_associate_type ON form_steps(associate_type);
+CREATE INDEX idx_form_layout_fields_step_id ON form_layout_fields(step_id);
 `;
 
 const runSeishatMysqlMigration = async (pool) => {
@@ -247,9 +261,8 @@ const runSeishatMysqlMigration = async (pool) => {
     try {
         console.log(chalk.magenta('[Migration] Running SEISHAT database migrations for MySQL...'));
         
-        // Drop old tables before creating new ones
         await connection.query('SET FOREIGN_KEY_CHECKS = 0;');
-        await connection.query('DROP TABLE IF EXISTS associate_type_form_config, form_layouts, form_fields;');
+        await connection.query('DROP TABLE IF EXISTS associate_type_form_config, form_layout_fields, form_steps, form_layouts;');
         await connection.query('SET FOREIGN_KEY_CHECKS = 1;');
         
         const statements = SEISHAT_DB_MIGRATION_MYSQL.split(';').filter(s => s.trim().length > 0);
@@ -257,7 +270,7 @@ const runSeishatMysqlMigration = async (pool) => {
             try {
                 await connection.query(statement);
             } catch (err) {
-                if (err.errno === 1061) { // Duplicate key name
+                if (err.errno === 1061) {
                     console.log(chalk.yellow(`[Migration] Index already exists, skipping statement.`));
                 } else {
                     throw err;

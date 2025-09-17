@@ -1,4 +1,5 @@
 
+
 import React, { useState, useMemo, useEffect } from 'react';
 import { Header } from './components/Header.tsx';
 import { SettingsProvider, useSettings } from './hooks/useSettings.ts';
