@@ -151,7 +151,7 @@ CREATE TABLE form_fields (
     field_name TEXT NOT NULL UNIQUE,
     label TEXT NOT NULL,
     field_type TEXT NOT NULL CHECK(field_type IN ('text', 'email', 'select', 'password', 'textarea', 'checkbox', 'radio')),
-    is_core_field INTEGER NOT NULL DEFAULT 0,
+    is_base_field INTEGER NOT NULL DEFAULT 0,
     is_deletable INTEGER NOT NULL DEFAULT 0,
     options TEXT -- Stored as JSON string for select/radio
 );
@@ -187,7 +187,7 @@ CREATE INDEX IF NOT EXISTS idx_form_layouts_associate_type ON form_layouts(assoc
 
 
 -- Pre-populate form_fields with core, non-deletable fields
-INSERT OR IGNORE INTO form_fields (id, field_name, label, field_type, is_core_field, is_deletable, options) VALUES
+INSERT OR IGNORE INTO form_fields (id, field_name, label, field_type, is_base_field, is_deletable, options) VALUES
 (1, 'full_name', 'Nome Completo', 'text', 1, 0, NULL),
 (2, 'password', 'Senha', 'password', 1, 0, NULL),
 (3, 'type', 'Tipo de Associado', 'select', 1, 0, '["paciente", "responsavel", "tutor", "colaborador"]'),
@@ -222,7 +222,7 @@ CREATE TABLE IF NOT EXISTS form_fields (
   field_name VARCHAR(255) NOT NULL UNIQUE,
   label VARCHAR(255) NOT NULL,
   field_type ENUM('text', 'email', 'select', 'password', 'textarea', 'checkbox', 'radio') NOT NULL,
-  is_core_field BOOLEAN NOT NULL DEFAULT FALSE,
+  is_base_field BOOLEAN NOT NULL DEFAULT FALSE,
   is_deletable BOOLEAN NOT NULL DEFAULT FALSE,
   options TEXT -- For select fields, store as JSON string
 );
@@ -266,7 +266,7 @@ const runSeishatMysqlMigration = async (pool) => {
         }
         
         const populateSql = `
-            INSERT INTO form_fields (id, field_name, label, field_type, is_core_field, is_deletable, options) VALUES
+            INSERT INTO form_fields (id, field_name, label, field_type, is_base_field, is_deletable, options) VALUES
             (1, 'full_name', 'Nome Completo', 'text', 1, 0, NULL),
             (2, 'password', 'Senha', 'password', 1, 0, NULL),
             (3, 'type', 'Tipo de Associado', 'select', 1, 0, '["paciente", "responsavel", "tutor", "colaborador"]'),
@@ -275,7 +275,7 @@ const runSeishatMysqlMigration = async (pool) => {
             ON DUPLICATE KEY UPDATE 
                 label=VALUES(label), 
                 field_type=VALUES(field_type), 
-                is_core_field=VALUES(is_core_field), 
+                is_base_field=VALUES(is_base_field), 
                 is_deletable=VALUES(is_deletable), 
                 options=VALUES(options);
         `;

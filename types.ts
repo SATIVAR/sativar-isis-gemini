@@ -172,7 +172,7 @@ export interface FormField {
     field_name: string;
     label: string;
     field_type: FormFieldType;
-    is_core_field: boolean | number;
+    is_base_field: boolean | number;
     is_deletable: boolean | number;
     options?: string; // JSON string for select/radio options
 }

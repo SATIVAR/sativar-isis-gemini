@@ -59,6 +59,9 @@ export const FieldCard: React.FC<FieldCardProps> = ({
     });
 
     drag(drop(ref));
+    // FIX: Apply react-dnd preview connector via a ref object to resolve TypeScript error with React 18 types.
+    const previewRef = useRef<HTMLDivElement>(null);
+    preview(previewRef);
 
     return (
         <div
@@ -72,7 +75,7 @@ export const FieldCard: React.FC<FieldCardProps> = ({
                 : 'bg-[#303134]/50 border-gray-700 hover:bg-gray-700/50 hover:border-gray-600'
             }`}
         >
-            <div ref={preview} className="cursor-move text-gray-500">
+            <div ref={previewRef} className="cursor-move text-gray-500">
                 <GripVerticalIcon className="w-5 h-5" />
             </div>
             <div className="flex-grow">
@@ -83,7 +86,7 @@ export const FieldCard: React.FC<FieldCardProps> = ({
                     {field.field_name} ({field.field_type})
                 </p>
             </div>
-            {!field.is_core_field && (
+            {!field.is_base_field && (
                 <button
                     onClick={(e) => { e.stopPropagation(); onRemove(); }}
                     className="p-1 rounded-full text-gray-500 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity"

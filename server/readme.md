@@ -94,7 +94,7 @@ CREATE TABLE IF NOT EXISTS form_fields (
   field_name VARCHAR(255) NOT NULL UNIQUE,
   label VARCHAR(255) NOT NULL,
   field_type ENUM('text', 'email', 'select', 'password', 'textarea', 'checkbox', 'radio') NOT NULL,
-  is_core_field BOOLEAN NOT NULL DEFAULT FALSE,
+  is_base_field BOOLEAN NOT NULL DEFAULT FALSE,
   is_deletable BOOLEAN NOT NULL DEFAULT FALSE,
   options TEXT -- For select/radio fields, store as JSON string
 );
@@ -117,7 +117,7 @@ CREATE INDEX idx_form_layouts_associate_type ON form_layouts(associate_type);
 
 -- NEW: Pre-populates the 'form_fields' table with core, non-deletable fields.
 -- This ensures the application starts with a functional base configuration.
-INSERT INTO form_fields (id, field_name, label, field_type, is_core_field, is_deletable, options) VALUES
+INSERT INTO form_fields (id, field_name, label, field_type, is_base_field, is_deletable, options) VALUES
 (1, 'full_name', 'Nome Completo', 'text', TRUE, FALSE, NULL),
 (2, 'password', 'Senha', 'password', TRUE, FALSE, NULL),
 (3, 'type', 'Tipo de Associado', 'select', TRUE, FALSE, '["paciente", "responsavel", "tutor", "colaborador"]'),
@@ -126,7 +126,7 @@ INSERT INTO form_fields (id, field_name, label, field_type, is_core_field, is_de
 ON DUPLICATE KEY UPDATE 
   label=VALUES(label), 
   field_type=VALUES(field_type), 
-  is_core_field=VALUES(is_core_field), 
+  is_base_field=VALUES(is_base_field), 
   is_deletable=VALUES(is_deletable), 
   options=VALUES(options);
 ```

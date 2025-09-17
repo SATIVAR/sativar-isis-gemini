@@ -592,7 +592,7 @@ router.delete('/seishat/associates/:id', async (req, res, next) => {
 // GET /api/admin/fields - Get all possible form fields from the catalog
 router.get('/admin/fields', async (req, res, next) => {
     try {
-        const fields = await seishatQuery('SELECT * FROM form_fields ORDER BY is_core_field DESC, label ASC');
+        const fields = await seishatQuery('SELECT * FROM form_fields ORDER BY is_base_field DESC, label ASC');
         res.json(fields);
     } catch (err) {
         console.error(chalk.red(`[${req.method} ${req.originalUrl}] Error fetching form fields:`), err.message);
@@ -613,14 +613,14 @@ router.post('/admin/fields', async (req, res, next) => {
         const db = getSeishatDb();
         if (db.constructor.name === 'Database') { // better-sqlite3
             const result = await seishatQuery(
-                'INSERT INTO form_fields (field_name, label, field_type, options, is_core_field, is_deletable) VALUES (?, ?, ?, ?, 0, 1)',
+                'INSERT INTO form_fields (field_name, label, field_type, options, is_base_field, is_deletable) VALUES (?, ?, ?, ?, 0, 1)',
                 [field_name, label, field_type, options ? JSON.stringify(options) : null]
             );
             const [newField] = await seishatQuery('SELECT * FROM form_fields WHERE id = ?', [result.lastInsertRowid]);
             res.status(201).json(newField);
         } else { // mysql2
             const result = await seishatQuery(
-                'INSERT INTO form_fields (field_name, label, field_type, options, is_core_field, is_deletable) VALUES (?, ?, ?, ?, 0, 1)',
+                'INSERT INTO form_fields (field_name, label, field_type, options, is_base_field, is_deletable) VALUES (?, ?, ?, ?, 0, 1)',
                 [field_name, label, field_type, options ? JSON.stringify(options) : null]
             );
             const [newField] = await seishatQuery('SELECT * FROM form_fields WHERE id = ?', [result.insertId]);
@@ -638,12 +638,12 @@ router.get('/admin/layouts/:type', async (req, res, next) => {
     try {
         const sql = `
             SELECT
-                ff.id, ff.field_name, ff.label, ff.field_type, ff.options, ff.is_core_field, ff.is_deletable,
+                ff.id, ff.field_name, ff.label, ff.field_type, ff.options, ff.is_base_field, ff.is_deletable,
                 fl.display_order,
                 fl.is_required
             FROM form_fields ff
             LEFT JOIN form_layouts fl ON ff.id = fl.field_id AND fl.associate_type = ?
-            WHERE fl.associate_type = ? OR ff.is_core_field = 1
+            WHERE fl.associate_type = ? OR ff.is_base_field = 1
             ORDER BY fl.display_order ASC, ff.id ASC
         `;
 
@@ -651,7 +651,7 @@ router.get('/admin/layouts/:type', async (req, res, next) => {
         const allFieldsForType = await seishatQuery(sql, [type, type]);
         
         // Post-processing to ensure all core fields are present and handle null orders/requirements
-        const coreFields = allFieldsForType.filter(f => f.is_core_field);
+        const coreFields = allFieldsForType.filter(f => f.is_base_field);
         let layoutFields = allFieldsForType.filter(f => f.display_order !== null);
         
         coreFields.forEach(coreField => {

@@ -7,6 +7,8 @@ const ItemTypes = {
 };
 
 const PaletteField: React.FC<{ field: FormField }> = ({ field }) => {
+    // FIX: Apply react-dnd drag connector via a ref object to resolve TypeScript error with React 18 types.
+    const dragRef = React.useRef<HTMLDivElement>(null);
     const [{ isDragging }, drag] = useDrag(() => ({
         type: ItemTypes.PALETTE_FIELD,
         item: { type: ItemTypes.PALETTE_FIELD, field },
@@ -14,10 +16,11 @@ const PaletteField: React.FC<{ field: FormField }> = ({ field }) => {
             isDragging: monitor.isDragging(),
         }),
     }));
+    drag(dragRef);
 
     return (
         <div
-            ref={drag}
+            ref={dragRef}
             style={{ opacity: isDragging ? 0.5 : 1 }}
             className="flex items-center gap-3 p-3 rounded-lg bg-[#303134]/50 border border-gray-700 cursor-grab hover:bg-gray-700/50 hover:border-gray-600 transition-colors"
         >

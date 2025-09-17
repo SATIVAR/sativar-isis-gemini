@@ -45,14 +45,14 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({ field, onUpdat
                         }`}
                         role="switch"
                         aria-checked={!!field.is_required}
-                        disabled={!!field.is_core_field}
+                        disabled={!!field.is_base_field}
                     >
                         <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
                             field.is_required ? 'translate-x-5' : 'translate-x-0'
                         }`} />
                     </button>
                 </div>
-                {!!field.is_core_field && <p className="text-xs text-gray-500 mt-2">Campos essenciais são sempre obrigatórios.</p>}
+                {!!field.is_base_field && <p className="text-xs text-gray-500 mt-2">Campos essenciais são sempre obrigatórios.</p>}
             </div>
 
             {/* Placeholder for future properties */}
