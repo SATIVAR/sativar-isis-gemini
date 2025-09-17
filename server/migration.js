@@ -25,7 +25,7 @@ CREATE TABLE IF NOT EXISTS reminders (
   dueDate TEXT NOT NULL,
   notes TEXT,
   tasks TEXT,
-  isCompleted INTEGER NOT NULL DEFAULT 0,
+  isCompleted INTEGER NOT NULL DEFAULT 0, -- 0 for false, 1 for true
   recurrence TEXT NOT NULL CHECK(recurrence IN ('none', 'daily', 'weekly', 'monthly')),
   priority TEXT NOT NULL DEFAULT 'medium' CHECK(priority IN ('low', 'medium', 'high')),
   created_at TEXT DEFAULT (datetime('now', 'localtime')),
@@ -238,6 +238,8 @@ CREATE TABLE IF NOT EXISTS form_layouts (
 
 CREATE INDEX idx_products_name ON products(name);
 CREATE INDEX idx_associates_full_name ON associates(full_name);
+CREATE INDEX idx_associates_cpf ON associates(cpf);
+CREATE INDEX idx_form_layouts_associate_type ON form_layouts(associate_type);
 `;
 
 const runSeishatMysqlMigration = async (pool) => {
@@ -270,7 +272,12 @@ const runSeishatMysqlMigration = async (pool) => {
             (3, 'type', 'Tipo de Associado', 'select', 1, 0, '["paciente", "responsavel", "tutor", "colaborador"]'),
             (4, 'cpf', 'CPF', 'text', 1, 0, NULL),
             (5, 'whatsapp', 'WhatsApp', 'text', 1, 0, NULL)
-            ON DUPLICATE KEY UPDATE label=VALUES(label);
+            ON DUPLICATE KEY UPDATE 
+                label=VALUES(label), 
+                field_type=VALUES(field_type), 
+                is_core_field=VALUES(is_core_field), 
+                is_deletable=VALUES(is_deletable), 
+                options=VALUES(options);
         `;
         await connection.query(populateSql);
 

@@ -88,38 +88,47 @@ CREATE TABLE IF NOT EXISTS associates (
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
 
--- NEW: Creates the table for all possible form fields.
+-- NEW: Table for the central catalog of all possible form fields.
 CREATE TABLE IF NOT EXISTS form_fields (
   id INT AUTO_INCREMENT PRIMARY KEY,
   field_name VARCHAR(255) NOT NULL UNIQUE,
   label VARCHAR(255) NOT NULL,
-  field_type ENUM('text', 'email', 'select', 'password') NOT NULL,
-  is_base_field BOOLEAN NOT NULL DEFAULT FALSE,
-  options TEXT -- For select fields, store as JSON string
+  field_type ENUM('text', 'email', 'select', 'password', 'textarea', 'checkbox', 'radio') NOT NULL,
+  is_core_field BOOLEAN NOT NULL DEFAULT FALSE,
+  is_deletable BOOLEAN NOT NULL DEFAULT FALSE,
+  options TEXT -- For select/radio fields, store as JSON string
 );
 
--- NEW: Creates the linking table for form configurations.
-CREATE TABLE IF NOT EXISTS associate_type_form_config (
+-- NEW: Table that defines the layout and rules for each form.
+CREATE TABLE IF NOT EXISTS form_layouts (
+  id INT AUTO_INCREMENT PRIMARY KEY,
   associate_type VARCHAR(255) NOT NULL,
   field_id INT NOT NULL,
-  PRIMARY KEY (associate_type, field_id),
+  display_order INT NOT NULL,
+  is_required BOOLEAN NOT NULL DEFAULT FALSE,
   FOREIGN KEY (field_id) REFERENCES form_fields(id) ON DELETE CASCADE
 );
-
 
 -- Adds indexes for better performance.
 CREATE INDEX idx_products_name ON products(name);
 CREATE INDEX idx_associates_full_name ON associates(full_name);
 CREATE INDEX idx_associates_cpf ON associates(cpf);
+CREATE INDEX idx_form_layouts_associate_type ON form_layouts(associate_type);
 
--- NEW: Pre-populates the form_fields table with default values.
-INSERT INTO form_fields (field_name, label, field_type, is_base_field) VALUES
-('full_name', 'Nome Completo', 'text', TRUE),
-('password', 'Senha', 'password', TRUE),
-('type', 'Tipo de Associado', 'select', TRUE),
-('cpf', 'CPF', 'text', FALSE),
-('whatsapp', 'WhatsApp', 'text', FALSE)
-ON DUPLICATE KEY UPDATE label=VALUES(label);
+-- NEW: Pre-populates the 'form_fields' table with core, non-deletable fields.
+-- This ensures the application starts with a functional base configuration.
+INSERT INTO form_fields (id, field_name, label, field_type, is_core_field, is_deletable, options) VALUES
+(1, 'full_name', 'Nome Completo', 'text', TRUE, FALSE, NULL),
+(2, 'password', 'Senha', 'password', TRUE, FALSE, NULL),
+(3, 'type', 'Tipo de Associado', 'select', TRUE, FALSE, '["paciente", "responsavel", "tutor", "colaborador"]'),
+(4, 'cpf', 'CPF', 'text', TRUE, FALSE, NULL),
+(5, 'whatsapp', 'WhatsApp', 'text', TRUE, FALSE, NULL)
+ON DUPLICATE KEY UPDATE 
+  label=VALUES(label), 
+  field_type=VALUES(field_type), 
+  is_core_field=VALUES(is_core_field), 
+  is_deletable=VALUES(is_deletable), 
+  options=VALUES(options);
 ```
 
 Once this is done, you can start the server and use the application's interface to test the connection and activate the MySQL mode.
