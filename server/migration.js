@@ -183,7 +183,6 @@ CREATE TABLE IF NOT EXISTS associates (
 
 CREATE INDEX idx_products_name ON products(name);
 CREATE INDEX idx_associates_full_name ON associates(full_name);
-CREATE INDEX idx_associates_cpf ON associates(cpf);
 `;
 
 const runSeishatMysqlMigration = async (pool) => {
@@ -192,7 +191,17 @@ const runSeishatMysqlMigration = async (pool) => {
         console.log(chalk.magenta('[Migration] Running SEISHAT database migrations for MySQL...'));
         const statements = SEISHAT_DB_MIGRATION_MYSQL.split(';').filter(s => s.trim().length > 0);
         for (const statement of statements) {
-            await connection.query(statement);
+            try {
+                await connection.query(statement);
+            } catch (err) {
+                // MySQL error code for "Duplicate key name" is 1061. This makes the migration script idempotent.
+                if (err.errno === 1061) {
+                    console.log(chalk.yellow(`[Migration] Index already exists, skipping statement.`));
+                } else {
+                    // For any other error, we should fail the migration.
+                    throw err;
+                }
+            }
         }
         console.log(chalk.magenta('✅ SEISHAT MySQL migration completed successfully.'));
     } finally {
@@ -219,9 +228,14 @@ const runMigrations = async () => {
     console.log(chalk.yellow('✅ USER Database migration completed successfully.'));
 
     const seishatDb = getSeishatDb();
-    console.log(chalk.magenta('[Migration] Running SEISHAT database migrations for SQLite...'));
-    seishatDb.exec(SEISHAT_DB_MIGRATION_SQL);
-    console.log(chalk.magenta('✅ SEISHAT Database migration completed successfully.'));
+    // This check ensures we only run SQLite migrations if the mode is SQLite
+    if (seishatDb && seishatDb.constructor.name === 'Database') {
+        console.log(chalk.magenta('[Migration] Running SEISHAT database migrations for SQLite...'));
+        seishatDb.exec(SEISHAT_DB_MIGRATION_SQL);
+        console.log(chalk.magenta('✅ SEISHAT SQLite migration completed successfully.'));
+    } else {
+         console.log(chalk.magenta('[Migration] Skipping SEISHAT SQLite migrations (not in SQLite mode).'));
+    }
 
   } catch (error) {
     console.error(chalk.red('❌ An error occurred during database migration.'));
