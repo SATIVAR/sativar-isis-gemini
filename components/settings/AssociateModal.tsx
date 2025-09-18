@@ -1,11 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import type { Associate, AssociateType, FormStep, FormLayoutField, UserRole } from '../../types.ts';
+import type { Associate, AssociateType, FormStep, FormLayoutField, ConditionOperator } from '../../types.ts';
 import { apiClient } from '../../services/database/apiClient.ts';
 import { EyeIcon, EyeOffIcon, UsersIcon } from '../icons.tsx';
 import { Modal } from '../Modal.tsx';
 import { Loader } from '../Loader.tsx';
 import { useModal } from '../../hooks/useModal.ts';
-import { useAuth } from '../../hooks/useAuth.ts';
 
 // --- Helper Functions ---
 
@@ -47,38 +46,44 @@ const checkFieldVisibility = (
     formData: Record<string, any>
 ): boolean => {
     const conditions = field.visibility_conditions;
-    if (!conditions) return true;
+    if (!conditions || (!conditions.rules && !conditions.roles)) return true;
 
-    // Visibility based on Associate Type
-    if (conditions.roles && conditions.roles.length > 0) {
-        const associateTypeInForm = formData.type as AssociateType;
-        if (!associateTypeInForm || !conditions.roles.includes(associateTypeInForm)) {
-            return false;
-        }
-    }
+    const checkRules = () => {
+        if (!conditions.rules || conditions.rules.length === 0) return true;
+        const ruleResults = conditions.rules.map(rule => {
+            const targetValue = formData[rule.field] || '';
+            switch (rule.operator as ConditionOperator) {
+                case 'equals': return targetValue === rule.value;
+                case 'not_equals': return targetValue !== rule.value;
+                case 'is_empty': return !targetValue;
+                case 'is_not_empty': return !!targetValue;
+                case 'contains': return String(targetValue).includes(rule.value || '');
+                default: return true;
+            }
+        });
+        return conditions.relation === 'AND' ? ruleResults.every(res => res) : ruleResults.some(res => res);
+    };
 
-    // Field-based rule check
-    if (!conditions.rules || conditions.rules.length === 0) {
-        return true; // No rules, but role check might have passed.
-    }
+    const checkRoles = () => {
+        if (!conditions.roles || conditions.roles.length === 0) return true;
+        const currentType = formData.type as AssociateType;
+        return conditions.roles.includes(currentType);
+    };
 
-    const ruleResults = conditions.rules.map(rule => {
-        const targetValue = formData[rule.field] || '';
-        switch (rule.operator) {
-            case 'equals': return targetValue === rule.value;
-            case 'not_equals': return targetValue !== rule.value;
-            case 'is_empty': return targetValue === '';
-            case 'is_not_empty': return targetValue !== '';
-            case 'contains': return String(targetValue).includes(rule.value || '');
-            default: return false;
-        }
-    });
+    return checkRules() && checkRoles();
+};
 
-    if (conditions.relation === 'AND') {
-        return ruleResults.every(res => res);
-    } else { // OR
-        return ruleResults.some(res => res);
-    }
+
+const PasswordInput: React.FC<any> = (props) => {
+    const [isVisible, setIsVisible] = useState(false);
+    return (
+        <div className="relative">
+            <input {...props} type={isVisible ? 'text' : 'password'} className={`${props.className} pr-10`} />
+            <button type="button" onClick={() => setIsVisible(!isVisible)} className="absolute inset-y-0 right-0 px-3 flex items-center text-gray-400 hover:text-white">
+                {isVisible ? <EyeOffIcon className="w-5 h-5" /> : <EyeIcon className="w-5 h-5" />}
+            </button>
+        </div>
+    );
 };
 
 const RenderField: React.FC<{
@@ -98,49 +103,23 @@ const RenderField: React.FC<{
         disabled,
     };
 
-    const renderInput = (type: string) => <input type={type} {...commonProps} />;
-    
-    // Special handling for WhatsApp with formatting
     if (field.field_name === 'whatsapp') {
-        return (
-            <input
-                type="text"
-                {...commonProps}
-                value={formatWhatsapp(value || '')}
-                placeholder="(XX) XXXXX-XXXX"
-                maxLength={15}
-            />
-        );
+        return <input type="text" {...commonProps} value={formatWhatsapp(value || '')} placeholder="(XX) XXXXX-XXXX" maxLength={15} />;
     }
     
     switch (field.field_type) {
         case 'textarea': return <textarea rows={3} {...commonProps} />;
-        case 'email': return renderInput('email');
+        case 'email': return <input type="email" {...commonProps} />;
         case 'password': return <PasswordInput {...commonProps} />;
         case 'select':
             const options = field.options ? JSON.parse(field.options) : [];
-            const selectOptions = field.field_name === 'type' ? associateTypesList : options.map((opt: string) => ({ id: opt, label: opt }));
             return (
                 <select {...commonProps}>
-                    {selectOptions.map((opt: {id: string, label: string}) => (
-                        <option key={opt.id} value={opt.id}>{opt.label}</option>
-                    ))}
+                    {options.map((opt: string) => ( <option key={opt} value={opt}>{opt}</option>))}
                 </select>
             );
-        default: return renderInput('text');
+        default: return <input type="text" {...commonProps} />;
     }
-};
-
-const PasswordInput: React.FC<any> = (props) => {
-    const [isVisible, setIsVisible] = useState(false);
-    return (
-        <div className="relative">
-            <input {...props} type={isVisible ? 'text' : 'password'} className={`${props.className} pr-10`} />
-            <button type="button" onClick={() => setIsVisible(!isVisible)} className="absolute inset-y-0 right-0 px-3 flex items-center text-gray-400 hover:text-white">
-                {isVisible ? <EyeOffIcon className="w-5 h-5" /> : <EyeIcon className="w-5 h-5" />}
-            </button>
-        </div>
-    );
 };
 
 interface AssociateModalProps {
@@ -151,7 +130,7 @@ interface AssociateModalProps {
 
 export const AssociateModal: React.FC<AssociateModalProps> = ({ associate, onClose, onSaveSuccess }) => {
     const [steps, setSteps] = useState<FormStep[]>([]);
-    const [currentStepIndex, setCurrentStepIndex] = useState(0);
+    const [currentStepIndex, setCurrentStepIndex] = useState(-1);
     const [formData, setFormData] = useState<Record<string, any>>({});
     const [formErrors, setFormErrors] = useState<Record<string, string>>({});
     const [isLoading, setIsLoading] = useState(true);
@@ -159,50 +138,34 @@ export const AssociateModal: React.FC<AssociateModalProps> = ({ associate, onClo
     const [globalError, setGlobalError] = useState('');
     
     const isEditing = !!associate;
-    const modal = useModal();
-    const { user } = useAuth();
 
-    const fetchLayout = useCallback(async (type: AssociateType) => {
+    const fetchLayoutAndInitialize = useCallback(async (type: AssociateType) => {
         setIsLoading(true);
         setGlobalError('');
         try {
             const layoutData = await apiClient.get<FormStep[]>(`/admin/layouts/${type}`);
             if (layoutData.length === 0) throw new Error('Nenhum layout de formulário configurado para este tipo de associado.');
             setSteps(layoutData);
+            setCurrentStepIndex(0);
         } catch (err) {
             setGlobalError(err instanceof Error ? err.message : 'Falha ao carregar o layout do formulário.');
+            setCurrentStepIndex(-1); // Revert to type selection on error
         } finally {
             setIsLoading(false);
         }
     }, []);
 
     useEffect(() => {
-        const initialType = associate?.type || 'paciente';
-        setFormData(isEditing ? { ...associate } : { type: initialType });
-        fetchLayout(initialType);
-    }, [associate, isEditing, fetchLayout]);
-
-    // Effect to clear data from fields that become hidden
-    useEffect(() => {
-        if (isLoading || steps.length === 0 || !user) return;
-    
-        const allFields = steps.flatMap(s => s.fields);
-        const newFormData = { ...formData };
-        let changed = false;
-    
-        allFields.forEach(field => {
-            const isVisible = checkFieldVisibility(field, formData);
-            if (!isVisible && newFormData[field.field_name] != null && newFormData[field.field_name] !== '') {
-                newFormData[field.field_name] = ''; // Clear the value
-                changed = true;
-            }
-        });
-    
-        if (changed) {
-            setFormData(newFormData);
+        if (isEditing) {
+            setFormData({ ...associate });
+            fetchLayoutAndInitialize(associate.type);
+        } else {
+            setFormData({ type: 'paciente' });
+            setCurrentStepIndex(-1);
+            setIsLoading(false);
         }
-    }, [formData, steps, user, isLoading]);
-    
+    }, [associate, isEditing, fetchLayoutAndInitialize]);
+
     const handleFieldChange = (fieldName: string, value: string) => {
         setFormData(prev => ({ ...prev, [fieldName]: value }));
         if (formErrors[fieldName]) {
@@ -211,40 +174,13 @@ export const AssociateModal: React.FC<AssociateModalProps> = ({ associate, onClo
         if (globalError) setGlobalError('');
     };
     
-     const handleTypeChange = async (fieldName: string, value: string) => {
-        if (isEditing) return; // Type cannot be changed when editing
-        
-        const newType = value as AssociateType;
-        const currentData = { ...formData };
-        
-        const hasData = Object.keys(currentData).some(key => key !== 'type' && currentData[key]);
-        if(hasData) {
-             const confirmed = await modal.confirm({
-                title: "Mudar Tipo de Associado?",
-                message: "Alterar o tipo de associado irá recarregar o formulário e limpar os dados já preenchidos. Deseja continuar?",
-                confirmLabel: "Continuar",
-                danger: true
-            });
-            if (!confirmed) {
-                setFormData(prev => ({ ...prev }));
-                return;
-            }
-        }
-       
-        setFormData({ type: newType }); // Reset form data but keep new type
-        setCurrentStepIndex(0);
-        await fetchLayout(newType);
-    };
-
     const validateStep = (stepIndex: number): boolean => {
-        if (!user) return false;
         const errors: Record<string, string> = {};
         const step = steps[stepIndex];
         if (!step) return false;
 
         for (const field of step.fields) {
-            const isVisible = checkFieldVisibility(field, formData);
-            if (!isVisible) continue; // Don't validate hidden fields
+            if (!checkFieldVisibility(field, formData)) continue;
 
             const value = formData[field.field_name];
             if (!!field.is_required && (!value || String(value).trim() === '')) {
@@ -255,8 +191,13 @@ export const AssociateModal: React.FC<AssociateModalProps> = ({ associate, onClo
                 errors.password = 'A senha deve ter pelo menos 6 caracteres.';
             } else if (field.field_name === 'password' && !isEditing && (!value || value.length < 6)) {
                 errors.password = 'A senha é obrigatória e deve ter pelo menos 6 caracteres.';
-            } else if (field.field_name === 'password' && value && value !== formData.confirmPassword) {
-                 errors.confirmPassword = 'As senhas não coincidem.';
+            }
+        }
+        
+        if (formData.password && formData.password !== formData.confirmPassword) {
+            const confirmPasswordField = step.fields.find(f => f.field_name === 'password');
+            if(confirmPasswordField) {
+                errors.confirmPassword = 'As senhas não coincidem.';
             }
         }
 
@@ -265,7 +206,9 @@ export const AssociateModal: React.FC<AssociateModalProps> = ({ associate, onClo
     };
     
     const handleNext = () => {
-        if (validateStep(currentStepIndex)) {
+        if (currentStepIndex === -1) { // Transition from type selection
+            fetchLayoutAndInitialize(formData.type);
+        } else if (validateStep(currentStepIndex)) {
             setCurrentStepIndex(prev => prev + 1);
         }
     };
@@ -314,45 +257,52 @@ export const AssociateModal: React.FC<AssociateModalProps> = ({ associate, onClo
         }
     };
 
-    const currentStep = steps[currentStepIndex];
-    const isLastStep = currentStepIndex === steps.length - 1;
+    const currentStep = currentStepIndex >= 0 ? steps[currentStepIndex] : null;
+    const isLastStep = currentStepIndex === steps.length - 1 && steps.length > 0;
 
     const renderBody = () => {
         if (isLoading) return <div className="flex justify-center items-center h-48"><Loader /></div>;
-        if (globalError && steps.length === 0) return <p className="text-red-400 text-center">{globalError}</p>;
-        if (!currentStep || !user) return <p className="text-gray-400 text-center">Formulário não encontrado.</p>;
+        if (globalError && !currentStep) return <p className="text-red-400 text-center">{globalError}</p>;
 
-        const visibleFields = currentStep.fields.filter(field => checkFieldVisibility(field, formData));
+        // Step -1: Type Selection for new associates
+        if (currentStepIndex === -1 && !isEditing) {
+            return (
+                <div>
+                    <h3 className="text-lg font-semibold text-fuchsia-300 mb-4">Primeiro Passo</h3>
+                    <label htmlFor="associateType" className="block text-sm font-medium text-gray-300 mb-2">Qual o tipo de associado que você deseja cadastrar?</label>
+                    <select
+                        id="associateType"
+                        value={formData.type || 'paciente'}
+                        onChange={(e) => handleFieldChange('type', e.target.value)}
+                        className="w-full bg-[#202124] border border-gray-600/50 text-white rounded-lg px-3 py-2 focus:ring-2 focus:ring-fuchsia-500"
+                    >
+                        {associateTypesList.map(type => <option key={type.id} value={type.id}>{type.label}</option>)}
+                    </select>
+                </div>
+            );
+        }
+
+        if (!currentStep) return <p className="text-gray-400 text-center">Formulário não encontrado.</p>;
         
+        const visibleFields = currentStep.fields.filter(field => checkFieldVisibility(field, formData));
+
         return (
             <div className="space-y-4">
-                 {steps.length > 1 && (
-                    <div className="flex items-center gap-2 mb-4">
-                        {steps.map((step, index) => (
-                             <div key={step.id} className="flex-1 h-1.5 rounded-full" style={{ backgroundColor: index <= currentStepIndex ? '#a855f7' : '#4a4a4f' }}></div>
-                        ))}
+                 <h3 className="text-lg font-semibold text-fuchsia-300">{currentStep.title}</h3>
+                {visibleFields.map(field => (
+                    <div key={field.id}>
+                        <label htmlFor={field.field_name} className="block text-sm font-medium text-gray-300 mb-2">
+                            {field.label} {!!field.is_required && <span className="text-red-400">*</span>}
+                        </label>
+                        <RenderField
+                            field={field}
+                            value={formData[field.field_name]}
+                            error={formErrors[field.field_name]}
+                            onChange={handleFieldChange}
+                        />
+                        {formErrors[field.field_name] && <p className="text-red-400 text-xs mt-1">{formErrors[field.field_name]}</p>}
                     </div>
-                )}
-                <h3 className="text-lg font-semibold text-fuchsia-300">{currentStep.title}</h3>
-                {visibleFields.map(field => {
-                    const onChangeHandler = field.field_name === 'type' ? handleTypeChange : handleFieldChange;
-                    const isDisabled = isEditing && field.field_name === 'type';
-                    return (
-                        <div key={field.id} style={{animation: 'fadeIn 0.5s ease-out'}}>
-                            <label htmlFor={field.field_name} className="block text-sm font-medium text-gray-300 mb-2">
-                                {field.label} {!!field.is_required && <span className="text-red-400">*</span>}
-                            </label>
-                            <RenderField
-                                field={field}
-                                value={formData[field.field_name]}
-                                error={formErrors[field.field_name]}
-                                onChange={onChangeHandler}
-                                disabled={isDisabled}
-                            />
-                            {formErrors[field.field_name] && <p className="text-red-400 text-xs mt-1">{formErrors[field.field_name]}</p>}
-                        </div>
-                    );
-                })}
+                ))}
                  {visibleFields.some(f => f.field_name === 'password') && (
                      <div>
                         <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-300 mb-2">Confirmar Senha</label>
@@ -366,41 +316,43 @@ export const AssociateModal: React.FC<AssociateModalProps> = ({ associate, onClo
                          {formErrors.confirmPassword && <p className="text-red-400 text-xs mt-1">{formErrors.confirmPassword}</p>}
                     </div>
                  )}
-                 {visibleFields.length === 0 && <p className="text-gray-500 text-sm text-center py-4">Nenhum campo visível nesta etapa.</p>}
             </div>
         );
+    };
+
+    const ProgressBar = () => {
+        if (currentStepIndex < 0 || steps.length <= 1) return null;
+        return (
+            <div className="flex items-center gap-2 mb-4">
+                {steps.map((step, index) => (
+                     <div key={step.id} className="flex-1 h-1.5 rounded-full" style={{ backgroundColor: index <= currentStepIndex ? '#a855f7' : '#4a4a4f' }}></div>
+                ))}
+            </div>
+        )
     };
 
     return (
         <Modal
             title={isEditing ? `Editar Associado: ${associate.full_name}` : 'Adicionar Novo Associado'}
-            onClose={onClose}
-            size="lg"
-            icon={<UsersIcon className="w-6 h-6 text-fuchsia-400" />}
+            onClose={onClose} size="lg" icon={<UsersIcon className="w-6 h-6 text-fuchsia-400" />}
             footer={
                 <div className="flex justify-between w-full items-center">
                     <button type="button" onClick={onClose} className="px-5 py-2 bg-gray-700 text-sm font-medium rounded-lg hover:bg-gray-600">Cancelar</button>
                     <div className="flex items-center gap-3">
-                         {currentStepIndex > 0 && (
-                            <button type="button" onClick={handleBack} className="px-5 py-2 bg-gray-700 text-sm font-medium rounded-lg hover:bg-gray-600">Voltar</button>
-                        )}
+                         {currentStepIndex > 0 && ( <button type="button" onClick={handleBack} className="px-5 py-2 bg-gray-700 text-sm font-medium rounded-lg hover:bg-gray-600">Voltar</button> )}
                         {isLastStep ? (
                              <button type="submit" form="associate-form" disabled={isSaving || isLoading} className="px-5 py-2 min-w-[100px] text-center bg-green-600 text-white font-semibold rounded-lg hover:bg-green-700 disabled:opacity-50">
                                 {isSaving ? <Loader /> : 'Salvar'}
                              </button>
                         ) : (
-                             <button type="button" onClick={handleNext} disabled={isLoading || steps.length === 0} className="px-5 py-2 bg-fuchsia-600 text-white font-semibold rounded-lg hover:bg-fuchsia-700 disabled:opacity-50">
-                                Próximo
-                             </button>
+                             <button type="button" onClick={handleNext} disabled={isLoading} className="px-5 py-2 bg-fuchsia-600 text-white font-semibold rounded-lg hover:bg-fuchsia-700 disabled:opacity-50"> Próximo </button>
                         )}
                     </div>
                 </div>
             }
         >
-            <style>
-                {`@keyframes fadeIn { from { opacity: 0; transform: translateY(-5px); } to { opacity: 1; transform: translateY(0); } }`}
-            </style>
             <form id="associate-form" onSubmit={handleSubmit}>
+                <ProgressBar />
                 {renderBody()}
                 {globalError && !isLoading && <p className="text-sm text-red-400 text-center mt-4">{globalError}</p>}
             </form>
