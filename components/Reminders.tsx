@@ -260,7 +260,6 @@ export const ReminderModal: React.FC<ReminderModalProps> = ({ onClose, reminder,
                             value={newTaskText}
                             onChange={(e) => setNewTaskText(e.target.value)}
                             onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddTask())}
-                            onBlur={handleAddTask}
                             placeholder="Adicionar subtarefa e pressionar Enter"
                             className="flex-grow bg-transparent text-gray-400 placeholder-gray-500 outline-none focus:text-white text-sm"
                         />
@@ -322,13 +321,19 @@ export const RemindersList: React.FC<RemindersListProps> = ({ onClose }) => {
 
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
+            // If any modal is open, let it handle its own closing logic.
+            // This prevents the popover from closing when clicking inside the modal.
+            if (isCreatingReminder || editingReminder) {
+                return;
+            }
+
             if (modalRef.current && !modalRef.current.contains(event.target as Node)) {
                 onClose();
             }
         };
         document.addEventListener("mousedown", handleClickOutside);
         return () => document.removeEventListener("mousedown", handleClickOutside);
-    }, [onClose]);
+    }, [onClose, isCreatingReminder, editingReminder]);
     
     const handleDelete = async (e: React.MouseEvent, id: string) => {
         e.stopPropagation(); // Prevent card from being marked as complete
