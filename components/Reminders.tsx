@@ -312,20 +312,44 @@ const getRelativeDueDate = (dueDate: string): { text: string; isOverdue: boolean
     return { text: `${due.toLocaleDateString('pt-BR')} às ${timeFormat}`, isOverdue: false };
 };
 
+const getReminderStatus = (reminder: Reminder): { text: string; textColor: string; progress: number, progressColor: string, completedCount: number, totalCount: number } => {
+    const totalTasks = reminder.tasks?.length || 0;
+    const completedTasks = reminder.tasks?.filter(t => t.isCompleted).length || 0;
+
+    const result = { completedCount: completedTasks, totalCount: totalTasks };
+
+    if (reminder.isCompleted) {
+        return { ...result, text: 'Concluído', textColor: 'text-green-400', progress: 100, progressColor: 'bg-green-500' };
+    }
+    if (totalTasks === 0) {
+        return { ...result, text: 'Pendente', textColor: 'text-gray-400', progress: 0, progressColor: 'bg-gray-600' };
+    }
+    if (completedTasks === 0) {
+        return { ...result, text: 'Pendente', textColor: 'text-gray-400', progress: 0, progressColor: 'bg-gray-600' };
+    }
+    if (completedTasks === totalTasks) {
+        return { ...result, text: 'Concluído', textColor: 'text-green-400', progress: 100, progressColor: 'bg-green-500' };
+    }
+    return { 
+        ...result,
+        text: 'Em Andamento', 
+        textColor: 'text-yellow-400', 
+        progress: (completedTasks / totalTasks) * 100,
+        progressColor: 'bg-yellow-500'
+    };
+};
+
 export const RemindersList: React.FC<RemindersListProps> = ({ onClose }) => {
-    const { reminders, toggleReminderCompletion, deleteReminder } = useReminders();
+    const { reminders, toggleReminderCompletion, toggleTaskCompletion, deleteReminder } = useReminders();
     const [editingReminder, setEditingReminder] = useState<Reminder | null>(null);
     const [isCreatingReminder, setIsCreatingReminder] = useState(false);
+    const [openReminderId, setOpenReminderId] = useState<string | null>(null);
     const modalRef = useRef<HTMLDivElement>(null);
     const modal = useModal();
 
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
-            // If any modal is open, let it handle its own closing logic.
-            // This prevents the popover from closing when clicking inside the modal.
-            if (isCreatingReminder || editingReminder) {
-                return;
-            }
+            if (isCreatingReminder || editingReminder) return;
 
             if (modalRef.current && !modalRef.current.contains(event.target as Node)) {
                 onClose();
@@ -336,7 +360,7 @@ export const RemindersList: React.FC<RemindersListProps> = ({ onClose }) => {
     }, [onClose, isCreatingReminder, editingReminder]);
     
     const handleDelete = async (e: React.MouseEvent, id: string) => {
-        e.stopPropagation(); // Prevent card from being marked as complete
+        e.stopPropagation();
         const confirmed = await modal.confirm({
             title: "Confirmar Exclusão",
             message: "Tem certeza que deseja apagar esta tarefa? Lembretes recorrentes não serão recriados.",
@@ -373,7 +397,7 @@ export const RemindersList: React.FC<RemindersListProps> = ({ onClose }) => {
         <>
             {editingReminder && <ReminderModal reminder={editingReminder} onClose={() => setEditingReminder(null)} />}
             {isCreatingReminder && <ReminderModal onClose={() => setIsCreatingReminder(false)} />}
-            <div ref={modalRef} className="absolute top-14 right-4 w-80 max-h-[80vh] bg-[#202124] border border-gray-700 rounded-xl shadow-2xl flex flex-col z-20 overflow-hidden">
+            <div ref={modalRef} className="absolute top-14 right-4 w-96 max-h-[80vh] bg-[#202124] border border-gray-700 rounded-xl shadow-2xl flex flex-col z-20 overflow-hidden">
                 <header className="flex-shrink-0 p-4 border-b border-gray-700 flex justify-between items-center">
                     <h2 className="text-lg font-bold text-white">Tarefas e Lembretes</h2>
                     <div className="flex items-center gap-1">
@@ -401,26 +425,26 @@ export const RemindersList: React.FC<RemindersListProps> = ({ onClose }) => {
                         <div className="space-y-2">
                             {sortedReminders.map(reminder => {
                                 const { text: dueDateText, isOverdue } = getRelativeDueDate(reminder.dueDate);
-                                const priority = reminder.priority || 'medium';
+                                const status = getReminderStatus(reminder);
+                                const isOpen = openReminderId === reminder.id;
+                                const hasSubtasks = reminder.tasks && reminder.tasks.length > 0;
+
                                 return (
-                                    <div key={reminder.id} className="group relative">
-                                        <div 
-                                            onClick={() => toggleReminderCompletion(reminder.id)}
-                                            className={`w-full p-3 rounded-lg cursor-pointer transition-all duration-200 ${
-                                                reminder.isCompleted ? 'bg-green-900/40 hover:bg-green-900/60 opacity-60' : 'bg-[#303134] hover:bg-gray-700/80'
-                                            }`}
-                                        >
-                                            <PriorityIndicator priority={priority} />
-                                            <div className="flex items-start gap-3">
+                                    <div key={reminder.id} className={`group relative bg-[#303134] rounded-lg transition-colors duration-200 ${reminder.isCompleted ? 'bg-green-900/30 opacity-70' : ''}`}>
+                                        <div className="p-3">
+                                            <div
+                                                className="flex items-start gap-3 cursor-pointer"
+                                                onClick={() => hasSubtasks ? setOpenReminderId(prev => prev === reminder.id ? null : reminder.id) : toggleReminderCompletion(reminder.id)}
+                                            >
                                                 <div className="mt-1 flex-shrink-0">
                                                     <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors ${
-                                                        reminder.isCompleted ? 'bg-green-500 border-green-400' : 'border-gray-500 group-hover:border-green-500'
+                                                        reminder.isCompleted ? 'bg-green-500 border-green-400' : 'border-gray-500'
                                                     }`}>
                                                         {reminder.isCompleted && <CheckIcon className="w-3 h-3 text-white" />}
                                                     </div>
                                                 </div>
-                                                <div>
-                                                    <p className={`font-medium text-white ${reminder.isCompleted ? 'line-through' : ''}`}>
+                                                <div className="flex-grow">
+                                                    <p className={`font-medium text-white ${reminder.isCompleted ? 'line-through text-gray-500' : ''}`}>
                                                         {reminder.patientName}
                                                     </p>
                                                     <div className="flex items-center gap-1.5 mt-1 text-xs">
@@ -431,14 +455,58 @@ export const RemindersList: React.FC<RemindersListProps> = ({ onClose }) => {
                                                         {reminder.recurrence !== 'none' && <RepeatIcon className="w-3 h-3 text-gray-400" />}
                                                     </div>
                                                 </div>
+                                                {hasSubtasks && <ChevronDownIcon className={`w-5 h-5 text-gray-400 transition-transform flex-shrink-0 ${isOpen ? 'rotate-180' : ''}`} />}
                                             </div>
+                                            
+                                            {hasSubtasks && !reminder.isCompleted && (
+                                                <div className="mt-2 pl-8">
+                                                    <div className="flex justify-between items-center text-xs mb-1">
+                                                        <span className={`font-semibold ${status.textColor}`}>{status.text}</span>
+                                                        <span className="text-gray-400">{status.completedCount}/{status.totalCount}</span>
+                                                    </div>
+                                                    <div className="w-full bg-gray-600 rounded-full h-1.5">
+                                                        <div className={`${status.progressColor} h-1.5 rounded-full`} style={{ width: `${status.progress}%`, transition: 'width 0.3s ease-in-out' }}></div>
+                                                    </div>
+                                                </div>
+                                            )}
                                         </div>
-                                         <div className="absolute top-1/2 -translate-y-1/2 right-2 flex items-center opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                                        
+                                        <div className={`overflow-hidden transition-all duration-300 ease-in-out ${isOpen ? 'max-h-[500px]' : 'max-h-0'}`}>
+                                            {hasSubtasks && (
+                                                <div className="pb-3 pr-3 pl-8">
+                                                    <div className="border-l-2 border-gray-600/50 pl-4 space-y-2 pt-1">
+                                                        {reminder.tasks.map(task => {
+                                                            const TaskIcon = task.icon ? IconMap[task.icon] : BellIcon;
+                                                            return (
+                                                                <div key={task.id} className="flex items-center gap-3 group/task">
+                                                                    <button
+                                                                        onClick={() => toggleTaskCompletion(reminder.id, task.id)}
+                                                                        className={`w-4 h-4 rounded-sm border-2 flex-shrink-0 flex items-center justify-center transition-colors ${
+                                                                            task.isCompleted ? 'bg-green-500 border-green-400' : 'border-gray-500 group-hover/task:border-green-500'
+                                                                        }`}
+                                                                        aria-label={`Marcar tarefa ${task.text} como ${task.isCompleted ? 'pendente' : 'concluída'}`}
+                                                                    >
+                                                                        {task.isCompleted && <CheckIcon className="w-2.5 h-2.5 text-white" />}
+                                                                    </button>
+                                                                    <TaskIcon className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                                                                    <span className={`text-sm flex-grow cursor-default ${task.isCompleted ? 'line-through text-gray-500' : 'text-gray-300'}`}>
+                                                                        {task.text}
+                                                                    </span>
+                                                                </div>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                        
+                                        <div className="absolute top-3 right-2 flex items-center opacity-0 group-hover:opacity-100 transition-opacity duration-200">
                                             {!reminder.isCompleted && (
                                                 <button onClick={(e) => handleEdit(e, reminder)} className="p-1 text-gray-400 hover:text-fuchsia-400 rounded-full hover:bg-gray-800"><EditIcon className="w-4 h-4" /></button>
                                             )}
                                             <button onClick={(e) => handleDelete(e, reminder.id)} className="p-1 text-gray-400 hover:text-red-400 rounded-full hover:bg-gray-800"><Trash2Icon className="w-4 h-4" /></button>
                                         </div>
+                                        <PriorityIndicator priority={reminder.priority || 'medium'} />
                                     </div>
                                 );
                             })}

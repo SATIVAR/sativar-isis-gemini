@@ -71,7 +71,7 @@ export const Header: React.FC<HeaderProps> = ({ currentMode, setCurrentMode, onT
                             </span>
                         </div>
                         {settings.associationName && (
-                            <p className="text-sm text-gray-400 -mt-1">{settings.associationName}</p>
+                            <p className="text-xs text-gray-400">{settings.associationName}</p>
                         )}
                     </div>
                 </div>
