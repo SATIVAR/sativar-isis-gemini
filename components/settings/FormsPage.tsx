@@ -683,15 +683,24 @@ export const FormsPage: React.FC = () => {
                 apiClient.get<FormField[]>('/admin/fields'),
                 apiClient.get<FormStep[]>(`/admin/layouts/${type}`),
             ]);
-            setAllFields(fields);
+
+            // Refactor: Filter out the 'type' field from the palette and any loaded layout.
+            // It's a contextual field, not a draggable one.
+            const filteredPaletteFields = fields.filter(f => f.field_name !== 'type');
+            setAllFields(filteredPaletteFields);
+
+            const cleanedLayoutData = layoutData.map(step => ({
+                ...step,
+                fields: step.fields.filter(f => f.field_name !== 'type')
+            }));
             
-            if (layoutData.length === 0) {
+            if (cleanedLayoutData.length === 0) {
                 const newLayout: FormStep[] = [{ id: crypto.randomUUID(), title: 'Informações Principais', step_order: 0, fields: [] }];
                 setLayout(newLayout);
                 setInitialLayout(JSON.parse(JSON.stringify(newLayout))); // Deep copy
             } else {
-                setLayout(layoutData);
-                setInitialLayout(JSON.parse(JSON.stringify(layoutData))); // Deep copy
+                setLayout(cleanedLayoutData);
+                setInitialLayout(JSON.parse(JSON.stringify(cleanedLayoutData))); // Deep copy
             }
 
         } catch (err) {
