@@ -1,6 +1,7 @@
 
 import React, { useRef, useState } from 'react';
 import { useDrop, useDrag } from 'react-dnd';
+// FIX: Import form-related types from the central types.ts file.
 import type { FormLayoutField, FormField, FormStep } from '../../../types.ts';
 import { FieldCard } from './FieldCard.tsx';
 import { GripVerticalIcon, Trash2Icon } from '../../icons.tsx';

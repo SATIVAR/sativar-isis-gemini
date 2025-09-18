@@ -1,5 +1,6 @@
 import React from 'react';
 import { useDrag } from 'react-dnd';
+// FIX: Import the FormField type from the central types.ts file.
 import type { FormField } from '../../../types.ts';
 import { Trash2Icon } from '../../icons.tsx';
 import { ItemTypes } from './Canvas.tsx';

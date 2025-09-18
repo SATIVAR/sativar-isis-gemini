@@ -163,7 +163,8 @@ export interface Associate {
   // Password is not stored on the client
 }
 
-// From Seishat Forms Feature
+// FIX: Add Form Builder types to be shared across components.
+// From Form Builder Feature
 export type FormFieldType = 'text' | 'email' | 'select' | 'password' | 'textarea' | 'checkbox' | 'radio' | 'separator';
 
 // Represents a field in the central catalog
@@ -190,7 +191,6 @@ export interface FormStep {
   step_order: number;
   fields: FormLayoutField[];
 }
-
 
 // FIX: Add Vite client types to fix import.meta.env errors across the application.
 // This avoids the need for triple-slash directives in multiple files and provides type safety.

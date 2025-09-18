@@ -1,4 +1,5 @@
 import React from 'react';
+// FIX: Import the FormLayoutField type from the central types.ts file.
 import type { FormLayoutField } from '../../../types.ts';
 import { SettingsIcon, XCircleIcon } from '../../icons.tsx';
 

@@ -1,5 +1,6 @@
 import React, { useRef } from 'react';
 import { useDrag, useDrop } from 'react-dnd';
+// FIX: Import the FormLayoutField type from the central types.ts file.
 import type { FormLayoutField } from '../../../types.ts';
 import { GripVerticalIcon, Trash2Icon } from '../../icons.tsx';
 import { ItemTypes } from './Canvas.tsx';

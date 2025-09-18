@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { apiClient } from '../../../services/database/apiClient.ts';
+// FIX: Import FormField and FormFieldType from the central types.ts file.
 import type { FormField, FormFieldType } from '../../../types.ts';
 import { Modal } from '../../Modal.tsx';
 import { PlusCircleIcon } from '../../icons.tsx';

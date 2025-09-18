@@ -4,6 +4,62 @@ import { apiClient } from '../../services/database/apiClient.ts';
 import { EyeIcon, EyeOffIcon, UsersIcon } from '../icons.tsx';
 import { Modal } from '../Modal.tsx';
 
+// Helper function for CPF validation
+const validateCPF = (cpf: string): boolean => {
+    if (!cpf) return true; // Optional field is valid if empty
+
+    const cpfClean = cpf.replace(/[^\d]/g, '');
+
+    if (cpfClean.length !== 11 || /^(\d)\1+$/.test(cpfClean)) {
+        return false;
+    }
+
+    let sum = 0;
+    let remainder;
+
+    for (let i = 1; i <= 9; i++) {
+        sum += parseInt(cpfClean.substring(i - 1, i)) * (11 - i);
+    }
+    remainder = (sum * 10) % 11;
+    if (remainder === 10 || remainder === 11) {
+        remainder = 0;
+    }
+    if (remainder !== parseInt(cpfClean.substring(9, 10))) {
+        return false;
+    }
+
+    sum = 0;
+    for (let i = 1; i <= 10; i++) {
+        sum += parseInt(cpfClean.substring(i - 1, i)) * (12 - i);
+    }
+    remainder = (sum * 10) % 11;
+    if (remainder === 10 || remainder === 11) {
+        remainder = 0;
+    }
+    if (remainder !== parseInt(cpfClean.substring(10, 11))) {
+        return false;
+    }
+
+    return true;
+};
+
+// Helper function for WhatsApp masking
+const formatWhatsapp = (value: string): string => {
+    if (!value) return '';
+    value = value.replace(/\D/g, ''); // Keep only digits
+    value = value.slice(0, 11); // Limit to 11 digits
+
+    if (value.length > 7) {
+        return `(${value.slice(0, 2)}) ${value.slice(2, 7)}-${value.slice(7)}`;
+    } else if (value.length > 2) {
+        return `(${value.slice(0, 2)}) ${value.slice(2)}`;
+    } else if (value.length > 0) {
+        return `(${value.slice(0, 2)}`;
+    }
+    return value;
+};
+
+// FIX: Define the props interface for the component.
 interface AssociateModalProps {
     associate: Associate | null;
     onClose: () => void;
@@ -19,14 +75,36 @@ export const AssociateModal: React.FC<AssociateModalProps> = ({ associate, onClo
     const [confirmPassword, setConfirmPassword] = useState('');
     const [isPasswordVisible, setIsPasswordVisible] = useState(false);
     const [error, setError] = useState('');
+    const [cpfError, setCpfError] = useState('');
+    const [whatsappError, setWhatsappError] = useState('');
     const isEditing = !!associate;
+    
+    const handleWhatsappChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        setWhatsapp(formatWhatsapp(e.target.value));
+        if (whatsappError) {
+            setWhatsappError('');
+        }
+    };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setError('');
+        setCpfError('');
+        setWhatsappError('');
 
         if (!fullName.trim() || !type) {
             setError('Nome completo e tipo são obrigatórios.');
+            return;
+        }
+
+        if (cpf && !validateCPF(cpf)) {
+            setCpfError('CPF inválido. Verifique o formato e os dígitos.');
+            return;
+        }
+
+        const whatsappDigits = whatsapp.replace(/\D/g, '');
+        if (whatsapp && whatsappDigits.length > 0 && whatsappDigits.length < 11) {
+            setWhatsappError('WhatsApp inválido. Deve ter 11 dígitos (DDD + número).');
             return;
         }
 
@@ -88,11 +166,25 @@ export const AssociateModal: React.FC<AssociateModalProps> = ({ associate, onClo
                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                         <label htmlFor="cpf" className="block text-sm font-medium text-gray-300 mb-2">CPF (Opcional)</label>
-                        <input id="cpf" value={cpf} onChange={e => setCpf(e.target.value)} className="w-full bg-[#202124] border border-gray-600/50 text-white rounded-lg px-3 py-2 focus:ring-2 focus:ring-fuchsia-500" />
+                        <input
+                            id="cpf"
+                            value={cpf}
+                            onChange={e => setCpf(e.target.value)}
+                            className={`w-full bg-[#202124] border text-white rounded-lg px-3 py-2 focus:ring-2 outline-none transition ${cpfError ? 'border-red-500 focus:ring-red-500' : 'border-gray-600/50 focus:ring-fuchsia-500'}`}
+                        />
+                        {cpfError && <p className="text-red-400 text-xs mt-1">{cpfError}</p>}
                     </div>
                     <div>
                         <label htmlFor="whatsapp" className="block text-sm font-medium text-gray-300 mb-2">WhatsApp (Opcional)</label>
-                        <input id="whatsapp" value={whatsapp} onChange={e => setWhatsapp(e.target.value)} className="w-full bg-[#202124] border border-gray-600/50 text-white rounded-lg px-3 py-2 focus:ring-2 focus:ring-fuchsia-500" />
+                        <input
+                            id="whatsapp"
+                            value={whatsapp}
+                            onChange={handleWhatsappChange}
+                            placeholder="(XX) XXXXX-XXXX"
+                            maxLength={15}
+                            className={`w-full bg-[#202124] border text-white rounded-lg px-3 py-2 focus:ring-2 outline-none transition ${whatsappError ? 'border-red-500 focus:ring-red-500' : 'border-gray-600/50 focus:ring-fuchsia-500'}`}
+                        />
+                        {whatsappError && <p className="text-red-400 text-xs mt-1">{whatsappError}</p>}
                     </div>
                 </div>
                 <div>

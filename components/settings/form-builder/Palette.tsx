@@ -1,4 +1,5 @@
 import React from 'react';
+// FIX: Import FormField and FormStep types from the central types.ts file.
 import type { FormField, FormStep } from '../../../types.ts';
 import { PaletteField } from './PaletteField.tsx';
 import { ItemTypes } from './Canvas.tsx';
