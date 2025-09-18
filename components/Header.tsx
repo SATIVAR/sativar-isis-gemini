@@ -22,6 +22,7 @@ export const Header: React.FC<HeaderProps> = ({ currentMode, setCurrentMode, onT
     const { settings } = useSettings();
     const { isOnline } = useConnection();
     const auth = useAuth();
+    const appVersion = `v.${new Date().getFullYear().toString().slice(-2)}`;
 
     const pendingCount = reminders.filter(r => !r.isCompleted).length;
     
@@ -64,9 +65,9 @@ export const Header: React.FC<HeaderProps> = ({ currentMode, setCurrentMode, onT
                             </h1>
                             <span
                                 className={`select-none text-xs font-mono px-2 py-0.5 rounded-full transition-colors cursor-help ${isOnline ? 'bg-green-600 text-white' : 'bg-red-600 text-white'}`}
-                                title={isOnline ? 'v0.30 - Conectado ao servidor' : 'v0.30 - Operando em modo offline. As alterações serão salvas localmente.'}
+                                title={isOnline ? `${appVersion} - Conectado ao servidor` : `${appVersion} - Operando em modo offline. As alterações serão salvas localmente.`}
                             >
-                                v0.30
+                                {appVersion}
                             </span>
                         </div>
                         {settings.associationName && (
