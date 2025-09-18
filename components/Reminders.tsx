@@ -316,6 +316,7 @@ const getRelativeDueDate = (dueDate: string): { text: string; isOverdue: boolean
 export const RemindersList: React.FC<RemindersListProps> = ({ onClose }) => {
     const { reminders, toggleReminderCompletion, deleteReminder } = useReminders();
     const [editingReminder, setEditingReminder] = useState<Reminder | null>(null);
+    const [isCreatingReminder, setIsCreatingReminder] = useState(false);
     const modalRef = useRef<HTMLDivElement>(null);
     const modal = useModal();
 
@@ -366,12 +367,23 @@ export const RemindersList: React.FC<RemindersListProps> = ({ onClose }) => {
     return (
         <>
             {editingReminder && <ReminderModal reminder={editingReminder} onClose={() => setEditingReminder(null)} />}
+            {isCreatingReminder && <ReminderModal onClose={() => setIsCreatingReminder(false)} />}
             <div ref={modalRef} className="absolute top-14 right-4 w-80 max-h-[80vh] bg-[#202124] border border-gray-700 rounded-xl shadow-2xl flex flex-col z-20 overflow-hidden">
                 <header className="flex-shrink-0 p-4 border-b border-gray-700 flex justify-between items-center">
                     <h2 className="text-lg font-bold text-white">Tarefas e Lembretes</h2>
-                    <button onClick={onClose} className="p-1 rounded-full text-gray-400 hover:bg-gray-700 hover:text-white">
-                        <XCircleIcon className="w-6 h-6"/>
-                    </button>
+                    <div className="flex items-center gap-1">
+                        <button 
+                            onClick={() => setIsCreatingReminder(true)} 
+                            className="p-1 rounded-full text-gray-400 hover:bg-gray-700 hover:text-white"
+                            aria-label="Adicionar nova tarefa"
+                            title="Adicionar nova tarefa"
+                        >
+                            <PlusCircleIcon className="w-6 h-6"/>
+                        </button>
+                        <button onClick={onClose} className="p-1 rounded-full text-gray-400 hover:bg-gray-700 hover:text-white" aria-label="Fechar">
+                            <XCircleIcon className="w-6 h-6"/>
+                        </button>
+                    </div>
                 </header>
                 <div className="flex-grow overflow-y-auto p-2">
                     {sortedReminders.length === 0 ? (
