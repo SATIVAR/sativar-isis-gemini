@@ -519,6 +519,56 @@ router.delete('/users/:id', async (req, res, next) => {
 
 // --- Seishat Associates CRUD Routes ---
 
+router.post('/seishat/associates/check-duplicates', async (req, res, next) => {
+    const { cpf, whatsapp, excludeId } = req.body;
+    
+    try {
+        const conditions = [];
+        const params = [];
+
+        if (cpf) {
+            conditions.push('cpf = ?');
+            params.push(cpf);
+        }
+        if (whatsapp) {
+            conditions.push('whatsapp = ?');
+            params.push(whatsapp);
+        }
+
+        if (conditions.length === 0) {
+            return res.json({ isDuplicate: false });
+        }
+
+        let queryBase = `SELECT id, full_name, cpf, whatsapp FROM associates WHERE (${conditions.join(' OR ')})`;
+
+        if (excludeId) {
+            queryBase += ' AND id != ?';
+            params.push(excludeId);
+        }
+
+        const duplicates = await seishatQuery(queryBase, params);
+
+        if (duplicates.length > 0) {
+            const firstDuplicate = duplicates[0];
+            let field = 'unknown';
+            let message = `Este valor já está em uso pelo associado: ${firstDuplicate.full_name}.`;
+            if (firstDuplicate.cpf && firstDuplicate.cpf === cpf) {
+                field = 'cpf';
+                message = `Este CPF já está cadastrado para o associado: ${firstDuplicate.full_name}.`;
+            } else if (firstDuplicate.whatsapp && firstDuplicate.whatsapp === whatsapp) {
+                field = 'whatsapp';
+                message = `Este WhatsApp já está cadastrado para o associado: ${firstDuplicate.full_name}.`;
+            }
+            return res.json({ isDuplicate: true, field, message });
+        }
+
+        return res.json({ isDuplicate: false });
+    } catch (err) {
+        console.error(chalk.red(`[${req.method} ${req.originalUrl}] Error checking duplicates:`), err.message);
+        next(err);
+    }
+});
+
 router.get('/seishat/associates', async (req, res, next) => {
     const { search } = req.query;
     try {
@@ -540,14 +590,33 @@ router.post('/seishat/associates', async (req, res, next) => {
     try {
         const { full_name, cpf, whatsapp, password, type } = req.body;
         if (!full_name || !password || !type) {
-            return res.status(400).json({ error: 'Full name, password, and type are required.' });
+            return res.status(400).json({ error: 'Nome completo, senha e tipo são obrigatórios.' });
         }
+
+        // Server-side duplicate check before insertion
+        if (cpf || whatsapp) {
+            const conditions = [];
+            const params = [];
+            if (cpf) { conditions.push('cpf = ?'); params.push(cpf); }
+            if (whatsapp) { conditions.push('whatsapp = ?'); params.push(whatsapp); }
+            
+            const checkQuery = `SELECT full_name, cpf, whatsapp FROM associates WHERE (${conditions.join(' OR ')})`;
+            const existing = await seishatQuery(checkQuery, params);
+            
+            if (existing.length > 0) {
+                let message = `Dados duplicados encontrados para o associado ${existing[0].full_name}.`;
+                if (existing[0].cpf === cpf) message = `Este CPF já está cadastrado para o associado: ${existing[0].full_name}.`;
+                else if (existing[0].whatsapp === whatsapp) message = `Este WhatsApp já está cadastrado para o associado: ${existing[0].full_name}.`;
+                return res.status(409).json({ error: message });
+            }
+        }
+
         const newAssociateId = crypto.randomUUID();
         await seishatQuery('INSERT INTO associates (id, full_name, cpf, whatsapp, password, type) VALUES (?, ?, ?, ?, ?, ?)', [newAssociateId, full_name, cpf, whatsapp, password, type]);
         res.status(201).json({ id: newAssociateId, full_name, cpf, whatsapp, type });
     } catch (err) {
         if (err.code === 'SQLITE_CONSTRAINT_UNIQUE' || (err.code && err.code.includes('ER_DUP_ENTRY'))) {
-            return res.status(409).json({ error: 'An associate with this CPF already exists.' });
+            return res.status(409).json({ error: 'Um associado com este CPF já existe.' });
         }
         console.error(chalk.red(`[${req.method} ${req.originalUrl}] Error creating associate:`), err.message);
         next(err);
@@ -558,9 +627,28 @@ router.put('/seishat/associates/:id', async (req, res, next) => {
     const { id } = req.params;
     const { full_name, cpf, whatsapp, password, type } = req.body;
     if (!full_name || !type) {
-        return res.status(400).json({ error: 'Full name and type are required.' });
+        return res.status(400).json({ error: 'Nome completo e tipo são obrigatórios.' });
     }
     try {
+        // Server-side duplicate check before update
+        if (cpf || whatsapp) {
+            const conditions = [];
+            const params = [];
+            if (cpf) { conditions.push('cpf = ?'); params.push(cpf); }
+            if (whatsapp) { conditions.push('whatsapp = ?'); params.push(whatsapp); }
+            
+            const checkQuery = `SELECT full_name, cpf, whatsapp FROM associates WHERE (${conditions.join(' OR ')}) AND id != ?`;
+            params.push(id);
+            
+            const existing = await seishatQuery(checkQuery, params);
+            if (existing.length > 0) {
+                let message = `Dados duplicados encontrados para o associado ${existing[0].full_name}.`;
+                if (existing[0].cpf === cpf) message = `Este CPF já está cadastrado para o associado: ${existing[0].full_name}.`;
+                else if (existing[0].whatsapp === whatsapp) message = `Este WhatsApp já está cadastrado para o associado: ${existing[0].full_name}.`;
+                return res.status(409).json({ error: message });
+            }
+        }
+        
         if (password) {
             await seishatQuery('UPDATE associates SET full_name = ?, cpf = ?, whatsapp = ?, password = ?, type = ? WHERE id = ?', [full_name, cpf, whatsapp, password, type, id]);
         } else {
@@ -569,7 +657,7 @@ router.put('/seishat/associates/:id', async (req, res, next) => {
         res.status(200).json({ id, full_name, cpf, whatsapp, type });
     } catch (err) {
         if (err.code === 'SQLITE_CONSTRAINT_UNIQUE' || (err.code && err.code.includes('ER_DUP_ENTRY'))) {
-            return res.status(409).json({ error: 'An associate with this CPF already exists.' });
+            return res.status(409).json({ error: 'Um associado com este CPF já existe.' });
         }
         console.error(chalk.red(`[${req.method} ${req.originalUrl}] Error updating associate:`), err.message);
         next(err);

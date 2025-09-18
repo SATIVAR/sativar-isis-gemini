@@ -135,6 +135,7 @@ export const AssociateModal: React.FC<AssociateModalProps> = ({ associate, onClo
     const [formErrors, setFormErrors] = useState<Record<string, string>>({});
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
+    const [isCheckingDuplicates, setIsCheckingDuplicates] = useState(false);
     const [globalError, setGlobalError] = useState('');
     
     const isEditing = !!associate;
@@ -174,6 +175,35 @@ export const AssociateModal: React.FC<AssociateModalProps> = ({ associate, onClo
         if (globalError) setGlobalError('');
     };
     
+    const checkDuplicates = useCallback(async (data: Record<string, any>) => {
+        const { cpf, whatsapp } = data;
+        const cleanCpf = cpf ? cpf.replace(/[^\d]/g, '') : '';
+
+        if (!cleanCpf && !whatsapp) {
+            return { isValid: true };
+        }
+
+        setIsCheckingDuplicates(true);
+        try {
+            const response = await apiClient.post<{ isDuplicate: boolean; field?: string; message?: string }>('/seishat/associates/check-duplicates', {
+                cpf: cleanCpf,
+                whatsapp,
+                excludeId: associate?.id,
+            });
+
+            if (response.isDuplicate && response.field) {
+                setFormErrors(prev => ({ ...prev, [response.field!]: response.message }));
+                return { isValid: false };
+            }
+            return { isValid: true };
+        } catch (error) {
+            setGlobalError(error instanceof Error ? error.message : "Erro ao verificar duplicidade.");
+            return { isValid: false };
+        } finally {
+            setIsCheckingDuplicates(false);
+        }
+    }, [associate?.id]);
+    
     const validateStep = (stepIndex: number): boolean => {
         const errors: Record<string, string> = {};
         const step = steps[stepIndex];
@@ -205,10 +235,15 @@ export const AssociateModal: React.FC<AssociateModalProps> = ({ associate, onClo
         return Object.keys(errors).length === 0;
     };
     
-    const handleNext = () => {
-        if (currentStepIndex === -1) { // Transition from type selection
+    const handleNext = async () => {
+        if (currentStepIndex === -1) {
             fetchLayoutAndInitialize(formData.type);
         } else if (validateStep(currentStepIndex)) {
+            const currentFields = steps[currentStepIndex].fields.map(f => f.field_name);
+            if (currentFields.includes('cpf') || currentFields.includes('whatsapp')) {
+                const { isValid } = await checkDuplicates(formData);
+                if (!isValid) return;
+            }
             setCurrentStepIndex(prev => prev + 1);
         }
     };
@@ -228,16 +263,27 @@ export const AssociateModal: React.FC<AssociateModalProps> = ({ associate, onClo
             }
         }
         
+        const { isValid } = await checkDuplicates(formData);
+        if (!isValid) {
+            const errorField = Object.keys(formErrors).find(key => formErrors[key]);
+            if (errorField) {
+                 const errorStepIndex = steps.findIndex(step => step.fields.some(f => f.field_name === errorField));
+                 if (errorStepIndex !== -1 && errorStepIndex !== currentStepIndex) {
+                     setCurrentStepIndex(errorStepIndex);
+                 }
+            }
+            return;
+        }
+
         setIsSaving(true);
         setGlobalError('');
 
-        const coreFields = ['full_name', 'cpf', 'whatsapp', 'password', 'type'];
-        const payload: Record<string, any> = {};
-        for(const key of coreFields) {
-            if (formData[key] !== undefined) {
-                payload[key] = formData[key];
-            }
+        const payload: Record<string, any> = { ...formData };
+        if (payload.cpf) {
+            payload.cpf = payload.cpf.replace(/[^\d]/g, '');
         }
+        delete payload.confirmPassword;
+
         if (isEditing && !payload.password) {
             delete payload.password;
         }
@@ -259,6 +305,7 @@ export const AssociateModal: React.FC<AssociateModalProps> = ({ associate, onClo
 
     const currentStep = currentStepIndex >= 0 ? steps[currentStepIndex] : null;
     const isLastStep = currentStepIndex === steps.length - 1 && steps.length > 0;
+    const isLoadingState = isLoading || isCheckingDuplicates;
 
     const renderBody = () => {
         if (isLoading) return <div className="flex justify-center items-center h-48"><Loader /></div>;
@@ -341,11 +388,13 @@ export const AssociateModal: React.FC<AssociateModalProps> = ({ associate, onClo
                     <div className="flex items-center gap-3">
                          {currentStepIndex > 0 && ( <button type="button" onClick={handleBack} className="px-5 py-2 bg-gray-700 text-sm font-medium rounded-lg hover:bg-gray-600">Voltar</button> )}
                         {isLastStep ? (
-                             <button type="submit" form="associate-form" disabled={isSaving || isLoading} className="px-5 py-2 min-w-[100px] text-center bg-green-600 text-white font-semibold rounded-lg hover:bg-green-700 disabled:opacity-50">
-                                {isSaving ? <Loader /> : 'Salvar'}
+                             <button type="submit" form="associate-form" disabled={isSaving || isLoadingState} className="px-5 py-2 min-w-[100px] flex justify-center items-center text-center bg-green-600 text-white font-semibold rounded-lg hover:bg-green-700 disabled:opacity-50">
+                                {isSaving || isCheckingDuplicates ? <Loader /> : 'Salvar'}
                              </button>
                         ) : (
-                             <button type="button" onClick={handleNext} disabled={isLoading} className="px-5 py-2 bg-fuchsia-600 text-white font-semibold rounded-lg hover:bg-fuchsia-700 disabled:opacity-50"> Próximo </button>
+                             <button type="button" onClick={handleNext} disabled={isLoadingState} className="px-5 py-2 min-w-[100px] flex justify-center items-center bg-fuchsia-600 text-white font-semibold rounded-lg hover:bg-fuchsia-700 disabled:opacity-50">
+                                {isCheckingDuplicates ? <Loader /> : 'Próximo'}
+                            </button>
                         )}
                     </div>
                 </div>
