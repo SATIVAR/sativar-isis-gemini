@@ -758,6 +758,12 @@ export const FormsPage: React.FC = () => {
 
     return (
         <DndProvider backend={HTML5Backend}>
+            {isModalOpen && (
+                <FieldEditorModal
+                    onClose={() => setIsModalOpen(false)}
+                    onSaveSuccess={() => fetchAllData(selectedType)}
+                />
+            )}
             <div className="max-w-7xl mx-auto relative">
                 <div className="flex flex-col sm:flex-row justify-between sm:items-start gap-4 mb-6">
                     <div>
