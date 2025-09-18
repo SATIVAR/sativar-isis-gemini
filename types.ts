@@ -178,7 +178,7 @@ export interface ConditionRule {
 export interface VisibilityConditions {
     relation: 'AND' | 'OR';
     rules: ConditionRule[];
-    roles?: UserRole[]; // for permission-based visibility
+    roles?: AssociateType[]; // for associate-type-based visibility
 }
 
 // Represents a field in the central catalog

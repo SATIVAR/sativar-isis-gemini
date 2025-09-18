@@ -44,20 +44,20 @@ const associateTypesList: { id: AssociateType; label: string }[] = [
 
 const checkFieldVisibility = (
     field: FormLayoutField,
-    formData: Record<string, any>,
-    userRole: UserRole
+    formData: Record<string, any>
 ): boolean => {
     const conditions = field.visibility_conditions;
     if (!conditions) return true;
 
-    // Role check
+    // Visibility based on Associate Type
     if (conditions.roles && conditions.roles.length > 0) {
-        if (!conditions.roles.includes(userRole)) {
+        const associateTypeInForm = formData.type as AssociateType;
+        if (!associateTypeInForm || !conditions.roles.includes(associateTypeInForm)) {
             return false;
         }
     }
 
-    // Rule check
+    // Field-based rule check
     if (!conditions.rules || conditions.rules.length === 0) {
         return true; // No rules, but role check might have passed.
     }
@@ -191,7 +191,7 @@ export const AssociateModal: React.FC<AssociateModalProps> = ({ associate, onClo
         let changed = false;
     
         allFields.forEach(field => {
-            const isVisible = checkFieldVisibility(field, formData, user.role);
+            const isVisible = checkFieldVisibility(field, formData);
             if (!isVisible && newFormData[field.field_name] != null && newFormData[field.field_name] !== '') {
                 newFormData[field.field_name] = ''; // Clear the value
                 changed = true;
@@ -243,7 +243,7 @@ export const AssociateModal: React.FC<AssociateModalProps> = ({ associate, onClo
         if (!step) return false;
 
         for (const field of step.fields) {
-            const isVisible = checkFieldVisibility(field, formData, user.role);
+            const isVisible = checkFieldVisibility(field, formData);
             if (!isVisible) continue; // Don't validate hidden fields
 
             const value = formData[field.field_name];
@@ -322,7 +322,7 @@ export const AssociateModal: React.FC<AssociateModalProps> = ({ associate, onClo
         if (globalError && steps.length === 0) return <p className="text-red-400 text-center">{globalError}</p>;
         if (!currentStep || !user) return <p className="text-gray-400 text-center">Formulário não encontrado.</p>;
 
-        const visibleFields = currentStep.fields.filter(field => checkFieldVisibility(field, formData, user.role));
+        const visibleFields = currentStep.fields.filter(field => checkFieldVisibility(field, formData));
         
         return (
             <div className="space-y-4">

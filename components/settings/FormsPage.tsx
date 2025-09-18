@@ -1,4 +1,3 @@
-
 // FIX: Add 'useMemo' to React import.
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { DndProvider, useDrag, useDrop } from 'react-dnd';
@@ -509,10 +508,11 @@ const operatorLabels: Record<ConditionOperator, string> = {
     contains: 'contém',
 };
 
-const userRoleLabels: Record<UserRole, string> = {
-    admin: 'Admin',
-    manager: 'Gerente',
-    user: 'Usuário',
+const associateTypeLabels: Record<AssociateType, string> = {
+    paciente: 'Paciente',
+    responsavel: 'Responsável',
+    tutor: 'Tutor de Animal',
+    colaborador: 'Colaborador',
 };
 
 const PropertiesPanel: React.FC<{
@@ -555,12 +555,12 @@ const PropertiesPanel: React.FC<{
         handleConditionsChange({ ...conditions, relation: e.target.value as 'AND' | 'OR' });
     };
     
-    const handleRoleToggle = (role: UserRole) => {
-        const currentRoles = conditions.roles || [];
-        const newRoles = currentRoles.includes(role)
-            ? currentRoles.filter(r => r !== role)
-            : [...currentRoles, role];
-        handleConditionsChange({ ...conditions, roles: newRoles });
+    const handleRoleToggle = (type: AssociateType) => {
+        const currentTypes = conditions.roles || [];
+        const newTypes = currentTypes.includes(type)
+            ? currentTypes.filter(r => r !== type)
+            : [...currentTypes, type];
+        handleConditionsChange({ ...conditions, roles: newTypes });
     };
 
     const availableDependencyFields = allFieldsInLayout.filter(f => f.id !== field.id);
@@ -604,12 +604,12 @@ const PropertiesPanel: React.FC<{
 
                 {/* Role-based visibility */}
                 <div>
-                    <label className="block text-xs font-medium text-gray-400 mb-2">Visível para as Funções:</label>
+                    <label className="block text-xs font-medium text-gray-400 mb-2">Visível para os Tipos de Associado:</label>
                     <div className="flex flex-wrap gap-2">
-                        {(['admin', 'manager', 'user'] as UserRole[]).map(role => (
-                            <button key={role} onClick={() => handleRoleToggle(role)}
-                                className={`px-2.5 py-1 text-xs rounded-full border transition-colors ${ (conditions.roles || []).includes(role) ? 'bg-fuchsia-800 border-fuchsia-600 text-white' : 'bg-gray-700 border-gray-600 text-gray-300 hover:border-fuchsia-500' }`}
-                            >{userRoleLabels[role]}</button>
+                        {(Object.keys(associateTypeLabels) as AssociateType[]).map(type => (
+                            <button key={type} onClick={() => handleRoleToggle(type)}
+                                className={`px-2.5 py-1 text-xs rounded-full border transition-colors ${ (conditions.roles || []).includes(type) ? 'bg-fuchsia-800 border-fuchsia-600 text-white' : 'bg-gray-700 border-gray-600 text-gray-300 hover:border-fuchsia-500' }`}
+                            >{associateTypeLabels[type]}</button>
                         ))}
                     </div>
                 </div>

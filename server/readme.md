@@ -1,3 +1,4 @@
+
 # SATIVAR-ISIS Backend Server
 
 This directory contains the Node.js/Express backend for the SATIVAR-ISIS application. Its primary responsibilities are:
@@ -125,12 +126,13 @@ CREATE TABLE IF NOT EXISTS form_layout_fields (
   FOREIGN KEY (field_id) REFERENCES form_fields(id) ON DELETE CASCADE
 );
 
--- Adds indexes for better performance.
-CREATE INDEX IF NOT EXISTS idx_products_name ON products(name);
-CREATE INDEX IF NOT EXISTS idx_associates_full_name ON associates(full_name);
-CREATE INDEX IF NOT EXISTS idx_associates_cpf ON associates(cpf);
-CREATE INDEX IF NOT EXISTS idx_form_steps_associate_type ON form_steps(associate_type);
-CREATE INDEX IF NOT EXISTS idx_form_layout_fields_step_id ON form_layout_fields(step_id);
+-- Adds indexes for better performance. Note: MySQL does not support "IF NOT EXISTS" for indexes.
+-- If an index already exists, this command will produce an error that can be safely ignored.
+CREATE INDEX idx_products_name ON products(name);
+CREATE INDEX idx_associates_full_name ON associates(full_name);
+CREATE INDEX idx_associates_cpf ON associates(cpf);
+CREATE INDEX idx_form_steps_associate_type ON form_steps(associate_type);
+CREATE INDEX idx_form_layout_fields_step_id ON form_layout_fields(step_id);
 
 -- Pre-populates the 'form_fields' table with core, non-deletable fields.
 -- This ensures the application starts with a functional base configuration.
