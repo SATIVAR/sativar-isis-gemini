@@ -2,7 +2,7 @@
 import React from 'react';
 
 export const Logo: React.FC<{ className?: string }> = ({ className }) => (
-    <div className={`relative bg-gradient-to-br from-green-500 to-emerald-600 rounded-full flex items-center justify-center shadow-lg shadow-green-500/25 dark:shadow-green-500/10 border border-white/30 ${className}`}>
+    <div className={`relative bg-gradient-to-br from-fuchsia-500 to-purple-600 rounded-full flex items-center justify-center shadow-lg shadow-fuchsia-500/25 dark:shadow-purple-500/10 border border-white/30 ${className}`}>
         <div className="absolute inset-0 bg-white/10 rounded-full backdrop-blur-sm"></div>
         <svg 
             xmlns="http://www.w3.org/2000/svg" 
