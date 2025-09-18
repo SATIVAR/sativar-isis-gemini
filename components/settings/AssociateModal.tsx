@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import type { Associate, AssociateType, FormStep, FormLayoutField } from '../../types.ts';
+import type { Associate, AssociateType, FormStep, FormLayoutField, UserRole } from '../../types.ts';
 import { apiClient } from '../../services/database/apiClient.ts';
 import { EyeIcon, EyeOffIcon, UsersIcon } from '../icons.tsx';
 import { Modal } from '../Modal.tsx';
 import { Loader } from '../Loader.tsx';
 import { useModal } from '../../hooks/useModal.ts';
+import { useAuth } from '../../hooks/useAuth.ts';
 
 // --- Helper Functions ---
 
@@ -41,12 +42,52 @@ const associateTypesList: { id: AssociateType; label: string }[] = [
     { id: 'colaborador', label: 'Colaborador' },
 ];
 
+const checkFieldVisibility = (
+    field: FormLayoutField,
+    formData: Record<string, any>,
+    userRole: UserRole
+): boolean => {
+    const conditions = field.visibility_conditions;
+    if (!conditions) return true;
+
+    // Role check
+    if (conditions.roles && conditions.roles.length > 0) {
+        if (!conditions.roles.includes(userRole)) {
+            return false;
+        }
+    }
+
+    // Rule check
+    if (!conditions.rules || conditions.rules.length === 0) {
+        return true; // No rules, but role check might have passed.
+    }
+
+    const ruleResults = conditions.rules.map(rule => {
+        const targetValue = formData[rule.field] || '';
+        switch (rule.operator) {
+            case 'equals': return targetValue === rule.value;
+            case 'not_equals': return targetValue !== rule.value;
+            case 'is_empty': return targetValue === '';
+            case 'is_not_empty': return targetValue !== '';
+            case 'contains': return String(targetValue).includes(rule.value || '');
+            default: return false;
+        }
+    });
+
+    if (conditions.relation === 'AND') {
+        return ruleResults.every(res => res);
+    } else { // OR
+        return ruleResults.some(res => res);
+    }
+};
+
 const RenderField: React.FC<{
     field: FormLayoutField;
     value: any;
     error?: string;
     onChange: (fieldName: string, value: string) => void;
-}> = ({ field, value, error, onChange }) => {
+    disabled?: boolean;
+}> = ({ field, value, error, onChange, disabled = false }) => {
     const commonProps = {
         id: field.field_name,
         name: field.field_name,
@@ -54,6 +95,7 @@ const RenderField: React.FC<{
         onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => onChange(field.field_name, e.target.value),
         className: `w-full bg-[#202124] border text-white rounded-lg px-3 py-2 focus:ring-2 outline-none transition ${error ? 'border-red-500 focus:ring-red-500' : 'border-gray-600/50 focus:ring-fuchsia-500'}`,
         required: !!field.is_required,
+        disabled,
     };
 
     const renderInput = (type: string) => <input type={type} {...commonProps} />;
@@ -79,7 +121,7 @@ const RenderField: React.FC<{
             const options = field.options ? JSON.parse(field.options) : [];
             const selectOptions = field.field_name === 'type' ? associateTypesList : options.map((opt: string) => ({ id: opt, label: opt }));
             return (
-                <select {...commonProps} disabled={field.field_name === 'type' && !!field.is_base_field}>
+                <select {...commonProps}>
                     {selectOptions.map((opt: {id: string, label: string}) => (
                         <option key={opt.id} value={opt.id}>{opt.label}</option>
                     ))}
@@ -118,6 +160,7 @@ export const AssociateModal: React.FC<AssociateModalProps> = ({ associate, onClo
     
     const isEditing = !!associate;
     const modal = useModal();
+    const { user } = useAuth();
 
     const fetchLayout = useCallback(async (type: AssociateType) => {
         setIsLoading(true);
@@ -138,6 +181,27 @@ export const AssociateModal: React.FC<AssociateModalProps> = ({ associate, onClo
         setFormData(isEditing ? { ...associate } : { type: initialType });
         fetchLayout(initialType);
     }, [associate, isEditing, fetchLayout]);
+
+    // Effect to clear data from fields that become hidden
+    useEffect(() => {
+        if (isLoading || steps.length === 0 || !user) return;
+    
+        const allFields = steps.flatMap(s => s.fields);
+        const newFormData = { ...formData };
+        let changed = false;
+    
+        allFields.forEach(field => {
+            const isVisible = checkFieldVisibility(field, formData, user.role);
+            if (!isVisible && newFormData[field.field_name] != null && newFormData[field.field_name] !== '') {
+                newFormData[field.field_name] = ''; // Clear the value
+                changed = true;
+            }
+        });
+    
+        if (changed) {
+            setFormData(newFormData);
+        }
+    }, [formData, steps, user, isLoading]);
     
     const handleFieldChange = (fieldName: string, value: string) => {
         setFormData(prev => ({ ...prev, [fieldName]: value }));
@@ -153,7 +217,8 @@ export const AssociateModal: React.FC<AssociateModalProps> = ({ associate, onClo
         const newType = value as AssociateType;
         const currentData = { ...formData };
         
-        if(Object.values(currentData).some(v => v !== '' && v !== newType)) {
+        const hasData = Object.keys(currentData).some(key => key !== 'type' && currentData[key]);
+        if(hasData) {
              const confirmed = await modal.confirm({
                 title: "Mudar Tipo de Associado?",
                 message: "Alterar o tipo de associado irá recarregar o formulário e limpar os dados já preenchidos. Deseja continuar?",
@@ -161,8 +226,7 @@ export const AssociateModal: React.FC<AssociateModalProps> = ({ associate, onClo
                 danger: true
             });
             if (!confirmed) {
-                // Revert select UI
-                setFormData(prev => ({ ...prev, type: prev.type }));
+                setFormData(prev => ({ ...prev }));
                 return;
             }
         }
@@ -173,11 +237,15 @@ export const AssociateModal: React.FC<AssociateModalProps> = ({ associate, onClo
     };
 
     const validateStep = (stepIndex: number): boolean => {
+        if (!user) return false;
         const errors: Record<string, string> = {};
         const step = steps[stepIndex];
         if (!step) return false;
 
         for (const field of step.fields) {
+            const isVisible = checkFieldVisibility(field, formData, user.role);
+            if (!isVisible) continue; // Don't validate hidden fields
+
             const value = formData[field.field_name];
             if (!!field.is_required && (!value || String(value).trim() === '')) {
                 errors[field.field_name] = 'Este campo é obrigatório.';
@@ -203,6 +271,7 @@ export const AssociateModal: React.FC<AssociateModalProps> = ({ associate, onClo
     };
     
     const handleBack = () => {
+        setFormErrors({});
         setCurrentStepIndex(prev => prev - 1);
     };
 
@@ -219,7 +288,6 @@ export const AssociateModal: React.FC<AssociateModalProps> = ({ associate, onClo
         setIsSaving(true);
         setGlobalError('');
 
-        // Filter formData to only include fields that exist on the backend model
         const coreFields = ['full_name', 'cpf', 'whatsapp', 'password', 'type'];
         const payload: Record<string, any> = {};
         for(const key of coreFields) {
@@ -227,7 +295,6 @@ export const AssociateModal: React.FC<AssociateModalProps> = ({ associate, onClo
                 payload[key] = formData[key];
             }
         }
-        // Ensure password is not sent if it's empty during an edit
         if (isEditing && !payload.password) {
             delete payload.password;
         }
@@ -253,8 +320,10 @@ export const AssociateModal: React.FC<AssociateModalProps> = ({ associate, onClo
     const renderBody = () => {
         if (isLoading) return <div className="flex justify-center items-center h-48"><Loader /></div>;
         if (globalError && steps.length === 0) return <p className="text-red-400 text-center">{globalError}</p>;
-        if (!currentStep) return <p className="text-gray-400 text-center">Formulário não encontrado.</p>;
+        if (!currentStep || !user) return <p className="text-gray-400 text-center">Formulário não encontrado.</p>;
 
+        const visibleFields = currentStep.fields.filter(field => checkFieldVisibility(field, formData, user.role));
+        
         return (
             <div className="space-y-4">
                  {steps.length > 1 && (
@@ -265,11 +334,11 @@ export const AssociateModal: React.FC<AssociateModalProps> = ({ associate, onClo
                     </div>
                 )}
                 <h3 className="text-lg font-semibold text-fuchsia-300">{currentStep.title}</h3>
-                {currentStep.fields.map(field => {
-                     // The 'type' field should use a different handler to trigger layout re-fetch
+                {visibleFields.map(field => {
                     const onChangeHandler = field.field_name === 'type' ? handleTypeChange : handleFieldChange;
+                    const isDisabled = isEditing && field.field_name === 'type';
                     return (
-                        <div key={field.id}>
+                        <div key={field.id} style={{animation: 'fadeIn 0.5s ease-out'}}>
                             <label htmlFor={field.field_name} className="block text-sm font-medium text-gray-300 mb-2">
                                 {field.label} {!!field.is_required && <span className="text-red-400">*</span>}
                             </label>
@@ -278,12 +347,13 @@ export const AssociateModal: React.FC<AssociateModalProps> = ({ associate, onClo
                                 value={formData[field.field_name]}
                                 error={formErrors[field.field_name]}
                                 onChange={onChangeHandler}
+                                disabled={isDisabled}
                             />
                             {formErrors[field.field_name] && <p className="text-red-400 text-xs mt-1">{formErrors[field.field_name]}</p>}
                         </div>
                     );
                 })}
-                 {currentStep.fields.some(f => f.field_name === 'password') && (
+                 {visibleFields.some(f => f.field_name === 'password') && (
                      <div>
                         <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-300 mb-2">Confirmar Senha</label>
                         <PasswordInput
@@ -296,6 +366,7 @@ export const AssociateModal: React.FC<AssociateModalProps> = ({ associate, onClo
                          {formErrors.confirmPassword && <p className="text-red-400 text-xs mt-1">{formErrors.confirmPassword}</p>}
                     </div>
                  )}
+                 {visibleFields.length === 0 && <p className="text-gray-500 text-sm text-center py-4">Nenhum campo visível nesta etapa.</p>}
             </div>
         );
     };
@@ -318,7 +389,7 @@ export const AssociateModal: React.FC<AssociateModalProps> = ({ associate, onClo
                                 {isSaving ? <Loader /> : 'Salvar'}
                              </button>
                         ) : (
-                             <button type="button" onClick={handleNext} disabled={isLoading} className="px-5 py-2 bg-fuchsia-600 text-white font-semibold rounded-lg hover:bg-fuchsia-700 disabled:opacity-50">
+                             <button type="button" onClick={handleNext} disabled={isLoading || steps.length === 0} className="px-5 py-2 bg-fuchsia-600 text-white font-semibold rounded-lg hover:bg-fuchsia-700 disabled:opacity-50">
                                 Próximo
                              </button>
                         )}
@@ -326,6 +397,9 @@ export const AssociateModal: React.FC<AssociateModalProps> = ({ associate, onClo
                 </div>
             }
         >
+            <style>
+                {`@keyframes fadeIn { from { opacity: 0; transform: translateY(-5px); } to { opacity: 1; transform: translateY(0); } }`}
+            </style>
             <form id="associate-form" onSubmit={handleSubmit}>
                 {renderBody()}
                 {globalError && !isLoading && <p className="text-sm text-red-400 text-center mt-4">{globalError}</p>}

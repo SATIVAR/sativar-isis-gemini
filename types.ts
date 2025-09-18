@@ -167,6 +167,20 @@ export interface Associate {
 // From Form Builder Feature
 export type FormFieldType = 'text' | 'email' | 'select' | 'password' | 'textarea' | 'checkbox' | 'radio' | 'separator';
 
+export type ConditionOperator = 'equals' | 'not_equals' | 'is_empty' | 'is_not_empty' | 'contains';
+
+export interface ConditionRule {
+    field: string; // field_name of the dependency
+    operator: ConditionOperator;
+    value?: string; // value to compare against
+}
+
+export interface VisibilityConditions {
+    relation: 'AND' | 'OR';
+    rules: ConditionRule[];
+    roles?: UserRole[]; // for permission-based visibility
+}
+
 // Represents a field in the central catalog
 export interface FormField {
     id: number;
@@ -182,6 +196,7 @@ export interface FormField {
 export interface FormLayoutField extends FormField {
     display_order: number;
     is_required: boolean | number;
+    visibility_conditions?: VisibilityConditions | null;
 }
 
 // Represents a single step in a multi-step form

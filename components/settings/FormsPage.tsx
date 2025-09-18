@@ -1,10 +1,12 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+
+// FIX: Add 'useMemo' to React import.
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { DndProvider, useDrag, useDrop } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
 import { CheckSquareIcon, PlusCircleIcon, SettingsIcon, XCircleIcon, GripVerticalIcon, Trash2Icon, CheckCircleIcon } from '../icons.tsx';
 import { Loader } from '../Loader.tsx';
 import { apiClient } from '../../services/database/apiClient.ts';
-import type { AssociateType, FormField, FormFieldType, FormLayoutField, FormStep } from '../../types.ts';
+import type { AssociateType, FormField, FormFieldType, FormLayoutField, FormStep, VisibilityConditions, ConditionRule, ConditionOperator, UserRole } from '../../types.ts';
 import { useModal } from '../../hooks/useModal.ts';
 import { Modal } from '../Modal.tsx';
 
@@ -499,18 +501,72 @@ const Canvas: React.FC<{
 };
 
 // --- PropertiesPanel ---
+const operatorLabels: Record<ConditionOperator, string> = {
+    equals: 'é igual a',
+    not_equals: 'não é igual a',
+    is_empty: 'está vazio',
+    is_not_empty: 'não está vazio',
+    contains: 'contém',
+};
+
+const userRoleLabels: Record<UserRole, string> = {
+    admin: 'Admin',
+    manager: 'Gerente',
+    user: 'Usuário',
+};
+
 const PropertiesPanel: React.FC<{
     field: FormLayoutField;
+    allFieldsInLayout: FormLayoutField[];
     onUpdate: (updatedField: FormLayoutField) => void;
     onClose: () => void;
-}> = ({ field, onUpdate, onClose }) => {
+}> = ({ field, allFieldsInLayout, onUpdate, onClose }) => {
     
+    const conditions = field.visibility_conditions || { relation: 'AND', rules: [], roles: [] };
+
     const handleRequiredToggle = () => {
         onUpdate({ ...field, is_required: !field.is_required });
     };
 
+    const handleConditionsChange = (newConditions: VisibilityConditions) => {
+        const finalConditions = (newConditions.rules.length === 0 && (!newConditions.roles || newConditions.roles.length === 0))
+            ? null
+            : newConditions;
+        onUpdate({ ...field, visibility_conditions: finalConditions });
+    };
+
+    const handleAddRule = () => {
+        const newRule: ConditionRule = { field: '', operator: 'equals', value: '' };
+        handleConditionsChange({ ...conditions, rules: [...conditions.rules, newRule] });
+    };
+    
+    const handleUpdateRule = (index: number, updatedRule: ConditionRule) => {
+        const newRules = [...conditions.rules];
+        newRules[index] = updatedRule;
+        handleConditionsChange({ ...conditions, rules: newRules });
+    };
+    
+    const handleRemoveRule = (index: number) => {
+        const newRules = conditions.rules.filter((_, i) => i !== index);
+        handleConditionsChange({ ...conditions, rules: newRules });
+    };
+
+    const handleRelationChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+        handleConditionsChange({ ...conditions, relation: e.target.value as 'AND' | 'OR' });
+    };
+    
+    const handleRoleToggle = (role: UserRole) => {
+        const currentRoles = conditions.roles || [];
+        const newRoles = currentRoles.includes(role)
+            ? currentRoles.filter(r => r !== role)
+            : [...currentRoles, role];
+        handleConditionsChange({ ...conditions, roles: newRoles });
+    };
+
+    const availableDependencyFields = allFieldsInLayout.filter(f => f.id !== field.id);
+
     return (
-        <div className="bg-[#202124] rounded-xl border border-gray-700 p-4 space-y-4">
+        <div className="bg-[#202124] rounded-xl border border-gray-700 p-4 space-y-4 max-h-[80vh] overflow-y-auto">
             <div className="flex justify-between items-center">
                 <div className="flex items-center gap-2">
                     <SettingsIcon className="w-5 h-5 text-fuchsia-300" />
@@ -532,29 +588,63 @@ const PropertiesPanel: React.FC<{
                         Campo Obrigatório
                     </label>
                     <button
-                        type="button"
-                        id="is-required-toggle"
-                        onClick={handleRequiredToggle}
-                        className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-fuchsia-500 focus:ring-offset-2 focus:ring-offset-[#202124] ${
-                            field.is_required ? 'bg-green-600' : 'bg-gray-600'
-                        }`}
-                        role="switch"
-                        aria-checked={!!field.is_required}
-                        disabled={!!field.is_base_field}
+                        type="button" id="is-required-toggle" onClick={handleRequiredToggle}
+                        className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-fuchsia-500 focus:ring-offset-2 focus:ring-offset-[#202124] ${field.is_required ? 'bg-green-600' : 'bg-gray-600'}`}
+                        role="switch" aria-checked={!!field.is_required} disabled={!!field.is_base_field}
                     >
-                        <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
-                            field.is_required ? 'translate-x-5' : 'translate-x-0'
-                        }`} />
+                        <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${field.is_required ? 'translate-x-5' : 'translate-x-0'}`} />
                     </button>
                 </div>
                 {!!field.is_base_field && <p className="text-xs text-gray-500 mt-2">Campos essenciais são sempre obrigatórios.</p>}
             </div>
 
-            {/* Placeholder for future properties */}
-            <div className="text-center text-sm text-gray-600 pt-4">
-                <p>Mais opções de validação e configuração estarão disponíveis em breve.</p>
-            </div>
+            <div className="pt-4 border-t border-gray-600/50 space-y-3">
+                <h4 className="text-sm font-medium text-gray-300">Visibilidade Condicional</h4>
+                <p className="text-xs text-gray-400 -mt-2">Exibir este campo somente quando certas condições forem atendidas.</p>
 
+                {/* Role-based visibility */}
+                <div>
+                    <label className="block text-xs font-medium text-gray-400 mb-2">Visível para as Funções:</label>
+                    <div className="flex flex-wrap gap-2">
+                        {(['admin', 'manager', 'user'] as UserRole[]).map(role => (
+                            <button key={role} onClick={() => handleRoleToggle(role)}
+                                className={`px-2.5 py-1 text-xs rounded-full border transition-colors ${ (conditions.roles || []).includes(role) ? 'bg-fuchsia-800 border-fuchsia-600 text-white' : 'bg-gray-700 border-gray-600 text-gray-300 hover:border-fuchsia-500' }`}
+                            >{userRoleLabels[role]}</button>
+                        ))}
+                    </div>
+                </div>
+
+                {/* Field-based rules */}
+                {conditions.rules.map((rule, index) => (
+                    <div key={index} className="p-3 bg-gray-900/50 rounded-lg border border-gray-700 space-y-2 relative">
+                         <button onClick={() => handleRemoveRule(index)} className="absolute -top-2 -right-2 p-0.5 bg-red-800 rounded-full text-white hover:bg-red-700"><XCircleIcon className="w-4 h-4"/></button>
+                        <select value={rule.field} onChange={e => handleUpdateRule(index, {...rule, field: e.target.value})} className="w-full text-sm bg-[#202124] border border-gray-600 text-white rounded p-1.5 focus:ring-fuchsia-500">
+                             <option value="">Selecione um campo...</option>
+                            {availableDependencyFields.map(f => <option key={f.id} value={f.field_name}>{f.label}</option>)}
+                        </select>
+                         <select value={rule.operator} onChange={e => handleUpdateRule(index, {...rule, operator: e.target.value as ConditionOperator})} className="w-full text-sm bg-[#202124] border border-gray-600 text-white rounded p-1.5 focus:ring-fuchsia-500">
+                            {Object.entries(operatorLabels).map(([op, label]) => <option key={op} value={op}>{label}</option>)}
+                        </select>
+                        {!['is_empty', 'is_not_empty'].includes(rule.operator) && (
+                            <input type="text" placeholder="Valor" value={rule.value || ''} onChange={e => handleUpdateRule(index, {...rule, value: e.target.value})} className="w-full text-sm bg-[#202124] border border-gray-600 text-white rounded p-1.5 focus:ring-fuchsia-500"/>
+                        )}
+                    </div>
+                ))}
+                
+                {conditions.rules.length > 0 && (
+                    <div className="flex items-center gap-2">
+                         <span className="text-xs text-gray-400">Atender a</span>
+                         <select value={conditions.relation} onChange={handleRelationChange} className="text-xs bg-[#202124] border border-gray-600 text-white rounded p-1 focus:ring-fuchsia-500">
+                            <option value="AND">TODAS</option>
+                            <option value="OR">QUALQUER UMA</option>
+                        </select>
+                        <span className="text-xs text-gray-400">das regras acima.</span>
+                    </div>
+                )}
+                 <button onClick={handleAddRule} className="w-full text-sm py-2 border-2 border-dashed border-gray-600 text-gray-400 rounded-lg hover:border-fuchsia-500 hover:text-white transition-colors">
+                    + Adicionar Regra
+                </button>
+            </div>
         </div>
     );
 };
@@ -582,7 +672,8 @@ export const FormsPage: React.FC = () => {
     const modal = useModal();
 
     const hasUnsavedChanges = JSON.stringify(layout) !== JSON.stringify(initialLayout);
-    const selectedField = layout.flatMap(s => s.fields).find(f => f.id === selectedFieldId) || null;
+    const allFieldsInLayout = useMemo(() => layout.flatMap(s => s.fields), [layout]);
+    const selectedField = allFieldsInLayout.find(f => f.id === selectedFieldId) || null;
 
     const fetchAllData = useCallback(async (type: AssociateType) => {
         setIsLoading(true);
@@ -829,6 +920,7 @@ export const FormsPage: React.FC = () => {
                                 <PropertiesPanel 
                                     key={selectedField.id}
                                     field={selectedField}
+                                    allFieldsInLayout={allFieldsInLayout}
                                     onUpdate={handleFieldUpdate}
                                     onClose={() => setSelectedFieldId(null)}
                                 />

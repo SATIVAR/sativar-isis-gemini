@@ -664,14 +664,17 @@ router.get('/admin/layouts/:type', async (req, res, next) => {
 
         for (const step of steps) {
             const fieldsQuery = `
-                SELECT ff.*, flf.is_required, flf.display_order
+                SELECT ff.*, flf.is_required, flf.display_order, flf.visibility_conditions
                 FROM form_layout_fields flf
                 JOIN form_fields ff ON flf.field_id = ff.id
                 WHERE flf.step_id = ?
                 ORDER BY flf.display_order ASC
             `;
             const fields = await seishatQuery(fieldsQuery, [step.id]);
-            step.fields = fields;
+            step.fields = fields.map(f => ({
+                ...f,
+                visibility_conditions: f.visibility_conditions ? JSON.parse(f.visibility_conditions) : null
+            }));
         }
 
         res.json(steps);
@@ -705,12 +708,12 @@ router.put('/admin/layouts/:type', async (req, res, next) => {
                 }
 
                 const insertStepStmt = db.prepare('INSERT INTO form_steps (associate_type, title, step_order) VALUES (?, ?, ?)');
-                const insertFieldStmt = db.prepare('INSERT INTO form_layout_fields (step_id, field_id, display_order, is_required) VALUES (?, ?, ?, ?)');
+                const insertFieldStmt = db.prepare('INSERT INTO form_layout_fields (step_id, field_id, display_order, is_required, visibility_conditions) VALUES (?, ?, ?, ?, ?)');
 
                 for (const [stepIndex, step] of stepsLayout.entries()) {
                     const { lastInsertRowid: stepId } = insertStepStmt.run(type, step.title, stepIndex);
                     for (const [fieldIndex, field] of step.fields.entries()) {
-                        insertFieldStmt.run(stepId, field.id, fieldIndex, field.is_required ? 1 : 0);
+                        insertFieldStmt.run(stepId, field.id, fieldIndex, field.is_required ? 1 : 0, JSON.stringify(field.visibility_conditions || null));
                     }
                 }
             });
@@ -730,8 +733,8 @@ router.put('/admin/layouts/:type', async (req, res, next) => {
                 const stepId = stepResult.insertId;
 
                 if (step.fields && step.fields.length > 0) {
-                    const fieldValues = step.fields.map((field, fieldIndex) => [stepId, field.id, fieldIndex, field.is_required ? 1 : 0]);
-                    await conn.query('INSERT INTO form_layout_fields (step_id, field_id, display_order, is_required) VALUES ?', [fieldValues]);
+                    const fieldValues = step.fields.map((field, fieldIndex) => [stepId, field.id, fieldIndex, field.is_required ? 1 : 0, JSON.stringify(field.visibility_conditions || null)]);
+                    await conn.query('INSERT INTO form_layout_fields (step_id, field_id, display_order, is_required, visibility_conditions) VALUES ?', [fieldValues]);
                 }
             }
             await conn.commit();
