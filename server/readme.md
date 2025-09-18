@@ -120,6 +120,7 @@ CREATE TABLE IF NOT EXISTS form_layout_fields (
   field_id INT NOT NULL,
   display_order INT NOT NULL,
   is_required BOOLEAN NOT NULL DEFAULT FALSE,
+  visibility_conditions TEXT,
   FOREIGN KEY (step_id) REFERENCES form_steps(id) ON DELETE CASCADE,
   FOREIGN KEY (field_id) REFERENCES form_fields(id) ON DELETE CASCADE
 );

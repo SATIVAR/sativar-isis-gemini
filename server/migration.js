@@ -279,6 +279,14 @@ const runSeishatMysqlMigration = async (pool) => {
                 }
             }
         }
+
+        // Check and add missing visibility_conditions column for MySQL
+        const [columns] = await connection.query(`SHOW COLUMNS FROM form_layout_fields LIKE 'visibility_conditions';`);
+        if (columns.length === 0) {
+            console.log(chalk.yellow('[Migration] Altering MySQL table "form_layout_fields" to add "visibility_conditions" column...'));
+            await connection.query(`ALTER TABLE form_layout_fields ADD COLUMN visibility_conditions TEXT;`);
+            console.log(chalk.green('[Migration] MySQL column "visibility_conditions" added successfully.'));
+        }
         
         const populateSql = `
             INSERT INTO form_fields (id, field_name, label, field_type, is_base_field, is_deletable, options) VALUES
@@ -324,6 +332,17 @@ const runMigrations = async () => {
     if (seishatDb && seishatDb.constructor.name === 'Database') {
         console.log(chalk.magenta('[Migration] Running SEISHAT database migrations for SQLite...'));
         seishatDb.exec(SEISHAT_DB_MIGRATION_SQL);
+
+        // Check and add the missing column to form_layout_fields if necessary
+        const tableInfo = seishatDb.prepare(`PRAGMA table_info(form_layout_fields);`).all();
+        const columnExists = tableInfo.some(column => column.name === 'visibility_conditions');
+
+        if (!columnExists) {
+            console.log(chalk.yellow('[Migration] Altering SQLite table "form_layout_fields" to add "visibility_conditions" column...'));
+            seishatDb.prepare(`ALTER TABLE form_layout_fields ADD COLUMN visibility_conditions TEXT;`).run();
+            console.log(chalk.green('[Migration] SQLite column "visibility_conditions" added successfully.'));
+        }
+        
         console.log(chalk.magenta('✅ SEISHAT SQLite migration completed successfully.'));
     } else {
          console.log(chalk.magenta('[Migration] Skipping SEISHAT SQLite migrations (not in SQLite mode).'));
