@@ -96,7 +96,7 @@ export const FormsPage: React.FC = () => {
                 const newField: FormLayoutField = {
                     ...field,
                     display_order: targetStep.fields.length,
-                    is_required: false,
+                    is_required: !!field.is_base_field,
                     visibility_conditions: null,
                 };
                 targetStep.fields.push(newField);
