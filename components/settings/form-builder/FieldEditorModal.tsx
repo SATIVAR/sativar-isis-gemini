@@ -60,6 +60,29 @@ export const FieldEditorModal: React.FC<FieldEditorModalProps> = ({ field, onClo
         setOptions(newOptions);
     };
 
+    const handlePasteOptions = (event: React.ClipboardEvent<HTMLInputElement>, index: number) => {
+        const pastedText = event.clipboardData.getData('text');
+        const delimiters = /[,;]/;
+
+        if (pastedText && delimiters.test(pastedText)) {
+            event.preventDefault();
+            const newOptionsFromPaste = pastedText.split(delimiters).map(s => s.trim()).filter(Boolean);
+            
+            if (newOptionsFromPaste.length > 0) {
+                setOptions(currentOptions => {
+                    const newOptions = [...currentOptions];
+                    // The first pasted item goes into the current input
+                    newOptions[index] = newOptionsFromPaste[0];
+                    // The rest are inserted after the current one
+                    if (newOptionsFromPaste.length > 1) {
+                        newOptions.splice(index + 1, 0, ...newOptionsFromPaste.slice(1));
+                    }
+                    return newOptions;
+                });
+            }
+        }
+    };
+
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -144,6 +167,7 @@ export const FieldEditorModal: React.FC<FieldEditorModalProps> = ({ field, onClo
                                         type="text"
                                         value={option}
                                         onChange={(e) => handleOptionChange(index, e.target.value)}
+                                        onPaste={(e) => handlePasteOptions(e, index)}
                                         placeholder={`Opção ${index + 1}`}
                                         className="w-full bg-[#202124] border border-gray-600/50 text-white rounded-lg px-3 py-2 focus:ring-2 focus:ring-fuchsia-500"
                                     />
