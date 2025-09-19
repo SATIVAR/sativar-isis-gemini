@@ -98,7 +98,7 @@ CREATE TABLE IF NOT EXISTS form_fields (
   id INT AUTO_INCREMENT PRIMARY KEY,
   field_name VARCHAR(255) NOT NULL UNIQUE,
   label VARCHAR(255) NOT NULL,
-  field_type ENUM('text', 'email', 'select', 'password', 'textarea', 'checkbox', 'radio', 'separator') NOT NULL,
+  field_type ENUM('text', 'email', 'select', 'password', 'textarea', 'checkbox', 'radio', 'separator', 'brazilian_states_select') NOT NULL,
   is_base_field BOOLEAN NOT NULL DEFAULT FALSE,
   is_deletable BOOLEAN NOT NULL DEFAULT FALSE,
   options TEXT -- For select/radio fields, store as JSON string

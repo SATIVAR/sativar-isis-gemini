@@ -134,9 +134,11 @@ const RenderField: React.FC<{
         case 'email': return <input type="email" {...commonProps} />;
         case 'password': return <PasswordInput {...commonProps} />;
         case 'select':
+        case 'brazilian_states_select':
             const options = field.options ? JSON.parse(field.options) : [];
             return (
                 <select {...commonProps}>
+                    <option value="">Selecione...</option>
                     {options.map((opt: string) => ( <option key={opt} value={opt}>{opt}</option>))}
                 </select>
             );

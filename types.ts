@@ -165,7 +165,7 @@ export interface Associate {
 
 // FIX: Add Form Builder types to be shared across components.
 // From Form Builder Feature
-export type FormFieldType = 'text' | 'email' | 'select' | 'password' | 'textarea' | 'checkbox' | 'radio' | 'separator';
+export type FormFieldType = 'text' | 'email' | 'select' | 'password' | 'textarea' | 'checkbox' | 'radio' | 'separator' | 'brazilian_states_select';
 
 export type ConditionOperator = 'equals' | 'not_equals' | 'is_empty' | 'is_not_empty' | 'contains';
 
