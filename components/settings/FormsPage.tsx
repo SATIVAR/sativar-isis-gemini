@@ -277,12 +277,6 @@ export const FormsPage: React.FC = () => {
                             />
                         </div>
                         <div className="lg:sticky lg:top-6 space-y-6">
-                            <Palette
-                                allFields={allFields}
-                                layout={layout}
-                                onDeleteField={handleDeletePaletteField}
-                                onEditField={handleEditPaletteField}
-                            />
                             {selectedField && (
                                 <PropertiesPanel
                                     field={selectedField}
@@ -291,6 +285,12 @@ export const FormsPage: React.FC = () => {
                                     onClose={() => setSelectedFieldId(null)}
                                 />
                             )}
+                            <Palette
+                                allFields={allFields}
+                                layout={layout}
+                                onDeleteField={handleDeletePaletteField}
+                                onEditField={handleEditPaletteField}
+                            />
                         </div>
                     </div>
                 )}

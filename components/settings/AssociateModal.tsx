@@ -135,16 +135,23 @@ const RenderField: React.FC<{
         case 'password': return <PasswordInput {...commonProps} />;
         case 'checkbox':
             return (
-                <input
-                    type="checkbox"
+                <button
+                    type="button"
                     id={field.field_name}
-                    name={field.field_name}
-                    checked={!!value}
-                    onChange={(e) => onChange(field.field_name, e.target.checked)}
-                    className={`h-4 w-4 rounded border-gray-500 bg-gray-700 text-fuchsia-600 focus:ring-fuchsia-500 focus:ring-offset-gray-800 ${error ? 'border-red-500' : 'border-gray-600/50'}`}
-                    required={!!field.is_required}
+                    onClick={() => !disabled && onChange(field.field_name, !value)}
+                    className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-fuchsia-500 focus:ring-offset-2 focus:ring-offset-[#202124] ${
+                        value ? 'bg-green-600' : 'bg-gray-600'
+                    }`}
+                    role="switch"
+                    aria-checked={!!value}
                     disabled={disabled}
-                />
+                >
+                    <span
+                        className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                            value ? 'translate-x-5' : 'translate-x-0'
+                        }`}
+                    />
+                </button>
             );
         case 'select':
         case 'brazilian_states_select':
@@ -373,20 +380,37 @@ export const AssociateModal: React.FC<AssociateModalProps> = ({ associate, onClo
         return (
             <div className="space-y-4">
                  <h3 className="text-lg font-semibold text-fuchsia-300">{currentStep.title}</h3>
-                {visibleFields.map(field => (
-                    <div key={field.id}>
-                        <label htmlFor={field.field_name} className="block text-sm font-medium text-gray-300 mb-2">
-                            {field.label} {!!field.is_required && <span className="text-red-400">*</span>}
-                        </label>
-                        <RenderField
-                            field={field}
-                            value={formData[field.field_name]}
-                            error={formErrors[field.field_name]}
-                            onChange={handleFieldChange}
-                        />
-                        {formErrors[field.field_name] && <p className="text-red-400 text-xs mt-1">{formErrors[field.field_name]}</p>}
-                    </div>
-                ))}
+                {visibleFields.map(field => {
+                    if (field.field_type === 'checkbox') {
+                        return (
+                            <div key={field.id} className="flex items-center justify-between pt-2">
+                                <label htmlFor={field.field_name} className="text-sm font-medium text-gray-300 select-none">
+                                    {field.label} {!!field.is_required && <span className="text-red-400">*</span>}
+                                </label>
+                                <RenderField
+                                    field={field}
+                                    value={formData[field.field_name]}
+                                    error={formErrors[field.field_name]}
+                                    onChange={handleFieldChange}
+                                />
+                            </div>
+                        );
+                    }
+                    return (
+                        <div key={field.id}>
+                            <label htmlFor={field.field_name} className="block text-sm font-medium text-gray-300 mb-2">
+                                {field.label} {!!field.is_required && <span className="text-red-400">*</span>}
+                            </label>
+                            <RenderField
+                                field={field}
+                                value={formData[field.field_name]}
+                                error={formErrors[field.field_name]}
+                                onChange={handleFieldChange}
+                            />
+                            {formErrors[field.field_name] && <p className="text-red-400 text-xs mt-1">{formErrors[field.field_name]}</p>}
+                        </div>
+                    );
+                })}
                  {visibleFields.some(f => f.field_name === 'password') && (
                      <div>
                         <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-300 mb-2">Confirmar Senha</label>
