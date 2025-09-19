@@ -2,9 +2,7 @@ const express = require('express');
 const { query } = require('./db');
 const { chatQuery, getChatDb } = require('./chatDb');
 const { userQuery } = require('./userDb');
-const { seishatQuery, switchToMysql, getSeishatDb } = require('./seishatDb');
-const { runSeishatMysqlMigration } = require('./migration');
-const mysql = require('mysql2/promise');
+const { seishatQuery, getSeishatDb, getDbMode } = require('./seishatDb');
 const router = express.Router();
 const chalk = require('chalk');
 
@@ -106,73 +104,11 @@ router.post('/settings', async (req, res, next) => {
 
 router.get('/settings/seishat/db-mode', async (req, res, next) => {
     try {
-        const settingsRows = await query('SELECT data FROM settings WHERE id = 1');
-        let settings = {};
-        if (settingsRows.length > 0 && settingsRows[0].data) {
-            settings = JSON.parse(settingsRows[0].data);
-        }
-        res.json({ mode: settings.seishat_database_mode || 'sqlite' });
+        const mode = getDbMode();
+        res.json({ mode });
     } catch (err) {
         console.error(chalk.red(`[GET /settings/seishat/db-mode] Error fetching db mode:`), err.message);
         next(err);
-    }
-});
-
-router.post('/settings/seishat/test-mysql', async (req, res, next) => {
-    let connection;
-    try {
-        if (!process.env.DB_HOST) {
-            throw new Error("Variáveis de ambiente do MySQL não configuradas no servidor.");
-        }
-        connection = await mysql.createConnection({
-            host: process.env.DB_HOST,
-            user: process.env.DB_USER,
-            password: process.env.DB_PASSWORD,
-            database: process.env.DB_DATABASE || process.env.DB_NAME,
-        });
-        await connection.ping();
-        res.json({ success: true, message: 'Conexão com MySQL bem-sucedida!' });
-    } catch (err) {
-        console.error(chalk.red(`[POST /settings/seishat/test-mysql] Error testing MySQL connection:`), err.message);
-        res.status(500).json({ success: false, message: `Falha na conexão com o MySQL: ${err.message}` });
-    } finally {
-        if (connection) await connection.end();
-    }
-});
-
-router.post('/settings/seishat/activate-mysql', async (req, res, next) => {
-    let pool;
-    try {
-        if (!process.env.DB_HOST) throw new Error("Variáveis de ambiente do MySQL não configuradas no servidor.");
-        
-        pool = mysql.createPool({
-            host: process.env.DB_HOST,
-            user: process.env.DB_USER,
-            password: process.env.DB_PASSWORD,
-            database: process.env.DB_DATABASE || process.env.DB_NAME,
-            connectionLimit: 1
-        });
-        await pool.query('SELECT 1');
-
-        await runSeishatMysqlMigration(pool);
-        await pool.end();
-
-        const settingsRows = await query('SELECT data FROM settings WHERE id = 1');
-        let settings = {};
-        if (settingsRows.length > 0 && settingsRows[0].data) {
-            settings = JSON.parse(settingsRows[0].data);
-        }
-        settings.seishat_database_mode = 'mysql';
-        await query('UPDATE settings SET data = ? WHERE id = 1', [JSON.stringify(settings)]);
-
-        await switchToMysql();
-
-        res.json({ success: true, message: 'Banco de dados MySQL ativado e configurado com sucesso!' });
-
-    } catch (err) {
-        if (pool) await pool.end();
-        console.error(chalk.red(`[POST /settings/seishat/activate-mysql] Error activating MySQL:`), err.message);
-        res.status(500).json({ success: false, message: `Falha ao ativar o MySQL: ${err.message}` });
     }
 });
 

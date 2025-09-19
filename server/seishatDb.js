@@ -59,27 +59,34 @@ const initializeMysql = async () => {
 
 // --- Core Initializer (called on server start) ---
 const initializeSeishatDatabase = async () => {
+    let settings = {};
     try {
         const settingsRows = await mainDbQuery('SELECT data FROM settings WHERE id = 1');
-        let settings = {};
         if (settingsRows.length > 0 && settingsRows[0].data) {
-            settings = typeof settingsRows[0].data === 'string' ? JSON.parse(settingsRows[0].data) : settingsRows[0].data;
+             settings = typeof settingsRows[0].data === 'string' ? JSON.parse(settingsRows[0].data) : settingsRows[0].data;
         }
-        
-        dbMode = settings.seishat_database_mode || 'sqlite';
+    } catch (e) {
+        console.error(chalk.yellow('Could not read main settings for DB mode, will use default.'), e.message);
+    }
 
-        if (dbMode === 'mysql') {
+    // Default to MySQL, but allow override from settings
+    dbMode = settings.seishat_database_mode || 'mysql';
+
+    if (dbMode === 'mysql') {
+        try {
             await initializeMysql();
             console.log(chalk.magenta.bold(`✅ SEISHAT module connected to MySQL database: ${process.env.DB_DATABASE || process.env.DB_NAME}`));
-        } else {
+        } catch (mysqlError) {
+            console.error(chalk.red.bold('❌ MySQL connection failed. Falling back to SQLite.'));
+            console.error(chalk.red('MySQL Error:'), mysqlError.message);
+            console.log(chalk.yellow('Please ensure MySQL environment variables (DB_HOST, DB_USER, etc.) are correctly set in the server\'s .env file.'));
+            dbMode = 'sqlite'; // Set mode to reflect the fallback
             initializeSqlite();
-            console.log(chalk.magenta.bold(`✅ SEISHAT module connected to SQLite database at ${sqliteDbPath}`));
+            console.log(chalk.magenta.bold(`✅ SEISHAT module running in fallback SQLite mode at ${sqliteDbPath}`));
         }
-    } catch (error) {
-        console.error(chalk.red.bold('Failed to initialize Seishat Database. Defaulting to SQLite.'));
-        console.error(chalk.red('Error details:'), error.message);
-        dbMode = 'sqlite';
+    } else { // dbMode is 'sqlite'
         initializeSqlite();
+        console.log(chalk.magenta.bold(`✅ SEISHAT module connected to SQLite database at ${sqliteDbPath}`));
     }
 };
 
@@ -125,5 +132,6 @@ module.exports = {
   getSeishatDb,
   seishatQuery,
   switchToMysql,
-  testSeishatDbConnection: async () => {}, 
+  // This is a new export to allow other parts of the app to know the current mode.
+  getDbMode: () => dbMode, 
 };
