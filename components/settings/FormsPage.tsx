@@ -266,14 +266,17 @@ const FieldCard: React.FC<{
             const hoverStepIndex = stepIndex;
 
             if (dragIndex === hoverIndex && dragStepIndex === hoverStepIndex) return;
-            
-            const hoverBoundingRect = ref.current.getBoundingClientRect();
-            const hoverMiddleY = (hoverBoundingRect.bottom - hoverBoundingRect.top) / 2;
-            const clientOffset = monitor.getClientOffset();
-            const hoverClientY = clientOffset!.y - hoverBoundingRect.top;
-            
-            if (dragIndex < hoverIndex && hoverClientY < hoverMiddleY) return;
-            if (dragIndex > hoverIndex && hoverClientY > hoverMiddleY) return;
+
+            // Logic for reordering within the same step
+            if (dragStepIndex === hoverStepIndex) {
+                const hoverBoundingRect = ref.current.getBoundingClientRect();
+                const hoverMiddleY = (hoverBoundingRect.bottom - hoverBoundingRect.top) / 2;
+                const clientOffset = monitor.getClientOffset();
+                const hoverClientY = clientOffset!.y - hoverBoundingRect.top;
+                
+                if (dragIndex < hoverIndex && hoverClientY < hoverMiddleY) return;
+                if (dragIndex > hoverIndex && hoverClientY > hoverMiddleY) return;
+            }
             
             onMove({ stepIndex: dragStepIndex, fieldIndex: dragIndex }, { stepIndex: hoverStepIndex, fieldIndex: hoverIndex });
             
@@ -332,28 +335,42 @@ const FieldCard: React.FC<{
 };
 
 // --- Canvas ---
-const FieldDropZone: React.FC<{onDrop: (field: FormField) => void}> = ({ onDrop }) => {
+const FieldDropZone: React.FC<{
+    stepIndex: number;
+    fieldCount: number;
+    onDrop: (field: FormField, stepIndex: number) => void;
+    onMove: (drag: { stepIndex: number, fieldIndex: number }, hover: { stepIndex: number, fieldIndex: number }) => void;
+}> = ({ stepIndex, fieldCount, onDrop, onMove }) => {
     const fieldDropZoneRef = useRef<HTMLDivElement>(null);
     const [{ isOver, canDrop }, drop] = useDrop(() => ({
         accept: [ItemTypes.PALETTE_FIELD, ItemTypes.CANVAS_FIELD],
-        drop: (item: { type: string; field: FormField; }, monitor) => {
+        drop: (item: any, monitor) => {
+            if (monitor.didDrop()) { // To prevent bugs with nested drop zones
+                return;
+            }
             if (item.type === ItemTypes.PALETTE_FIELD) {
-                onDrop(item.field);
+                onDrop(item.field, stepIndex);
+            } else if (item.type === ItemTypes.CANVAS_FIELD) {
+                onMove(
+                    { stepIndex: item.stepIndex, fieldIndex: item.index },
+                    { stepIndex: stepIndex, fieldIndex: fieldCount } // Drop at the end of the current step
+                );
             }
         },
         collect: (monitor) => ({
             isOver: monitor.isOver({ shallow: true }),
             canDrop: monitor.canDrop(),
         })
-    }), [onDrop]);
+    }), [onDrop, onMove, stepIndex, fieldCount]);
     drop(fieldDropZoneRef);
     
     return (
         <div ref={fieldDropZoneRef} className="h-12 border-2 border-dashed border-transparent rounded-lg transition-colors"
             style={{ borderColor: isOver && canDrop ? '#a855f7' : 'transparent' }}
         />
-    )
-}
+    );
+};
+
 const StepCard: React.FC<{
     step: FormStep;
     stepIndex: number;
@@ -488,7 +505,12 @@ const Canvas: React.FC<{
                                         onMove={onFieldReorder}
                                     />
                                 ))}
-                                 <FieldDropZone onDrop={(field) => onFieldDrop(field, stepIndex)} />
+                                 <FieldDropZone
+                                    stepIndex={stepIndex}
+                                    fieldCount={step.fields.length}
+                                    onDrop={onFieldDrop}
+                                    onMove={onFieldReorder}
+                                 />
                             </div>
                         </StepCard>
                         <DropZone index={stepIndex + 1} />
@@ -924,7 +946,7 @@ export const FormsPage: React.FC = () => {
                                 selectedFieldId={selectedFieldId}
                            />
                         </div>
-                        <div className="lg:col-span-1">
+                        <div className="lg:col-span-1 self-start sticky top-8">
                              {selectedField ? (
                                 <PropertiesPanel 
                                     key={selectedField.id}
