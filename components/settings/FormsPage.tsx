@@ -240,7 +240,7 @@ export const FormsPage: React.FC = () => {
                                 ))}
                             </select>
                         </div>
-                         <button onClick={() => setIsFieldEditorOpen(true)} className="flex-shrink-0 flex items-center gap-2 px-3 py-2 bg-blue-600 text-sm text-white font-semibold rounded-lg shadow-md hover:bg-blue-700">
+                         <button onClick={() => setIsFieldEditorOpen(true)} className="flex-shrink-0 flex items-center gap-2 px-3 py-2 bg-green-600 text-sm text-white font-semibold rounded-lg shadow-md hover:bg-green-700">
                             <PlusCircleIcon className="w-5 h-5" /> Criar Novo Campo
                         </button>
                     </div>
