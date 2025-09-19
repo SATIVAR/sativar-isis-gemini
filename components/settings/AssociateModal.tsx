@@ -25,6 +25,24 @@ const validateCPF = (cpf: string): boolean => {
     return true;
 };
 
+const formatCPF = (value: string): string => {
+    if (!value) return '';
+    // Remove non-digit characters and limit to 11
+    const cpf = value.replace(/\D/g, '').slice(0, 11);
+
+    // Apply formatting as the user types
+    if (cpf.length > 9) {
+        return `${cpf.slice(0, 3)}.${cpf.slice(3, 6)}.${cpf.slice(6, 9)}-${cpf.slice(9)}`;
+    }
+    if (cpf.length > 6) {
+        return `${cpf.slice(0, 3)}.${cpf.slice(3, 6)}.${cpf.slice(6)}`;
+    }
+    if (cpf.length > 3) {
+        return `${cpf.slice(0, 3)}.${cpf.slice(3)}`;
+    }
+    return cpf;
+};
+
 const formatWhatsapp = (value: string): string => {
     if (!value) return '';
     value = value.replace(/\D/g, '').slice(0, 11);
@@ -105,6 +123,10 @@ const RenderField: React.FC<{
 
     if (field.field_name === 'whatsapp') {
         return <input type="text" {...commonProps} value={formatWhatsapp(value || '')} placeholder="(XX) XXXXX-XXXX" maxLength={15} />;
+    }
+    
+    if (field.field_name === 'cpf') {
+        return <input type="text" {...commonProps} value={formatCPF(value || '')} placeholder="000.000.000-00" maxLength={14} />;
     }
     
     switch (field.field_type) {
