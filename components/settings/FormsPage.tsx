@@ -30,6 +30,7 @@ export const FormsPage: React.FC = () => {
     
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
+    const [saveSuccess, setSaveSuccess] = useState(false);
     const [error, setError] = useState<string | null>(null);
     
     const modal = useModal();
@@ -80,30 +81,21 @@ export const FormsPage: React.FC = () => {
     }, [selectedAssociateType, fetchLayout]);
 
     const handleSaveLayout = async () => {
-        const confirmed = await modal.confirm({
-            title: 'Salvar Layout do Formulário',
-            message: 'Deseja salvar as alterações feitas no layout deste formulário?',
-            confirmLabel: 'Salvar',
-            cancelLabel: 'Cancelar'
-        });
-    
-        if (!confirmed) {
-            return;
-        }
-
         setIsSaving(true);
         setError(null);
         try {
             await apiClient.put(`/admin/layouts/${selectedAssociateType}`, layout);
-            setInitialLayout(layout);
-            modal.alert({
-                title: 'Layout Salvo',
-                message: 'O layout do formulário foi salvo com sucesso.'
-            });
-        } catch (err) {
-            setError(err instanceof Error ? err.message : 'Falha ao salvar o layout.');
-        } finally {
             setIsSaving(false);
+            setSaveSuccess(true);
+            setTimeout(() => {
+                setInitialLayout(layout);
+                setSaveSuccess(false);
+            }, 1500);
+        } catch (err) {
+            setIsSaving(false);
+            const errorMessage = err instanceof Error ? err.message : 'Falha ao salvar o layout.';
+            setError(errorMessage);
+            modal.alert({ title: 'Erro ao Salvar', message: errorMessage });
         }
     };
 
@@ -306,6 +298,7 @@ export const FormsPage: React.FC = () => {
             <FloatingSaveButton
                 hasUnsavedChanges={hasUnsavedChanges}
                 isSaving={isSaving}
+                saveSuccess={saveSuccess}
                 onSave={handleSaveLayout}
             />
         </DndProvider>
