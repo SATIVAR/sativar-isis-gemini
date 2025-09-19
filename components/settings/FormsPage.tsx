@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { DndProvider } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
@@ -52,8 +53,15 @@ export const FormsPage: React.FC = () => {
         setSelectedFieldId(null);
         try {
             const layoutData = await apiClient.get<FormStep[]>(`/admin/layouts/${type}`);
-            setLayout(layoutData);
-            setInitialLayout(layoutData);
+            const correctedLayout = layoutData.map(step => ({
+                ...step,
+                fields: step.fields.map(field => ({
+                    ...field,
+                    is_required: field.is_base_field ? true : !!field.is_required,
+                })),
+            }));
+            setLayout(correctedLayout);
+            setInitialLayout(correctedLayout);
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Falha ao carregar o layout do formulário.');
             setLayout([]);
