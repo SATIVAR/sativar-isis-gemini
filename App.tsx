@@ -1,6 +1,7 @@
 
 
 
+
 import React, { useState, useMemo, useEffect } from 'react';
 import { Header } from './components/Header.tsx';
 import { SettingsProvider, useSettings } from './hooks/useSettings.ts';
@@ -286,38 +287,13 @@ const ComingSoon: React.FC<{ pageName: string }> = ({ pageName }) => (
     </div>
 );
 
-const AnimatedCheckmark: React.FC = () => (
-    <div className="flex items-center justify-center w-16 h-16 bg-gray-800 rounded-full shadow-2xl border-2 border-green-500/50">
-        <svg className="w-10 h-10" viewBox="0 0 52 52">
-            <circle
-                className="checkmark-circle"
-                cx="26"
-                cy="26"
-                r="24"
-                fill="none"
-                stroke="#4ade80" // text-green-400
-                strokeWidth="3"
-            />
-            <path
-                className="checkmark-check"
-                d="M14 27l8 8 16-16"
-                fill="none"
-                stroke="#4ade80" // text-green-400
-                strokeWidth="4"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-            />
-        </svg>
-    </div>
-);
-
 const SeishatLayout: React.FC<{ onLogout: () => void; }> = ({ onLogout }) => {
     const auth = useAuth();
     const { formState, setFormState, saveSettings, hasUnsavedChanges, validateSettings } = useSettings();
+    const modal = useModal();
     
     const [activePage, setActivePage] = useState<SeishatPageName>('dashboard');
     const [isSaving, setIsSaving] = useState(false);
-    const [showSavedToast, setShowSavedToast] = useState(false);
     const [showErrorToast, setShowErrorToast] = useState(false);
 
     const handleSave = async () => {
@@ -332,8 +308,10 @@ const SeishatLayout: React.FC<{ onLogout: () => void; }> = ({ onLogout }) => {
         setIsSaving(true);
         await saveSettings(formState);
         setIsSaving(false);
-        setShowSavedToast(true);
-        setTimeout(() => setShowSavedToast(false), 2500);
+        modal.alert({
+            title: 'Salvo!',
+            message: 'Suas alterações foram salvas com sucesso.'
+        });
     };
 
     const renderPage = () => {
@@ -369,24 +347,6 @@ const SeishatLayout: React.FC<{ onLogout: () => void; }> = ({ onLogout }) => {
 
     return (
         <>
-            <style>{`
-                @keyframes draw-circle {
-                    to { stroke-dashoffset: 0; }
-                }
-                @keyframes draw-check {
-                    to { stroke-dashoffset: 0; }
-                }
-                .checkmark-circle {
-                    stroke-dasharray: 151;
-                    stroke-dashoffset: 151;
-                    animation: draw-circle 0.5s cubic-bezier(0.65, 0, 0.45, 1) forwards;
-                }
-                .checkmark-check {
-                    stroke-dasharray: 36;
-                    stroke-dashoffset: 36;
-                    animation: draw-check 0.3s cubic-bezier(0.65, 0, 0.45, 1) 0.5s forwards;
-                }
-            `}</style>
             <div className="flex h-full">
                 <SeishatSidebar 
                     activePage={activePage}
@@ -401,7 +361,7 @@ const SeishatLayout: React.FC<{ onLogout: () => void; }> = ({ onLogout }) => {
                 </div>
                  <div 
                     className={`fixed bottom-8 right-0 left-0 flex justify-center md:right-8 z-50 transition-all duration-300 ease-in-out ${
-                    (hasUnsavedChanges || showSavedToast || showErrorToast) ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-5 pointer-events-none'
+                    (hasUnsavedChanges || showErrorToast) ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-5 pointer-events-none'
                     }`}
                 >
                     <div className="relative">
@@ -409,14 +369,12 @@ const SeishatLayout: React.FC<{ onLogout: () => void; }> = ({ onLogout }) => {
                             <button
                                 onClick={handleSave}
                                 disabled={isSaving}
-                                className="flex items-center justify-center w-14 h-14 bg-green-600 text-white rounded-full shadow-2xl hover:bg-green-700 transition-transform hover:scale-105 disabled:opacity-70 disabled:cursor-wait"
+                                className="flex items-center justify-center gap-2 px-6 py-3 bg-green-600 text-white font-semibold rounded-lg shadow-2xl hover:bg-green-700 transition-transform hover:scale-105 disabled:opacity-70 disabled:cursor-wait"
                                 aria-label="Salvar alterações"
                             >
-                                {isSaving ? <Loader /> : <CheckSquareIcon className="w-7 h-7" />}
+                                {isSaving ? <Loader /> : <CheckSquareIcon className="w-6 h-6" />}
+                                <span className="text-sm">{isSaving ? 'Salvando...' : 'Salvar Alterações'}</span>
                             </button>
-                        )}
-                        {showSavedToast && (
-                            <AnimatedCheckmark />
                         )}
                         {showErrorToast && (
                             <div className="flex items-center gap-3 bg-red-800 text-white px-6 py-3 rounded-lg shadow-2xl border border-red-500/50" role="alert">

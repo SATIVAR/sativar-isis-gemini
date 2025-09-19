@@ -1,4 +1,6 @@
 
+
+
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { DndProvider } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
@@ -31,7 +33,6 @@ export const FormsPage: React.FC = () => {
     
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
-    const [showSavedToast, setShowSavedToast] = useState(false);
     const [error, setError] = useState<string | null>(null);
     
     const modal = useModal();
@@ -87,8 +88,10 @@ export const FormsPage: React.FC = () => {
         try {
             await apiClient.put(`/admin/layouts/${selectedAssociateType}`, layout);
             setInitialLayout(layout);
-            setShowSavedToast(true);
-            setTimeout(() => setShowSavedToast(false), 2500);
+            modal.alert({
+                title: 'Layout Salvo',
+                message: 'O layout do formulário foi salvo com sucesso.'
+            });
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Falha ao salvar o layout.');
         } finally {
@@ -295,7 +298,6 @@ export const FormsPage: React.FC = () => {
             <FloatingSaveButton
                 hasUnsavedChanges={hasUnsavedChanges}
                 isSaving={isSaving}
-                showSavedToast={showSavedToast}
                 onSave={handleSaveLayout}
             />
         </DndProvider>
