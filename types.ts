@@ -23,7 +23,7 @@ export interface QuoteResult {
 }
 
 // From components/QuoteGenerator.tsx and components/Chat.tsx
-export type MessageContentType = 'text' | 'file_request' | 'loading' | 'quote' | 'error' | 'actions' | 'user_search' | 'product_search';
+export type MessageContentType = 'text' | 'file_request' | 'loading' | 'quote' | 'error' | 'actions' | 'associate_search' | 'product_search';
 
 export interface TextContent {
     type: 'text';
@@ -67,11 +67,11 @@ export interface ProductSearchContent {
     type: 'product_search';
 }
 
-export interface UserSearchContent {
-    type: 'user_search';
+export interface AssociateSearchContent {
+    type: 'associate_search';
 }
 
-export type MessageContent = TextContent | FileRequestContent | LoadingContent | QuoteContent | ErrorContent | ActionsContent | ProductSearchContent | UserSearchContent;
+export type MessageContent = TextContent | FileRequestContent | LoadingContent | QuoteContent | ErrorContent | ActionsContent | ProductSearchContent | AssociateSearchContent;
 
 export interface ChatMessage {
     id: string;

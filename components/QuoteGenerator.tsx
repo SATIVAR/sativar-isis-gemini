@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { useSettings } from '../hooks/useSettings.ts';
 import { processPrescription, pingAI, isApiKeyConfigured, generateHighlight, generateConversationTitle } from '../services/geminiService.ts';
-import type { ChatMessage } from '../types.ts';
+import type { ChatMessage, Associate } from '../types.ts';
 import { AlertTriangleIcon, XCircleIcon, ServerIcon, CheckIcon } from './icons.tsx';
 import { Chat } from './Chat.tsx';
 import { useChatHistory } from '../hooks/useChatHistory.ts';
@@ -118,6 +118,7 @@ export const QuoteGenerator: React.FC<QuoteGeneratorProps> = ({ isMobileHistoryO
     const [loadingAction, setLoadingAction] = useState<'file' | 'text' | null>(null);
     const [showSettingsWarning, setShowSettingsWarning] = useState(false);
     const [processingAction, setProcessingAction] = useState<{ messageId: string; payload: string; text?: string } | null>(null);
+    const [selectedPatient, setSelectedPatient] = useState<Associate | null>(null);
     
     // State for file previews
     const [previewFile, setPreviewFile] = useState<{ url: string; type: string; name: string } | null>(null);
@@ -167,6 +168,20 @@ export const QuoteGenerator: React.FC<QuoteGeneratorProps> = ({ isMobileHistoryO
         // Replace action buttons with user's plain text response
         setMessages(prev => [...prev.filter(m => m.id !== messageId), userResponseMessage]);
         await addMessage(userResponseMessage);
+        
+        // Handle 'search_associate' action
+        if (payload === 'search_associate') {
+            const searchMessage: ChatMessage = { 
+                id: `ai-associate-search-${Date.now()}`, 
+                sender: 'ai', 
+                content: { type: 'associate_search' },
+                timestamp: new Date().toISOString() 
+            };
+            setMessages(prev => [...prev, searchMessage]);
+            await addMessage(searchMessage);
+            setProcessingAction(null);
+            return;
+        }
 
         // Handle async 'generate_highlight' action
         if (payload === 'generate_highlight') {
@@ -284,7 +299,7 @@ export const QuoteGenerator: React.FC<QuoteGeneratorProps> = ({ isMobileHistoryO
 
         const startTime = Date.now();
         try {
-            const { result, tokenCount } = await processPrescription(file, systemPrompt);
+            const { result, tokenCount } = await processPrescription(file, systemPrompt, selectedPatient?.full_name);
             const duration = Date.now() - startTime;
             addTokens(tokenCount);
             if(activeConversationId) {
@@ -307,8 +322,9 @@ export const QuoteGenerator: React.FC<QuoteGeneratorProps> = ({ isMobileHistoryO
             }
             setIsSending(false);
             setLoadingAction(null);
+            setSelectedPatient(null);
         }
-    }, [systemPrompt, showSettingsWarning, apiKeyMissing, setMessages, addMessage, activeConversationId, updateConversationTitle, addTokens]);
+    }, [systemPrompt, showSettingsWarning, apiKeyMissing, setMessages, addMessage, activeConversationId, updateConversationTitle, addTokens, selectedPatient]);
 
     const handleSendText = useCallback(async (text: string) => {
         if (apiKeyMissing) return;
@@ -348,6 +364,31 @@ export const QuoteGenerator: React.FC<QuoteGeneratorProps> = ({ isMobileHistoryO
             await handleSendText(text);
         }
     }, [handleSendText]);
+    
+    const handleAssociateSelect = async (associate: Associate) => {
+        setSelectedPatient(associate);
+        setMessages(prev => prev.filter(m => m.content.type !== 'associate_search'));
+        
+        const userMessage: ChatMessage = {
+            id: `user-select-associate-${Date.now()}`,
+            sender: 'user',
+            content: { type: 'text', text: `Selecionado: ${associate.full_name}` },
+            timestamp: new Date().toISOString(),
+        };
+
+        const aiFollowUp: ChatMessage = {
+            id: `ai-confirm-associate-${Date.now()}`,
+            sender: 'ai',
+            content: { type: 'text', text: `Ótimo, associado "${associate.full_name}" selecionado. Agora, por favor, anexe o arquivo da receita para eu analisar.` },
+            timestamp: new Date().toISOString(),
+        };
+        
+        const updatedMessages = [...messages.filter(m => m.content.type !== 'associate_search'), userMessage, aiFollowUp];
+        setMessages(updatedMessages);
+
+        await addMessage(userMessage);
+        await addMessage(aiFollowUp);
+    };
 
     const handleConfirmAndAnalyze = useCallback(async () => {
         if (pendingAnalysisFile) {
@@ -452,6 +493,7 @@ export const QuoteGenerator: React.FC<QuoteGeneratorProps> = ({ isMobileHistoryO
                         onAction={handleAction}
                         processingAction={processingAction}
                         onOpenFilePreview={handleOpenFilePreview}
+                        onAssociateSelect={handleAssociateSelect}
                     />
                 )}
             </div>

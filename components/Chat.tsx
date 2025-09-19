@@ -2,7 +2,7 @@ import React, { useRef, useState, useEffect } from 'react';
 import { jsPDF } from 'jspdf';
 import { useSettings } from '../hooks/useSettings.ts';
 import { useReminders } from '../hooks/useReminders.ts';
-import type { ChatMessage, QuoteResult, MessageContent } from '../types.ts';
+import type { ChatMessage, QuoteResult, MessageContent, Associate } from '../types.ts';
 import { 
     PlusIcon, SendIcon, AlertTriangleIcon, ClipboardCheckIcon, 
     ClipboardIcon, DownloadIcon, UserIcon, BellIcon, CalendarIcon 
@@ -402,10 +402,11 @@ interface MessageBubbleProps {
     onAction: (messageId: string, payload: string) => void;
     processingAction: { messageId: string; payload: string; text?: string } | null;
     onOpenFilePreview: (file: { url: string; type: string; name: string }) => void;
+    onAssociateSelect: (associate: Associate) => void;
 }
 
 
-const MessageBubble: React.FC<MessageBubbleProps> = ({ message, onAction, processingAction, onOpenFilePreview }) => {
+const MessageBubble: React.FC<MessageBubbleProps> = ({ message, onAction, processingAction, onOpenFilePreview, onAssociateSelect }) => {
     const [copied, setCopied] = useState(false);
 
     const handleCopy = (textToCopy: string) => {
@@ -438,8 +439,8 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({ message, onAction, proces
                 return <QuoteResultDisplay 
                     result={content.result} 
                 />;
-            case 'user_search':
-                return <UserSearch />;
+            case 'associate_search':
+                return <UserSearch onAssociateSelect={onAssociateSelect} />;
             case 'product_search':
                 return <ProductSearch />;
             case 'error':
@@ -571,6 +572,7 @@ interface ChatProps {
     onAction: (messageId: string, payload: string) => void;
     processingAction: { messageId: string; payload: string; text?: string } | null;
     onOpenFilePreview: (file: { url: string; type: string; name: string }) => void;
+    onAssociateSelect: (associate: Associate) => void;
 }
 
 export const Chat: React.FC<ChatProps> = ({
@@ -583,6 +585,7 @@ export const Chat: React.FC<ChatProps> = ({
     onAction,
     processingAction,
     onOpenFilePreview,
+    onAssociateSelect,
 }) => {
     const chatEndRef = useRef<HTMLDivElement | null>(null);
     const [text, setText] = useState('');
@@ -657,6 +660,7 @@ export const Chat: React.FC<ChatProps> = ({
                         onAction={onAction} 
                         processingAction={processingAction} 
                         onOpenFilePreview={onOpenFilePreview}
+                        onAssociateSelect={onAssociateSelect}
                     />
                 ))}
                 <div ref={chatEndRef} />

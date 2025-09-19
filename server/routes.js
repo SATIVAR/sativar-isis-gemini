@@ -720,6 +720,43 @@ router.post('/admin/fields', async (req, res, next) => {
     }
 });
 
+// PUT /api/admin/fields/:id - Update a custom field in the catalog
+router.put('/admin/fields/:id', async (req, res, next) => {
+    const { id } = req.params;
+    const { label, field_type, options } = req.body;
+
+    if (!label || !field_type) {
+        return res.status(400).json({ error: 'Label and field type are required.' });
+    }
+
+    try {
+        const [field] = await seishatQuery('SELECT is_deletable FROM form_fields WHERE id = ?', [id]);
+
+        if (!field) {
+            return res.status(404).json({ error: 'Campo não encontrado.' });
+        }
+
+        if (!field.is_deletable) {
+            return res.status(403).json({ error: 'Este campo é essencial e não pode ser editado.' });
+        }
+
+        const optionsToStore = (field_type === 'select' || field_type === 'radio') ? JSON.stringify(options) : null;
+
+        await seishatQuery(
+            'UPDATE form_fields SET label = ?, field_type = ?, options = ? WHERE id = ?',
+            [label, field_type, optionsToStore, id]
+        );
+
+        const [updatedField] = await seishatQuery('SELECT * FROM form_fields WHERE id = ?', [id]);
+        res.status(200).json(updatedField);
+
+    } catch (err) {
+        console.error(chalk.red(`[PUT /admin/fields/${id}] Error updating custom field:`), err.message);
+        next(err);
+    }
+});
+
+
 // DELETE /api/admin/fields/:id - Delete a custom field from the catalog
 router.delete('/admin/fields/:id', async (req, res, next) => {
     const { id } = req.params;

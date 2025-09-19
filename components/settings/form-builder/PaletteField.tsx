@@ -1,16 +1,16 @@
 import React from 'react';
 import { useDrag } from 'react-dnd';
-// FIX: Import the FormField type from the central types.ts file.
 import type { FormField } from '../../../types.ts';
-import { Trash2Icon } from '../../icons.tsx';
+import { EditIcon, Trash2Icon } from '../../icons.tsx';
 import { ItemTypes } from './Canvas.tsx';
 
 interface PaletteFieldProps {
     field: FormField;
     onDelete: (id: number) => void;
+    onEdit: (field: FormField) => void;
 }
 
-export const PaletteField: React.FC<PaletteFieldProps> = ({ field, onDelete }) => {
+export const PaletteField: React.FC<PaletteFieldProps> = ({ field, onDelete, onEdit }) => {
     const dragRef = React.useRef<HTMLDivElement>(null);
     const [{ isDragging }, drag] = useDrag(() => ({
         type: ItemTypes.PALETTE_FIELD,
@@ -22,8 +22,13 @@ export const PaletteField: React.FC<PaletteFieldProps> = ({ field, onDelete }) =
     drag(dragRef);
 
     const handleDelete = (e: React.MouseEvent) => {
-        e.stopPropagation(); // Prevents drag from initiating on button click
+        e.stopPropagation();
         onDelete(field.id);
+    };
+    
+    const handleEdit = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        onEdit(field);
     };
 
     return (
@@ -39,13 +44,22 @@ export const PaletteField: React.FC<PaletteFieldProps> = ({ field, onDelete }) =
                 </p>
             </div>
             {!!field.is_deletable && (
-                 <button
-                    onClick={handleDelete}
-                    className="p-1 rounded-full text-gray-500 hover:text-red-400 opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity"
-                    aria-label={`Excluir campo ${field.label} da paleta`}
-                >
-                    <Trash2Icon className="w-4 h-4" />
-                </button>
+                 <div className="flex items-center opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
+                    <button
+                        onClick={handleEdit}
+                        className="p-1 rounded-full text-gray-500 hover:text-fuchsia-400"
+                        aria-label={`Editar campo ${field.label}`}
+                    >
+                        <EditIcon className="w-4 h-4" />
+                    </button>
+                    <button
+                        onClick={handleDelete}
+                        className="p-1 rounded-full text-gray-500 hover:text-red-400"
+                        aria-label={`Excluir campo ${field.label} da paleta`}
+                    >
+                        <Trash2Icon className="w-4 h-4" />
+                    </button>
+                </div>
             )}
         </div>
     );

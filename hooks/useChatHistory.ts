@@ -88,6 +88,7 @@ export const ChatHistoryProvider: React.FC<{ children: React.ReactNode }> = ({ c
                         text: 'Como posso te ajudar agora?',
                         actions: [
                             { label: 'Analisar Receita', payload: 'start_quote' },
+                            { label: 'Buscar Associado', payload: 'search_associate' },
                             { label: 'Informações Gerais', payload: 'general_info' },
                             { label: 'Gerar Destaque do Dia', payload: 'generate_highlight' },
                         ]

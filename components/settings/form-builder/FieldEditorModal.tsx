@@ -1,9 +1,8 @@
 import React, { useState } from 'react';
 import { apiClient } from '../../../services/database/apiClient.ts';
-// FIX: Import FormField and FormFieldType from the central types.ts file.
 import type { FormField, FormFieldType } from '../../../types.ts';
 import { Modal } from '../../Modal.tsx';
-import { PlusCircleIcon } from '../../icons.tsx';
+import { PlusCircleIcon, Trash2Icon } from '../../icons.tsx';
 
 interface FieldEditorModalProps {
     field?: FormField | null;
@@ -21,15 +20,46 @@ const fieldTypes: { id: FormFieldType, label: string }[] = [
     { id: 'checkbox', label: 'Caixa de Seleção (Checkbox)' },
 ];
 
+// Updated to return string[] and handle comma-separated fallback
+const getInitialOptions = (field: FormField | null | undefined): string[] => {
+    if (!field || !field.options) return ['']; // Start with one empty option
+    try {
+        const parsed = JSON.parse(field.options);
+        return Array.isArray(parsed) && parsed.length > 0 ? parsed : [''];
+    } catch {
+        // Handle comma-separated string as fallback for potentially old data
+        const parts = String(field.options).split(',').map(s => s.trim()).filter(Boolean);
+        return parts.length > 0 ? parts : [''];
+    }
+};
+
 export const FieldEditorModal: React.FC<FieldEditorModalProps> = ({ field, onClose, onSaveSuccess }) => {
     const [label, setLabel] = useState(field?.label || '');
     const [fieldType, setFieldType] = useState<FormFieldType>(field?.field_type || 'text');
-    const [options, setOptions] = useState(field?.options || '');
+    const [options, setOptions] = useState<string[]>(getInitialOptions(field));
     const [error, setError] = useState('');
     const [isSaving, setIsSaving] = useState(false);
     const isEditing = !!field;
     
     const needsOptions = ['select', 'radio'].includes(fieldType);
+
+    // Dynamic option handlers
+    const handleOptionChange = (index: number, value: string) => {
+        const newOptions = [...options];
+        newOptions[index] = value;
+        setOptions(newOptions);
+    };
+
+    const handleAddOption = () => {
+        setOptions([...options, '']);
+    };
+
+    const handleRemoveOption = (index: number) => {
+        if (options.length <= 1) return;
+        const newOptions = options.filter((_, i) => i !== index);
+        setOptions(newOptions);
+    };
+
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -40,14 +70,10 @@ export const FieldEditorModal: React.FC<FieldEditorModalProps> = ({ field, onClo
             return;
         }
 
-        let parsedOptions: string[] | undefined;
+        let finalOptions: string[] | undefined;
         if (needsOptions) {
-            if (!options.trim()) {
-                setError('As opções são obrigatórias para este tipo de campo.');
-                return;
-            }
-            parsedOptions = options.split(',').map(opt => opt.trim()).filter(Boolean);
-            if (parsedOptions.length === 0) {
+            finalOptions = options.map(opt => opt.trim()).filter(Boolean);
+            if (finalOptions.length === 0) {
                  setError('Forneça pelo menos uma opção válida.');
                  return;
             }
@@ -57,12 +83,12 @@ export const FieldEditorModal: React.FC<FieldEditorModalProps> = ({ field, onClo
         const fieldData = {
             label,
             field_type: fieldType,
-            ...(needsOptions && { options: parsedOptions }),
+            ...(needsOptions && { options: finalOptions }),
         };
 
         try {
             if (isEditing) {
-                // Editing existing fields is not part of the current spec to avoid complexity.
+                await apiClient.put(`/admin/fields/${field.id}`, fieldData);
             } else {
                 await apiClient.post('/admin/fields', fieldData);
             }
@@ -110,9 +136,37 @@ export const FieldEditorModal: React.FC<FieldEditorModalProps> = ({ field, onClo
                 </div>
                 {needsOptions && (
                     <div>
-                         <label htmlFor="options" className="block text-sm font-medium text-gray-300 mb-2">Opções</label>
-                         <textarea id="options" value={options} onChange={e => setOptions(e.target.value)} rows={3} className="w-full bg-[#202124] border border-gray-600/50 text-white rounded-lg px-3 py-2 focus:ring-2 focus:ring-fuchsia-500" />
-                         <p className="text-xs text-gray-400 mt-1">Digite as opções separadas por vírgula. Ex: Opção 1, Opção 2, Opção 3</p>
+                         <label className="block text-sm font-medium text-gray-300 mb-2">Opções</label>
+                         <div className="space-y-2">
+                            {options.map((option, index) => (
+                                <div key={index} className="flex items-center gap-2">
+                                    <input
+                                        type="text"
+                                        value={option}
+                                        onChange={(e) => handleOptionChange(index, e.target.value)}
+                                        placeholder={`Opção ${index + 1}`}
+                                        className="w-full bg-[#202124] border border-gray-600/50 text-white rounded-lg px-3 py-2 focus:ring-2 focus:ring-fuchsia-500"
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={() => handleRemoveOption(index)}
+                                        disabled={options.length <= 1}
+                                        className="p-2 text-gray-500 hover:text-red-400 disabled:opacity-50 disabled:cursor-not-allowed"
+                                        aria-label="Remover opção"
+                                    >
+                                        <Trash2Icon className="w-4 h-4" />
+                                    </button>
+                                </div>
+                            ))}
+                        </div>
+                         <button
+                            type="button"
+                            onClick={handleAddOption}
+                            className="mt-3 flex items-center gap-2 text-sm text-fuchsia-300 hover:text-fuchsia-200"
+                        >
+                            <PlusCircleIcon className="w-5 h-5" />
+                            Adicionar Opção
+                        </button>
                     </div>
                 )}
                  {error && <p className="text-sm text-red-400 text-center">{error}</p>}

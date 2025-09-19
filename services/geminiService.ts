@@ -122,7 +122,7 @@ const handleGeminiError = (error: unknown): Error => {
     return new Error("Ocorreu um erro desconhecido ao se comunicar com a IA. Verifique o console para mais detalhes.");
 };
 
-export const processPrescription = async (file: File, systemPrompt: string): Promise<{ result: QuoteResult; tokenCount: number; }> => {
+export const processPrescription = async (file: File, systemPrompt: string, patientName?: string): Promise<{ result: QuoteResult; tokenCount: number; }> => {
     const apiKey = getApiKey();
     if (!apiKey) {
         throw new Error(API_KEY_MISSING_ERROR);
@@ -132,7 +132,7 @@ export const processPrescription = async (file: File, systemPrompt: string): Pro
     const imagePart = await fileToGenerativePart(file);
     
     const textPart = {
-        text: "Analise a receita médica em anexo e gere o orçamento. Retorne os dados em um formato JSON que obedeça o schema definido."
+        text: `Analise a receita médica em anexo e gere o orçamento ${patientName ? `para o paciente "${patientName}"` : ''}. Retorne os dados em um formato JSON que obedeça o schema definido. ${patientName ? `IMPORTANTE: Use o nome do paciente fornecido (${patientName}) no campo 'patientName' em vez de tentar extraí-lo do documento.` : ''}`
     };
 
     try {

@@ -1,19 +1,17 @@
 import React from 'react';
-// FIX: Import FormField and FormStep types from the central types.ts file.
 import type { FormField, FormStep } from '../../../types.ts';
 import { PaletteField } from './PaletteField.tsx';
 import { ItemTypes } from './Canvas.tsx';
-// FIX: Add missing 'useDrag' import.
 import { useDrag } from 'react-dnd';
 
 interface PaletteProps {
     allFields: FormField[];
     layout: FormStep[];
     onDeleteField: (id: number) => void;
+    onEditField: (field: FormField) => void;
 }
 
 const StepSeparatorPaletteItem = () => {
-    // FIX: Correctly connect the drag source to a ref to resolve the TypeScript error.
     const dragRef = React.useRef<HTMLDivElement>(null);
     const [{ isDragging }, drag] = useDrag(() => ({
         type: ItemTypes.STEP_SEPARATOR,
@@ -36,7 +34,7 @@ const StepSeparatorPaletteItem = () => {
     );
 };
 
-export const Palette: React.FC<PaletteProps> = ({ allFields, layout, onDeleteField }) => {
+export const Palette: React.FC<PaletteProps> = ({ allFields, layout, onDeleteField, onEditField }) => {
     const fieldsInLayout = new Set(layout.flatMap(step => step.fields.map(field => field.id)));
     const availableFields = allFields.filter(field => !fieldsInLayout.has(field.id));
 
@@ -53,6 +51,7 @@ export const Palette: React.FC<PaletteProps> = ({ allFields, layout, onDeleteFie
                             key={field.id}
                             field={field}
                             onDelete={onDeleteField}
+                            onEdit={onEditField}
                         />
                     ))
                 ) : (
