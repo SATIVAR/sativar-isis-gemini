@@ -108,7 +108,7 @@ const RenderField: React.FC<{
     field: FormLayoutField;
     value: any;
     error?: string;
-    onChange: (fieldName: string, value: string) => void;
+    onChange: (fieldName: string, value: any) => void;
     disabled?: boolean;
 }> = ({ field, value, error, onChange, disabled = false }) => {
     const commonProps = {
@@ -133,6 +133,19 @@ const RenderField: React.FC<{
         case 'textarea': return <textarea rows={3} {...commonProps} />;
         case 'email': return <input type="email" {...commonProps} />;
         case 'password': return <PasswordInput {...commonProps} />;
+        case 'checkbox':
+            return (
+                <input
+                    type="checkbox"
+                    id={field.field_name}
+                    name={field.field_name}
+                    checked={!!value}
+                    onChange={(e) => onChange(field.field_name, e.target.checked)}
+                    className={`h-4 w-4 rounded border-gray-500 bg-gray-700 text-fuchsia-600 focus:ring-fuchsia-500 focus:ring-offset-gray-800 ${error ? 'border-red-500' : 'border-gray-600/50'}`}
+                    required={!!field.is_required}
+                    disabled={disabled}
+                />
+            );
         case 'select':
         case 'brazilian_states_select':
             const options = field.options ? JSON.parse(field.options) : [];
@@ -191,7 +204,7 @@ export const AssociateModal: React.FC<AssociateModalProps> = ({ associate, onClo
         }
     }, [associate, isEditing, fetchLayoutAndInitialize]);
 
-    const handleFieldChange = (fieldName: string, value: string) => {
+    const handleFieldChange = (fieldName: string, value: any) => {
         setFormData(prev => ({ ...prev, [fieldName]: value }));
         if (formErrors[fieldName]) {
             setFormErrors(prev => ({ ...prev, [fieldName]: '' }));
