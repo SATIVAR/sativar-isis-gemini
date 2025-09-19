@@ -1,7 +1,3 @@
-
-
-
-
 import React, { useState, useMemo, useEffect } from 'react';
 import { Header } from './components/Header.tsx';
 import { SettingsProvider, useSettings } from './hooks/useSettings.ts';
@@ -305,13 +301,22 @@ const SeishatLayout: React.FC<{ onLogout: () => void; }> = ({ onLogout }) => {
             return;
         }
 
-        setIsSaving(true);
-        await saveSettings(formState);
-        setIsSaving(false);
-        modal.alert({
-            title: 'Salvo!',
-            message: 'Suas alterações foram salvas com sucesso.'
+        const confirmed = await modal.confirm({
+            title: 'Confirmar Alterações',
+            message: 'Deseja realmente salvar as alterações feitas nas configurações?',
+            confirmLabel: 'Salvar',
+            cancelLabel: 'Cancelar'
         });
+    
+        if (confirmed) {
+            setIsSaving(true);
+            await saveSettings(formState);
+            setIsSaving(false);
+            modal.alert({
+                title: 'Salvo!',
+                message: 'Suas alterações foram salvas com sucesso.'
+            });
+        }
     };
 
     const renderPage = () => {

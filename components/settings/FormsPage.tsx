@@ -1,6 +1,3 @@
-
-
-
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { DndProvider } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
@@ -83,6 +80,17 @@ export const FormsPage: React.FC = () => {
     }, [selectedAssociateType, fetchLayout]);
 
     const handleSaveLayout = async () => {
+        const confirmed = await modal.confirm({
+            title: 'Salvar Layout do Formulário',
+            message: 'Deseja salvar as alterações feitas no layout deste formulário?',
+            confirmLabel: 'Salvar',
+            cancelLabel: 'Cancelar'
+        });
+    
+        if (!confirmed) {
+            return;
+        }
+
         setIsSaving(true);
         setError(null);
         try {

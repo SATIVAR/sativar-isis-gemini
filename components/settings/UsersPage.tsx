@@ -90,6 +90,7 @@ export const UsersPage: React.FC = () => {
                             <th scope="col" className="px-4 py-3">Nome</th>
                             <th scope="col" className="px-4 py-3">WhatsApp</th>
                             <th scope="col" className="px-4 py-3">Função</th>
+                            <th scope="col" className="px-4 py-3">Status</th>
                             <th scope="col" className="px-4 py-3 text-right">Ações</th>
                         </tr>
                     </thead>
@@ -101,6 +102,12 @@ export const UsersPage: React.FC = () => {
                                 <td className="px-4 py-3">
                                     <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${roleInfo[user.role]?.className || roleInfo.user.className}`}>
                                         {roleInfo[user.role]?.label || user.role}
+                                    </span>
+                                </td>
+                                <td className="px-4 py-3">
+                                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-900/50 text-green-300 border border-green-700/50">
+                                        <div className="w-2 h-2 mr-1.5 rounded-full bg-green-500"></div>
+                                        Ativo
                                     </span>
                                 </td>
                                 <td className="px-4 py-3 flex items-center justify-end gap-2">
