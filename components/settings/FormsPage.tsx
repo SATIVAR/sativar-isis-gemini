@@ -1,15 +1,15 @@
-// FIX: Add 'useMemo' to React import.
+
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { DndProvider, useDrag, useDrop } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
 import { CheckSquareIcon, PlusCircleIcon, SettingsIcon, XCircleIcon, GripVerticalIcon, Trash2Icon, CheckCircleIcon } from '../icons.tsx';
 import { Loader } from '../Loader.tsx';
 import { apiClient } from '../../services/database/apiClient.ts';
-import type { AssociateType, FormField, FormFieldType, FormLayoutField, FormStep, VisibilityConditions, ConditionRule, ConditionOperator, UserRole } from '../../types.ts';
+import type { AssociateType, FormField, FormFieldType, FormLayoutField, FormStep, VisibilityConditions, ConditionRule, ConditionOperator } from '../../types.ts';
 import { useModal } from '../../hooks/useModal.ts';
 import { Modal } from '../Modal.tsx';
 
-// --- SUB-COMPONENTS (Isolated in this file) ---
+// --- SUB-COMPONENTS (Consolidated into this file for simplicity and stability) ---
 
 const ItemTypes = {
     PALETTE_FIELD: 'paletteField',
@@ -345,15 +345,14 @@ const FieldDropZone: React.FC<{
     const [{ isOver, canDrop }, drop] = useDrop(() => ({
         accept: [ItemTypes.PALETTE_FIELD, ItemTypes.CANVAS_FIELD],
         drop: (item: any, monitor) => {
-            if (monitor.didDrop()) { // To prevent bugs with nested drop zones
-                return;
-            }
+            if (monitor.didDrop()) return;
+            
             if (item.type === ItemTypes.PALETTE_FIELD) {
                 onDrop(item.field, stepIndex);
             } else if (item.type === ItemTypes.CANVAS_FIELD) {
                 onMove(
                     { stepIndex: item.stepIndex, fieldIndex: item.index },
-                    { stepIndex: stepIndex, fieldIndex: fieldCount } // Drop at the end of the current step
+                    { stepIndex: stepIndex, fieldIndex: fieldCount }
                 );
             }
         },
@@ -451,7 +450,7 @@ const Canvas: React.FC<{
     const canvasDropRef = useRef<HTMLDivElement>(null);
     const [{ isOverCanvas }, dropCanvas] = useDrop(() => ({
         accept: ItemTypes.STEP_SEPARATOR,
-        drop: () => onStepDrop(layout.length), // Drop at the end if not over a specific drop zone
+        drop: () => onStepDrop(layout.length),
         collect: (monitor) => ({ isOverCanvas: monitor.isOver() }),
     }), [layout.length, onStepDrop]);
     dropCanvas(canvasDropRef);
@@ -705,9 +704,6 @@ export const FormsPage: React.FC = () => {
                 apiClient.get<FormField[]>('/admin/fields'),
                 apiClient.get<FormStep[]>(`/admin/layouts/${type}`),
             ]);
-
-            // Refactor: Filter out the 'type' field from the palette and any loaded layout.
-            // It's a contextual field, not a draggable one.
             const filteredPaletteFields = fields.filter(f => f.field_name !== 'type');
             setAllFields(filteredPaletteFields);
 
@@ -719,10 +715,10 @@ export const FormsPage: React.FC = () => {
             if (cleanedLayoutData.length === 0) {
                 const newLayout: FormStep[] = [{ id: crypto.randomUUID(), title: 'Informações Principais', step_order: 0, fields: [] }];
                 setLayout(newLayout);
-                setInitialLayout(JSON.parse(JSON.stringify(newLayout))); // Deep copy
+                setInitialLayout(JSON.parse(JSON.stringify(newLayout)));
             } else {
                 setLayout(cleanedLayoutData);
-                setInitialLayout(JSON.parse(JSON.stringify(cleanedLayoutData))); // Deep copy
+                setInitialLayout(JSON.parse(JSON.stringify(cleanedLayoutData)));
             }
 
         } catch (err) {
@@ -742,7 +738,7 @@ export const FormsPage: React.FC = () => {
         setError(null);
         try {
             await apiClient.put(`/admin/layouts/${selectedType}`, layout);
-            setInitialLayout(JSON.parse(JSON.stringify(layout))); // Deep copy
+            setInitialLayout(JSON.parse(JSON.stringify(layout)));
             setShowSavedToast(true);
             setTimeout(() => setShowSavedToast(false), 2500);
             return true;
@@ -758,9 +754,7 @@ export const FormsPage: React.FC = () => {
     
     const handleTypeChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
         const newType = e.target.value as AssociateType;
-        if (newType === selectedType) {
-            return;
-        }
+        if (newType === selectedType) return;
 
         if (hasUnsavedChanges) {
             const confirmed = await modal.confirm({
@@ -772,9 +766,7 @@ export const FormsPage: React.FC = () => {
 
             if (confirmed) {
                 const success = await handleSaveLayout();
-                if (!success) {
-                    return; // Do not switch if saving failed
-                }
+                if (!success) return;
             }
         }
         
@@ -809,8 +801,9 @@ export const FormsPage: React.FC = () => {
 
     const handleFieldReorder = useCallback((drag: { stepIndex: number, fieldIndex: number }, hover: { stepIndex: number, fieldIndex: number }) => {
         setLayout(prev => {
-            const newLayout = JSON.parse(JSON.stringify(prev)); // Deep copy
+            const newLayout = JSON.parse(JSON.stringify(prev));
             const [draggedItem] = newLayout[drag.stepIndex].fields.splice(drag.fieldIndex, 1);
+            if (!draggedItem) return prev;
             newLayout[hover.stepIndex].fields.splice(hover.fieldIndex, 0, draggedItem);
             return newLayout;
         });
@@ -870,7 +863,7 @@ export const FormsPage: React.FC = () => {
             setError(null);
             try {
                 await apiClient.delete(`/admin/fields/${fieldId}`);
-                await fetchAllData(selectedType); // Pass current type to avoid race condition
+                await fetchAllData(selectedType);
             } catch (err) {
                 setError(err instanceof Error ? err.message : 'Falha ao excluir o campo.');
                 setIsLoading(false);
@@ -900,14 +893,6 @@ export const FormsPage: React.FC = () => {
                     <div className="flex-shrink-0 flex items-center gap-2">
                          <button onClick={() => setIsModalOpen(true)} className="flex items-center gap-2 px-3 py-2 bg-gray-700 text-sm text-white font-semibold rounded-lg shadow-md hover:bg-gray-600">
                             <PlusCircleIcon className="w-5 h-5" /> Adicionar Campo
-                        </button>
-                         <button
-                            onClick={handleSaveLayout}
-                            disabled={!hasUnsavedChanges || isSaving}
-                            className="flex items-center gap-2 px-4 py-2 bg-green-600 text-sm text-white font-semibold rounded-lg shadow-md hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                            {isSaving ? <Loader /> : <CheckSquareIcon className="w-5 h-5" />}
-                            {isSaving ? 'Salvando...' : 'Salvar Alterações'}
                         </button>
                     </div>
                 </div>
@@ -965,11 +950,20 @@ export const FormsPage: React.FC = () => {
                         </div>
                     </div>
                 )}
-                 {/* Toast notification at top right */}
-                <div className={`fixed top-20 right-8 z-50 transition-all duration-300 ease-in-out ${showSavedToast ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-5 pointer-events-none'}`}>
-                    <div className="flex items-center gap-3 bg-gray-800 text-white px-6 py-3 rounded-lg shadow-2xl border border-green-500/50" role="status">
-                        <CheckCircleIcon className="w-5 h-5 text-green-400" />
-                        <span className="font-semibold text-sm">Layout salvo com sucesso!</span>
+                <div className={`fixed bottom-8 right-0 left-0 flex justify-center md:right-8 z-50 transition-all duration-300 ease-in-out ${ (hasUnsavedChanges || showSavedToast) ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-5 pointer-events-none' }`}>
+                    <div className="relative">
+                        {hasUnsavedChanges && !showSavedToast && (
+                            <button onClick={handleSaveLayout} disabled={isSaving} className="flex items-center justify-center gap-2 px-6 py-3 bg-green-600 text-white font-semibold rounded-lg shadow-2xl hover:bg-green-700 transition-transform hover:scale-105 disabled:opacity-70 disabled:cursor-wait" aria-label="Salvar alterações no layout">
+                                {isSaving ? <Loader /> : <CheckSquareIcon className="w-6 h-6" />}
+                                <span className="text-sm">{isSaving ? 'Salvando...' : 'Salvar Layout'}</span>
+                            </button>
+                        )}
+                        {showSavedToast && (
+                            <div className="flex items-center gap-3 bg-gray-800 text-white px-6 py-3 rounded-lg shadow-2xl border border-green-500/50" role="status">
+                                <CheckCircleIcon className="w-5 h-5 text-green-400" />
+                                <span className="font-semibold text-sm">Layout salvo com sucesso!</span>
+                            </div>
+                        )}
                     </div>
                 </div>
             </div>
