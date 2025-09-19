@@ -1,4 +1,3 @@
-
 # SATIVAR-ISIS Backend Server
 
 This directory contains the Node.js/Express backend for the SATIVAR-ISIS application. Its primary responsibilities are:
@@ -50,23 +49,33 @@ API_SECRET_KEY=generate-a-strong-random-string-for-this
 
 ### 3. Database Initialization
 
-**SQLite (Default Mode):**
+The backend handles database setup through a migration script. How you proceed depends on the database you want to use for the Seishat module.
 
-This step is **automatic!** When you start the server for the first time, it will automatically create a `data` directory and all necessary SQLite database files (`.db`). It will also run the required migrations to create the tables.
+#### SQLite (Default Mode - Automatic Setup)
 
-**MySQL (Optional Mode for Seishat):**
+This is the default and recommended setup for development and single-user environments. **No manual steps are required.**
 
-If you wish to use MySQL for the Seishat module, you must perform these steps *before* activating it in the application's "Configurações Avançadas" panel:
+-   **How it works:** Simply starting the server is enough.
+-   **Command:**
+    ```bash
+    npm run dev
+    ```
+-   **What it does:** The server automatically executes the JavaScript migration file (`server/migration.js`). This script creates the `/server/data` directory and all necessary SQLite database files (`.db`) with their correct tables.
 
+---
+
+#### MySQL (Optional Mode for Seishat - Manual Setup Required)
+
+This is an advanced option for production or multi-user environments. It requires manual preparation of the MySQL database **before** activating it in the application UI.
+
+**Step 1: Prepare your MySQL Server**
 1.  Ensure you have a running MySQL server.
-2.  Create a database (e.g., `sativar_seishat_db`).
-3.  Create a user with privileges for that database.
-4.  Update your `server/.env` file with the correct credentials.
-5.  Connect to your new database and run the following SQL script.
+2.  Create a new database (e.g., `sativar_seishat_db`).
+3.  Create a database user with full privileges for that database.
+4.  Update your `server/.env` file with the correct `DB_HOST`, `DB_USER`, `DB_PASSWORD`, and `DB_DATABASE` credentials.
 
-    **🚨 ATENÇÃO: SCHEMA ATUALIZADO 🚨**
-
-    Se você já possui um banco de dados MySQL de uma versão anterior, **você deve executar este script completo novamente**. Ele foi atualizado para incluir as novas tabelas (`form_fields`, `form_steps`, `form_layout_fields`) necessárias para o **Construtor de Formulários**. Os comandos `CREATE TABLE IF NOT EXISTS` e `INSERT ... ON DUPLICATE KEY UPDATE` garantirão que sua estrutura seja atualizada sem perda de dados nas tabelas existentes.
+**Step 2: Run the SQL Schema Script**
+Connect to your newly created database using a MySQL client and execute the entire script below. This will create all the necessary tables for the Seishat module.
 
 ```sql
 -- Creates the 'products' table for the Seishat CRM module.
@@ -150,7 +159,7 @@ ON DUPLICATE KEY UPDATE
   options=VALUES(options);
 ```
 
-Once this is done, you can start the server and use the application's interface to test the connection and activate the MySQL mode.
+After running this script, you can start the server and use the application's interface ("Configurações Avançadas") to test the connection and formally activate the MySQL mode.
 
 ### 4. Running the Server
 
