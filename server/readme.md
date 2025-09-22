@@ -93,7 +93,7 @@ CREATE TABLE IF NOT EXISTS products (
 
 -- Creates the 'associates' table for the Seishat CRM module.
 -- The 'id' is an auto-incrementing integer, ensuring a unique, sequential identifier for each associate.
--- A `custom_fields` column is added to store dynamic data from the Form Builder.
+-- `custom_fields` and `extra_custom_fields` columns store dynamic data from the Form Builder.
 CREATE TABLE IF NOT EXISTS associates (
   id INT AUTO_INCREMENT PRIMARY KEY,
   full_name VARCHAR(255) NOT NULL,
@@ -102,6 +102,7 @@ CREATE TABLE IF NOT EXISTS associates (
   password VARCHAR(255) NOT NULL,
   type ENUM('paciente', 'responsavel', 'tutor', 'colaborador') NOT NULL,
   custom_fields JSON,
+  extra_custom_fields JSON,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
@@ -119,12 +120,13 @@ CREATE TABLE IF NOT EXISTS form_fields (
 );
 
 -- Table for the steps/pages within a form.
--- This table is part of the new Form Builder feature.
+-- `layout_type` distinguishes between the main form and the extra info form.
 CREATE TABLE IF NOT EXISTS form_steps (
   id INT AUTO_INCREMENT PRIMARY KEY,
   associate_type VARCHAR(255) NOT NULL,
   title VARCHAR(255) NOT NULL,
-  step_order INT NOT NULL
+  step_order INT NOT NULL,
+  layout_type VARCHAR(255) NOT NULL DEFAULT 'main'
 );
 
 -- Table that links fields to steps to define a form's layout.

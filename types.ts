@@ -160,8 +160,9 @@ export interface Associate {
   cpf?: string;
   whatsapp?: string;
   type: AssociateType;
-  // Password is not stored on the client
-  // Allow for any other custom fields from the form builder
+  // This allows for dynamic fields from the form builder to be merged.
+  // The 'custom_fields' property from the database is flattened into the root object.
+  // The new 'extra_custom_fields' will also be flattened here.
   [key: string]: any;
 }
 
@@ -207,6 +208,7 @@ export interface FormStep {
   title: string;
   step_order: number;
   fields: FormLayoutField[];
+  layout_type?: 'main' | 'extra';
 }
 
 // FIX: Add Vite client types to fix import.meta.env errors across the application.

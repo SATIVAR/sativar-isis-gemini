@@ -128,7 +128,8 @@ const RenderField: React.FC<{
 interface AssociateModalProps { associate: Associate | null; onClose: () => void; onSaveSuccess: () => void; }
 
 export const AssociateModal: React.FC<AssociateModalProps> = ({ associate, onClose, onSaveSuccess }) => {
-    const [steps, setSteps] = useState<FormStep[]>([]);
+    const [mainSteps, setMainSteps] = useState<FormStep[]>([]);
+    const [extraSteps, setExtraSteps] = useState<FormStep[]>([]);
     const [currentStepIndex, setCurrentStepIndex] = useState(-1);
     const [formData, setFormData] = useState<Record<string, any>>({});
     const [formErrors, setFormErrors] = useState<Record<string, string>>({});
@@ -139,12 +140,16 @@ export const AssociateModal: React.FC<AssociateModalProps> = ({ associate, onClo
     const isEditing = !!associate;
     const [isEditMode, setIsEditMode] = useState(false);
 
+    const allSteps = useMemo(() => isEditing ? [...mainSteps, ...extraSteps] : mainSteps, [isEditing, mainSteps, extraSteps]);
+
     const fetchLayoutAndInitialize = useCallback(async (type: AssociateType) => {
         setIsLoading(true); setGlobalError('');
         try {
-            const layoutData = await apiClient.get<FormStep[]>(`/admin/layouts/${type}`);
-            if (layoutData.length === 0) throw new Error('Nenhum layout de formulário configurado para este tipo de associado.');
-            setSteps(layoutData); setCurrentStepIndex(0);
+            const { main, extra } = await apiClient.get<{ main: FormStep[], extra: FormStep[] }>(`/admin/layouts/${type}`);
+            if (main.length === 0) throw new Error('Nenhum layout de formulário configurado para este tipo de associado.');
+            setMainSteps(main);
+            setExtraSteps(extra);
+            setCurrentStepIndex(0);
         } catch (err) {
             setGlobalError(err instanceof Error ? err.message : 'Falha ao carregar o layout do formulário.');
             setCurrentStepIndex(-1);
@@ -187,7 +192,7 @@ export const AssociateModal: React.FC<AssociateModalProps> = ({ associate, onClo
     
     const validateStep = (stepIndex: number): boolean => {
         const errors: Record<string, string> = {};
-        const step = steps[stepIndex];
+        const step = allSteps[stepIndex];
         if (!step) return false;
         for (const field of step.fields) {
             if (!checkFieldVisibility(field, formData)) continue;
@@ -207,7 +212,7 @@ export const AssociateModal: React.FC<AssociateModalProps> = ({ associate, onClo
     const handleNext = async () => {
         if (currentStepIndex === -1) fetchLayoutAndInitialize(formData.type);
         else if (validateStep(currentStepIndex)) {
-            const currentFields = steps[currentStepIndex].fields.map(f => f.field_name);
+            const currentFields = allSteps[currentStepIndex].fields.map(f => f.field_name);
             if (currentFields.includes('cpf') || currentFields.includes('whatsapp')) {
                 const { isValid } = await checkDuplicates(formData);
                 if (!isValid) return;
@@ -220,21 +225,22 @@ export const AssociateModal: React.FC<AssociateModalProps> = ({ associate, onClo
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        for (let i = 0; i < steps.length; i++) { if (!validateStep(i)) { setCurrentStepIndex(i); return; } }
+        for (let i = 0; i < allSteps.length; i++) { if (!validateStep(i)) { setCurrentStepIndex(i); return; } }
         const { isValid } = await checkDuplicates(formData);
         if (!isValid) {
             const errorField = Object.keys(formErrors).find(key => formErrors[key]);
             if (errorField) {
-                 const errorStepIndex = steps.findIndex(step => step.fields.some(f => f.field_name === errorField));
+                 const errorStepIndex = allSteps.findIndex(step => step.fields.some(f => f.field_name === errorField));
                  if (errorStepIndex !== -1 && errorStepIndex !== currentStepIndex) setCurrentStepIndex(errorStepIndex);
             }
             return;
         }
         setIsSaving(true); setGlobalError('');
-        const payload: Record<string, any> = { ...formData };
+        const payload = { ...formData };
         if (payload.cpf) payload.cpf = payload.cpf.replace(/[^\d]/g, '');
         delete payload.confirmPassword;
         if (isEditing && !payload.password) delete payload.password;
+        
         try {
             if (isEditing) await apiClient.put(`/seishat/associates/${associate.id}`, payload);
             else await apiClient.post('/seishat/associates', payload);
@@ -251,8 +257,8 @@ export const AssociateModal: React.FC<AssociateModalProps> = ({ associate, onClo
         setCurrentStepIndex(0);
     };
 
-    const currentStep = currentStepIndex >= 0 ? steps[currentStepIndex] : null;
-    const isLastStep = currentStepIndex === steps.length - 1 && steps.length > 0;
+    const currentStep = currentStepIndex >= 0 ? allSteps[currentStepIndex] : null;
+    const isLastStep = currentStepIndex === allSteps.length - 1 && allSteps.length > 0;
     const isLoadingState = isLoading || isCheckingDuplicates;
 
     const renderFormBody = () => {
@@ -270,9 +276,19 @@ export const AssociateModal: React.FC<AssociateModalProps> = ({ associate, onClo
             </div>
         );
         if (!currentStep) return <p className="text-gray-400 text-center">Formulário não encontrado.</p>;
+
+        const isExtraSection = isEditing && currentStepIndex >= mainSteps.length;
+        const previousStepWasMain = isEditing && currentStepIndex > 0 && currentStepIndex === mainSteps.length;
+        
         const visibleFields = currentStep.fields.filter(field => checkFieldVisibility(field, formData));
+
         return (
-            <div className="space-y-4">
+             <div className="space-y-4">
+                {previousStepWasMain && (
+                    <div className="border-t border-gray-700 pt-6 mt-6">
+                         <h3 className="text-xl font-bold text-fuchsia-300 mb-4">Informações Extras</h3>
+                    </div>
+                )}
                  <h3 className="text-lg font-semibold text-fuchsia-300">{currentStep.title}</h3>
                 {visibleFields.map(field => {
                     if (field.field_type === 'checkbox') return (
@@ -304,10 +320,10 @@ export const AssociateModal: React.FC<AssociateModalProps> = ({ associate, onClo
     };
 
     const ProgressBar = () => {
-        if (currentStepIndex < 0 || steps.length <= 1) return null;
+        if (currentStepIndex < 0 || allSteps.length <= 1) return null;
         return (
             <div className="flex items-center gap-2 mb-4">
-                {steps.map((_, index) => (<div key={index} className="flex-1 h-1.5 rounded-full" style={{ backgroundColor: index <= currentStepIndex ? '#a855f7' : '#4a4a4f' }}></div>))}
+                {allSteps.map((_, index) => (<div key={index} className="flex-1 h-1.5 rounded-full" style={{ backgroundColor: index <= currentStepIndex ? '#a855f7' : '#4a4a4f' }}></div>))}
             </div>
         )
     };

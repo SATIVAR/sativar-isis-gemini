@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { DndProvider } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
 import { apiClient } from '../../services/database/apiClient.ts';
-import type { FormField, FormStep, FormLayoutField, AssociateType } from '../../types.ts';
+import type { FormField, FormStep, AssociateType } from '../../types.ts';
 import { useModal } from '../../hooks/useModal.ts';
 import { Loader } from '../Loader.tsx';
 import { CheckSquareIcon, PlusCircleIcon } from '../icons.tsx';
@@ -21,8 +21,8 @@ const associateTypes: { id: AssociateType; label: string }[] = [
 
 export const FormsPage: React.FC = () => {
     const [allFields, setAllFields] = useState<FormField[]>([]);
-    const [layout, setLayout] = useState<FormStep[]>([]);
-    const [initialLayout, setInitialLayout] = useState<FormStep[]>([]);
+    const [layouts, setLayouts] = useState<{ main: FormStep[], extra: FormStep[] }>({ main: [], extra: [] });
+    const [initialLayouts, setInitialLayouts] = useState<{ main: FormStep[], extra: FormStep[] }>({ main: [], extra: [] });
     const [selectedAssociateType, setSelectedAssociateType] = useState<AssociateType>('paciente');
     const [selectedFieldId, setSelectedFieldId] = useState<number | null>(null);
     const [isFieldEditorOpen, setIsFieldEditorOpen] = useState(false);
@@ -35,7 +35,7 @@ export const FormsPage: React.FC = () => {
     
     const modal = useModal();
 
-    const hasUnsavedChanges = useMemo(() => JSON.stringify(layout) !== JSON.stringify(initialLayout), [layout, initialLayout]);
+    const hasUnsavedChanges = useMemo(() => JSON.stringify(layouts) !== JSON.stringify(initialLayouts), [layouts, initialLayouts]);
 
     const fetchAllFields = useCallback(async () => {
         try {
@@ -51,20 +51,18 @@ export const FormsPage: React.FC = () => {
         setError(null);
         setSelectedFieldId(null);
         try {
-            const layoutData = await apiClient.get<FormStep[]>(`/admin/layouts/${type}`);
-            const correctedLayout = layoutData.map(step => ({
+            const { main, extra } = await apiClient.get<{ main: FormStep[], extra: FormStep[] }>(`/admin/layouts/${type}`);
+            const correctLayout = (layout: FormStep[]) => layout.map(step => ({
                 ...step,
-                fields: step.fields.map(field => ({
-                    ...field,
-                    is_required: field.is_base_field ? true : !!field.is_required,
-                })),
+                fields: step.fields.map(field => ({ ...field, is_required: field.is_base_field ? true : !!field.is_required })),
             }));
-            setLayout(correctedLayout);
-            setInitialLayout(correctedLayout);
+            const newLayouts = { main: correctLayout(main), extra: correctLayout(extra) };
+            setLayouts(newLayouts);
+            setInitialLayouts(newLayouts);
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Falha ao carregar o layout do formulário.');
-            setLayout([]);
-            setInitialLayout([]);
+            setLayouts({ main: [], extra: [] });
+            setInitialLayouts({ main: [], extra: [] });
         } finally {
             setIsLoading(false);
         }
@@ -84,11 +82,11 @@ export const FormsPage: React.FC = () => {
         setIsSaving(true);
         setError(null);
         try {
-            await apiClient.put(`/admin/layouts/${selectedAssociateType}`, layout);
+            await apiClient.put(`/admin/layouts/${selectedAssociateType}`, layouts);
             setIsSaving(false);
             setSaveSuccess(true);
             setTimeout(() => {
-                setInitialLayout(layout);
+                setInitialLayouts(layouts);
                 setSaveSuccess(false);
             }, 1500);
         } catch (err) {
@@ -99,98 +97,108 @@ export const FormsPage: React.FC = () => {
         }
     };
 
-    const handleFieldDrop = (field: FormField, stepIndex: number) => {
-        setLayout(prev => {
-            const newLayout = [...prev];
-            const targetStep = newLayout[stepIndex];
+    const handleFieldUpdate = (updatedField, layoutType) => {
+        setLayouts(prev => ({
+            ...prev,
+            [layoutType]: prev[layoutType].map(step => ({
+                ...step,
+                fields: step.fields.map(f => f.id === updatedField.id ? updatedField : f)
+            }))
+        }));
+    };
+    
+    const handleStepUpdate = (updatedStep, layoutType) => {
+        setLayouts(prev => ({
+            ...prev,
+            [layoutType]: prev[layoutType].map(step => step.id === updatedStep.id ? updatedStep : step)
+        }));
+    };
+
+    const handleFieldDrop = (field, stepIndex, layoutType) => {
+        setLayouts(prev => {
+            const newLayouts = { ...prev };
+            const targetLayout = [...newLayouts[layoutType]];
+            const targetStep = targetLayout[stepIndex];
             if (targetStep && !targetStep.fields.some(f => f.id === field.id)) {
-                const newField: FormLayoutField = {
+                targetStep.fields.push({
                     ...field,
                     display_order: targetStep.fields.length,
                     is_required: !!field.is_base_field,
                     visibility_conditions: null,
-                };
-                targetStep.fields.push(newField);
+                });
             }
-            return newLayout;
+            newLayouts[layoutType] = targetLayout;
+            return newLayouts;
         });
     };
 
-    const handleStepDrop = (dropIndex: number) => {
-        const newStep: FormStep = {
-            id: `new_${Date.now()}`,
-            title: `Nova Etapa ${layout.length + 1}`,
-            step_order: dropIndex,
-            fields: [],
-        };
-
-        setLayout(prev => {
-            const newLayout = [...prev];
-            newLayout.splice(dropIndex, 0, newStep);
-            return newLayout.map((step, index) => ({ ...step, step_order: index }));
+    const handleStepDrop = (dropIndex, layoutType) => {
+        setLayouts(prev => {
+            const newLayouts = { ...prev };
+            const targetLayout = [...newLayouts[layoutType]];
+            const newStep = {
+                id: `new_${Date.now()}`,
+                title: `Nova Etapa ${targetLayout.length + 1}`,
+                step_order: dropIndex,
+                fields: [],
+            };
+            targetLayout.splice(dropIndex, 0, newStep);
+            newLayouts[layoutType] = targetLayout.map((step, index) => ({ ...step, step_order: index }));
+            return newLayouts;
         });
     };
 
-    const handleFieldReorder = (drag: { stepIndex: number; fieldIndex: number }, hover: { stepIndex: number; fieldIndex: number }) => {
-        setLayout(prev => {
-            const newLayout = JSON.parse(JSON.stringify(prev));
-            const dragStep = newLayout[drag.stepIndex];
+    const handleFieldReorder = (drag, hover, layoutType) => {
+        setLayouts(prev => {
+            const newLayouts = JSON.parse(JSON.stringify(prev));
+            const targetLayout = newLayouts[layoutType];
+            const dragStep = targetLayout[drag.stepIndex];
             const [draggedField] = dragStep.fields.splice(drag.fieldIndex, 1);
             
-            const hoverStep = newLayout[hover.stepIndex];
+            const hoverStep = targetLayout[hover.stepIndex];
             hoverStep.fields.splice(hover.fieldIndex, 0, draggedField);
             
-            return newLayout;
+            return newLayouts;
         });
     };
     
-     const handleStepReorder = (dragIndex: number, hoverIndex: number) => {
-        setLayout(prev => {
-            const newLayout = [...prev];
-            const [draggedStep] = newLayout.splice(dragIndex, 1);
-            newLayout.splice(hoverIndex, 0, draggedStep);
-            return newLayout.map((step, index) => ({ ...step, step_order: index }));
+     const handleStepReorder = (dragIndex, hoverIndex, layoutType) => {
+        setLayouts(prev => {
+            const newLayouts = { ...prev };
+            const targetLayout = [...newLayouts[layoutType]];
+            const [draggedStep] = targetLayout.splice(dragIndex, 1);
+            targetLayout.splice(hoverIndex, 0, draggedStep);
+            newLayouts[layoutType] = targetLayout.map((step, index) => ({ ...step, step_order: index }));
+            return newLayouts;
         });
     };
 
-    const handleFieldSelect = (id: number) => setSelectedFieldId(id);
-    const handleFieldRemove = (id: number) => {
+    const handleFieldSelect = (id) => setSelectedFieldId(id);
+    const handleFieldRemove = (id, layoutType) => {
         if (selectedFieldId === id) setSelectedFieldId(null);
-        setLayout(prev => prev.map(step => ({
-            ...step,
-            fields: step.fields.filter(field => field.id !== id)
-        })));
+        setLayouts(prev => ({
+            ...prev,
+            [layoutType]: prev[layoutType].map(step => ({
+                ...step,
+                fields: step.fields.filter(field => field.id !== id)
+            }))
+        }));
     };
     
-    const handleStepRemove = (id: number | string) => {
-        setLayout(prev => {
-            const newLayout = prev.filter(step => step.id !== id);
-            return newLayout.map((step, index) => ({ ...step, step_order: index }));
+    const handleStepRemove = (id, layoutType) => {
+        setLayouts(prev => {
+            const newLayout = prev[layoutType].filter(step => step.id !== id);
+            return {
+                ...prev,
+                [layoutType]: newLayout.map((step, index) => ({ ...step, step_order: index }))
+            };
         });
     };
     
-    const handleStepUpdate = (updatedStep: FormStep) => {
-        setLayout(prev => prev.map(step => step.id === updatedStep.id ? updatedStep : step));
-    };
-
-    const handleFieldUpdate = (updatedField: FormLayoutField) => {
-        setLayout(prev => prev.map(step => ({
-            ...step,
-            fields: step.fields.map(f => f.id === updatedField.id ? updatedField : f)
-        })));
-    };
+    const handleEditPaletteField = (field) => { setEditingPaletteField(field); setIsFieldEditorOpen(true); };
+    const handleCloseFieldEditor = () => { setIsFieldEditorOpen(false); setEditingPaletteField(null); };
     
-    const handleEditPaletteField = (field: FormField) => {
-        setEditingPaletteField(field);
-        setIsFieldEditorOpen(true);
-    };
-
-    const handleCloseFieldEditor = () => {
-        setIsFieldEditorOpen(false);
-        setEditingPaletteField(null);
-    };
-    
-    const handleDeletePaletteField = async (id: number) => {
+    const handleDeletePaletteField = async (id) => {
         const fieldToDelete = allFields.find(f => f.id === id);
         if (!fieldToDelete) return;
 
@@ -204,21 +212,23 @@ export const FormsPage: React.FC = () => {
         if (confirmed) {
             try {
                 await apiClient.delete(`/admin/fields/${id}`);
-                await fetchAllFields(); // Refresh palette
+                await fetchAllFields();
             } catch (err) {
                 modal.alert({ title: 'Erro', message: `Falha ao excluir campo: ${err instanceof Error ? err.message : 'Erro desconhecido'}`});
             }
         }
     };
     
-    const selectedField = useMemo(() => {
+    const selectedFieldData = useMemo(() => {
         if (!selectedFieldId) return null;
-        for (const step of layout) {
-            const field = step.fields.find(f => f.id === selectedFieldId);
-            if (field) return field;
+        for (const layoutType of ['main', 'extra'] as const) {
+            for (const step of layouts[layoutType]) {
+                const field = step.fields.find(f => f.id === selectedFieldId);
+                if (field) return { field, layoutType };
+            }
         }
         return null;
-    }, [selectedFieldId, layout]);
+    }, [selectedFieldId, layouts]);
 
     return (
         <DndProvider backend={HTML5Backend}>
@@ -262,32 +272,46 @@ export const FormsPage: React.FC = () => {
                     <div className="flex justify-center items-center py-20"><Loader /></div>
                 ) : (
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
-                        <div className="lg:col-span-2">
+                        <div className="lg:col-span-2 space-y-8">
                             <Canvas
-                                layout={layout}
-                                onFieldDrop={handleFieldDrop}
-                                onStepDrop={handleStepDrop}
-                                onFieldReorder={handleFieldReorder}
-                                onStepReorder={handleStepReorder}
+                                title="Layout do Formulário (Cadastro)"
+                                layout={layouts.main}
+                                onFieldDrop={(field, stepIndex) => handleFieldDrop(field, stepIndex, 'main')}
+                                onStepDrop={(dropIndex) => handleStepDrop(dropIndex, 'main')}
+                                onFieldReorder={(drag, hover) => handleFieldReorder(drag, hover, 'main')}
+                                onStepReorder={(drag, hover) => handleStepReorder(drag, hover, 'main')}
                                 onFieldSelect={handleFieldSelect}
-                                onFieldRemove={handleFieldRemove}
-                                onStepRemove={handleStepRemove}
-                                onStepUpdate={handleStepUpdate}
+                                onFieldRemove={(id) => handleFieldRemove(id, 'main')}
+                                onStepRemove={(id) => handleStepRemove(id, 'main')}
+                                onStepUpdate={(step) => handleStepUpdate(step, 'main')}
+                                selectedFieldId={selectedFieldId}
+                            />
+                            <Canvas
+                                title="Informações Extras (Edição)"
+                                layout={layouts.extra}
+                                onFieldDrop={(field, stepIndex) => handleFieldDrop(field, stepIndex, 'extra')}
+                                onStepDrop={(dropIndex) => handleStepDrop(dropIndex, 'extra')}
+                                onFieldReorder={(drag, hover) => handleFieldReorder(drag, hover, 'extra')}
+                                onStepReorder={(drag, hover) => handleStepReorder(drag, hover, 'extra')}
+                                onFieldSelect={handleFieldSelect}
+                                onFieldRemove={(id) => handleFieldRemove(id, 'extra')}
+                                onStepRemove={(id) => handleStepRemove(id, 'extra')}
+                                onStepUpdate={(step) => handleStepUpdate(step, 'extra')}
                                 selectedFieldId={selectedFieldId}
                             />
                         </div>
                         <div className="lg:sticky lg:top-6 space-y-6">
-                            {selectedField && (
+                            {selectedFieldData && (
                                 <PropertiesPanel
-                                    field={selectedField}
-                                    layout={layout}
-                                    onUpdate={handleFieldUpdate}
+                                    field={selectedFieldData.field}
+                                    layout={[...layouts.main, ...layouts.extra]}
+                                    onUpdate={(field) => handleFieldUpdate(field, selectedFieldData.layoutType)}
                                     onClose={() => setSelectedFieldId(null)}
                                 />
                             )}
                             <Palette
                                 allFields={allFields}
-                                layout={layout}
+                                layout={[...layouts.main, ...layouts.extra]}
                                 onDeleteField={handleDeletePaletteField}
                                 onEditField={handleEditPaletteField}
                             />

@@ -1,4 +1,3 @@
-
 import React, { useRef, useState } from 'react';
 import { useDrop, useDrag } from 'react-dnd';
 // FIX: Import form-related types from the central types.ts file.
@@ -81,6 +80,7 @@ const StepCard: React.FC<StepCardProps> = ({ step, stepIndex, children, onMove, 
 };
 
 interface CanvasProps {
+    title: string;
     layout: FormStep[];
     onFieldDrop: (field: FormField, stepIndex: number) => void;
     onStepDrop: (dropIndex: number) => void;
@@ -94,7 +94,7 @@ interface CanvasProps {
 }
 
 export const Canvas: React.FC<CanvasProps> = ({
-    layout, onFieldDrop, onStepDrop, onFieldReorder, onStepReorder,
+    title, layout, onFieldDrop, onStepDrop, onFieldReorder, onStepReorder,
     onFieldSelect, onFieldRemove, onStepRemove, onStepUpdate, selectedFieldId
 }) => {
     
@@ -126,10 +126,10 @@ export const Canvas: React.FC<CanvasProps> = ({
 
     return (
         <div>
-            <h3 className="text-lg font-semibold text-gray-300 px-2 mb-3">Layout do Formulário</h3>
+            <h3 className="text-lg font-semibold text-gray-300 px-2 mb-3">{title}</h3>
             <div 
                 ref={canvasDropRef}
-                className={`bg-[#202124] rounded-xl border border-dashed p-4 min-h-[60vh] transition-colors duration-300 ${
+                className={`bg-[#202124] rounded-xl border border-dashed p-4 min-h-[20vh] transition-colors duration-300 ${
                     isOverCanvas ? 'border-fuchsia-500 bg-fuchsia-900/20' : 'border-gray-700'
                 }`}
                 aria-label="Área do formulário"
@@ -163,6 +163,11 @@ export const Canvas: React.FC<CanvasProps> = ({
                         <DropZone index={stepIndex + 1} />
                     </React.Fragment>
                 ))}
+                 {layout.length === 0 && (
+                     <p className="text-center text-gray-500 py-10">
+                         Arraste campos ou um separador de etapa aqui.
+                    </p>
+                 )}
             </div>
         </div>
     );

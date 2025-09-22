@@ -141,6 +141,7 @@ CREATE TABLE IF NOT EXISTS associates (
   password TEXT NOT NULL,
   type TEXT NOT NULL CHECK(type IN ('paciente', 'responsavel', 'tutor', 'colaborador')),
   custom_fields TEXT,
+  extra_custom_fields TEXT,
   created_at TEXT DEFAULT (datetime('now', 'localtime')),
   updated_at TEXT DEFAULT (datetime('now', 'localtime'))
 );
@@ -159,7 +160,8 @@ CREATE TABLE IF NOT EXISTS form_steps (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     associate_type TEXT NOT NULL,
     title TEXT NOT NULL,
-    step_order INTEGER NOT NULL
+    step_order INTEGER NOT NULL,
+    layout_type TEXT NOT NULL DEFAULT 'main'
 );
 
 CREATE TABLE IF NOT EXISTS form_layout_fields (
@@ -221,6 +223,7 @@ CREATE TABLE IF NOT EXISTS associates (
   password VARCHAR(255) NOT NULL,
   type ENUM('paciente', 'responsavel', 'tutor', 'colaborador') NOT NULL,
   custom_fields JSON,
+  extra_custom_fields JSON,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
@@ -239,7 +242,8 @@ CREATE TABLE IF NOT EXISTS form_steps (
   id INT AUTO_INCREMENT PRIMARY KEY,
   associate_type VARCHAR(255) NOT NULL,
   title VARCHAR(255) NOT NULL,
-  step_order INT NOT NULL
+  step_order INT NOT NULL,
+  layout_type VARCHAR(255) NOT NULL DEFAULT 'main'
 );
 
 CREATE TABLE IF NOT EXISTS form_layout_fields (
@@ -297,6 +301,20 @@ const runSeishatMysqlMigration = async (pool) => {
             console.log(chalk.yellow('[Migration] Altering MySQL table "associates" to add "custom_fields" column...'));
             await connection.query(`ALTER TABLE associates ADD COLUMN custom_fields JSON;`);
             console.log(chalk.green('[Migration] MySQL column "custom_fields" added successfully.'));
+        }
+
+        const [extraAssociateColumns] = await connection.query(`SHOW COLUMNS FROM associates LIKE 'extra_custom_fields';`);
+        if (extraAssociateColumns.length === 0) {
+            console.log(chalk.yellow('[Migration] Altering MySQL table "associates" to add "extra_custom_fields" column...'));
+            await connection.query(`ALTER TABLE associates ADD COLUMN extra_custom_fields JSON;`);
+            console.log(chalk.green('[Migration] MySQL column "extra_custom_fields" added successfully.'));
+        }
+        
+        const [stepColumns] = await connection.query(`SHOW COLUMNS FROM form_steps LIKE 'layout_type';`);
+        if (stepColumns.length === 0) {
+            console.log(chalk.yellow('[Migration] Altering MySQL table "form_steps" to add "layout_type" column...'));
+            await connection.query(`ALTER TABLE form_steps ADD COLUMN layout_type VARCHAR(255) NOT NULL DEFAULT 'main';`);
+            console.log(chalk.green('[Migration] MySQL column "layout_type" added successfully.'));
         }
         
         const populateSql = `
@@ -359,6 +377,8 @@ const runMigrations = async () => {
         
         checkAndAddColumn(seishatDb, 'form_layout_fields', 'visibility_conditions', 'TEXT');
         checkAndAddColumn(seishatDb, 'associates', 'custom_fields', 'TEXT');
+        checkAndAddColumn(seishatDb, 'associates', 'extra_custom_fields', 'TEXT');
+        checkAndAddColumn(seishatDb, 'form_steps', 'layout_type', 'TEXT NOT NULL DEFAULT \'main\'');
         
         console.log(chalk.magenta('✅ SEISHAT SQLite migration completed successfully.'));
     } else if (mode === 'mysql' && seishatDb && typeof seishatDb.getConnection === 'function') {

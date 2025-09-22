@@ -38,10 +38,21 @@ const parseAssociate = (associate) => {
         // For MySQL which might auto-parse JSON
         customFields = associate.custom_fields;
     }
+
+    let extraCustomFields = {};
+    if (associate.extra_custom_fields && typeof associate.extra_custom_fields === 'string') {
+        try {
+            extraCustomFields = JSON.parse(associate.extra_custom_fields);
+        } catch (e) {
+            console.error(`Failed to parse extra_custom_fields JSON for associate ID ${associate.id}:`, associate.extra_custom_fields);
+        }
+    } else if (associate.extra_custom_fields && typeof associate.extra_custom_fields === 'object') {
+        extraCustomFields = associate.extra_custom_fields;
+    }
     
     // Combine base fields with custom fields, and remove sensitive/internal fields
-    const { custom_fields, password, ...baseAssociate } = associate;
-    return { ...baseAssociate, ...customFields };
+    const { custom_fields, extra_custom_fields, password, ...baseAssociate } = associate;
+    return { ...baseAssociate, ...customFields, ...extraCustomFields };
 };
 
 
@@ -476,6 +487,48 @@ router.delete('/users/:id', async (req, res, next) => {
 
 // --- Seishat Associates CRUD Routes ---
 
+const separateAssociateData = async (type, allData) => {
+    const mainLayoutFieldsQuery = `
+        SELECT ff.field_name, ff.is_base_field
+        FROM form_layout_fields flf
+        JOIN form_fields ff ON flf.field_id = ff.id
+        JOIN form_steps fs ON flf.step_id = fs.id
+        WHERE fs.associate_type = ? AND fs.layout_type = 'main'
+    `;
+    const mainFields = await seishatQuery(mainLayoutFieldsQuery, [type]);
+
+    const extraLayoutFieldsQuery = `
+        SELECT ff.field_name
+        FROM form_layout_fields flf
+        JOIN form_fields ff ON flf.field_id = ff.id
+        JOIN form_steps fs ON flf.step_id = fs.id
+        WHERE fs.associate_type = ? AND fs.layout_type = 'extra'
+    `;
+    const extraFields = await seishatQuery(extraLayoutFieldsQuery, [type]);
+    
+    const baseFieldNames = mainFields.filter(f => f.is_base_field).map(f => f.field_name);
+    const mainCustomFieldNames = mainFields.filter(f => !f.is_base_field).map(f => f.field_name);
+    const extraCustomFieldNames = extraFields.map(f => f.field_name);
+    
+    const baseData = {};
+    const customData = {};
+    const extraCustomData = {};
+    
+    for (const key in allData) {
+        if (key === 'id') continue;
+        if (baseFieldNames.includes(key) || ['full_name', 'password', 'type', 'cpf', 'whatsapp'].includes(key)) {
+            baseData[key] = allData[key];
+        } else if (mainCustomFieldNames.includes(key)) {
+            customData[key] = allData[key];
+        } else if (extraCustomFieldNames.includes(key)) {
+            extraCustomData[key] = allData[key];
+        }
+    }
+    
+    return { baseData, customData, extraCustomData };
+};
+
+
 router.post('/seishat/associates/check-duplicates', async (req, res, next) => {
     const { cpf, whatsapp, excludeId } = req.body;
     
@@ -530,7 +583,7 @@ router.get('/seishat/associates', async (req, res, next) => {
     const { search } = req.query;
     try {
         let sql, params;
-        const selectFields = 'id, full_name, cpf, whatsapp, type, custom_fields';
+        const selectFields = 'id, full_name, cpf, whatsapp, type, custom_fields, extra_custom_fields';
         if (search) {
             const searchTerm = `%${search}%`;
             sql = `SELECT ${selectFields} FROM associates WHERE full_name LIKE ? OR cpf LIKE ? ORDER BY full_name ASC`;
@@ -549,41 +602,25 @@ router.get('/seishat/associates', async (req, res, next) => {
 
 router.post('/seishat/associates', async (req, res, next) => {
     try {
-        const { full_name, password, type, cpf, whatsapp, ...customData } = req.body;
+        const { type, ...allData } = req.body;
+        const { baseData, customData, extraCustomData } = await separateAssociateData(type, allData);
 
-        if (!full_name || !password || !type) {
+        if (!baseData.full_name || !baseData.password || !type) {
             return res.status(400).json({ error: 'Nome completo, senha e tipo são obrigatórios.' });
-        }
-
-        if (cpf || whatsapp) {
-            const conditions = [];
-            const params = [];
-            if (cpf) { conditions.push('cpf = ?'); params.push(cpf); }
-            if (whatsapp) { conditions.push('whatsapp = ?'); params.push(whatsapp); }
-            
-            if (params.length > 0) {
-                const existing = await seishatQuery(`SELECT full_name, cpf, whatsapp FROM associates WHERE (${conditions.join(' OR ')})`, params);
-                
-                if (existing.length > 0) {
-                    let message = `Dados duplicados encontrados para o associado ${existing[0].full_name}.`;
-                    if (existing[0].cpf === cpf) message = `Este CPF já está cadastrado para o associado: ${existing[0].full_name}.`;
-                    else if (existing[0].whatsapp === whatsapp) message = `Este WhatsApp já está cadastrado para o associado: ${existing[0].full_name}.`;
-                    return res.status(409).json({ error: message });
-                }
-            }
         }
         
         const dbMode = getDbMode();
         let newAssociateId;
 
         const result = await seishatQuery(
-            'INSERT INTO associates (full_name, cpf, whatsapp, password, type, custom_fields) VALUES (?, ?, ?, ?, ?, ?)',
-            [full_name, cpf || null, whatsapp || null, password, type, JSON.stringify(customData)]
+            'INSERT INTO associates (full_name, cpf, whatsapp, password, type, custom_fields, extra_custom_fields) VALUES (?, ?, ?, ?, ?, ?, ?)',
+            [baseData.full_name, baseData.cpf || null, baseData.whatsapp || null, baseData.password, type, JSON.stringify(customData), JSON.stringify(extraCustomData)]
         );
         
         newAssociateId = (dbMode === 'mysql') ? result.insertId : result.lastInsertRowid;
 
-        const newAssociate = { id: newAssociateId, full_name, cpf, whatsapp, type, ...customData };
+        const newAssociate = { id: newAssociateId, type, ...baseData, ...customData, ...extraCustomData };
+        delete newAssociate.password;
         res.status(201).json(newAssociate);
     } catch (err) {
         if (err.code === 'SQLITE_CONSTRAINT_UNIQUE' || (err.code && err.code.includes('ER_DUP_ENTRY'))) {
@@ -596,39 +633,27 @@ router.post('/seishat/associates', async (req, res, next) => {
 
 router.put('/seishat/associates/:id', async (req, res, next) => {
     const { id } = req.params;
-    const { full_name, type, cpf, whatsapp, password, ...customData } = req.body;
-    if (!full_name || !type) {
-        return res.status(400).json({ error: 'Nome completo e tipo são obrigatórios.' });
-    }
     try {
-        if (cpf || whatsapp) {
-            const conditions = [];
-            const params = [];
-            if (cpf) { conditions.push('cpf = ?'); params.push(cpf); }
-            if (whatsapp) { conditions.push('whatsapp = ?'); params.push(whatsapp); }
-            
-            if (params.length > 0) {
-                const existing = await seishatQuery(`SELECT full_name, cpf, whatsapp FROM associates WHERE (${conditions.join(' OR ')}) AND id != ?`, [...params, id]);
-                if (existing.length > 0) {
-                    let message = `Dados duplicados encontrados para o associado ${existing[0].full_name}.`;
-                    if (existing[0].cpf === cpf) message = `Este CPF já está cadastrado para o associado: ${existing[0].full_name}.`;
-                    else if (existing[0].whatsapp === whatsapp) message = `Este WhatsApp já está cadastrado para o associado: ${existing[0].full_name}.`;
-                    return res.status(409).json({ error: message });
-                }
-            }
+        const { type, ...allData } = req.body;
+        const { baseData, customData, extraCustomData } = await separateAssociateData(type, allData);
+
+        if (!baseData.full_name || !type) {
+            return res.status(400).json({ error: 'Nome completo e tipo são obrigatórios.' });
         }
-        
+
         let sql, params;
-        if (password) {
-            sql = 'UPDATE associates SET full_name = ?, cpf = ?, whatsapp = ?, password = ?, type = ?, custom_fields = ? WHERE id = ?';
-            params = [full_name, cpf || null, whatsapp || null, password, type, JSON.stringify(customData), id];
+        if (baseData.password) {
+            sql = 'UPDATE associates SET full_name = ?, cpf = ?, whatsapp = ?, password = ?, type = ?, custom_fields = ?, extra_custom_fields = ? WHERE id = ?';
+            params = [baseData.full_name, baseData.cpf || null, baseData.whatsapp || null, baseData.password, type, JSON.stringify(customData), JSON.stringify(extraCustomData), id];
         } else {
-            sql = 'UPDATE associates SET full_name = ?, cpf = ?, whatsapp = ?, type = ?, custom_fields = ? WHERE id = ?';
-            params = [full_name, cpf || null, whatsapp || null, type, JSON.stringify(customData), id];
+            sql = 'UPDATE associates SET full_name = ?, cpf = ?, whatsapp = ?, type = ?, custom_fields = ?, extra_custom_fields = ? WHERE id = ?';
+            params = [baseData.full_name, baseData.cpf || null, baseData.whatsapp || null, type, JSON.stringify(customData), JSON.stringify(extraCustomData), id];
         }
         await seishatQuery(sql, params);
         
-        res.status(200).json({ id: parseInt(id), full_name, cpf, whatsapp, type, ...customData });
+        const updatedAssociate = { id: parseInt(id), type, ...baseData, ...customData, ...extraCustomData };
+        delete updatedAssociate.password;
+        res.status(200).json(updatedAssociate);
     } catch (err) {
         if (err.code === 'SQLITE_CONSTRAINT_UNIQUE' || (err.code && err.code.includes('ER_DUP_ENTRY'))) {
             return res.status(409).json({ error: 'Um associado com este CPF ou WhatsApp já existe.' });
@@ -759,24 +784,30 @@ router.delete('/admin/fields/:id', async (req, res, next) => {
 router.get('/admin/layouts/:type', async (req, res, next) => {
     const { type } = req.params;
     try {
-        const steps = await seishatQuery('SELECT * FROM form_steps WHERE associate_type = ? ORDER BY step_order ASC', [type]);
+        const fetchStepsForLayout = async (layoutType) => {
+            const steps = await seishatQuery('SELECT * FROM form_steps WHERE associate_type = ? AND layout_type = ? ORDER BY step_order ASC', [type, layoutType]);
+            for (const step of steps) {
+                const fieldsQuery = `
+                    SELECT ff.*, flf.is_required, flf.display_order, flf.visibility_conditions
+                    FROM form_layout_fields flf
+                    JOIN form_fields ff ON flf.field_id = ff.id
+                    WHERE flf.step_id = ?
+                    ORDER BY flf.display_order ASC
+                `;
+                const fields = await seishatQuery(fieldsQuery, [step.id]);
+                step.fields = fields.map(f => ({
+                    ...f,
+                    visibility_conditions: f.visibility_conditions ? JSON.parse(f.visibility_conditions) : null
+                }));
+            }
+            return steps;
+        };
+        
+        const mainLayout = await fetchStepsForLayout('main');
+        const extraLayout = await fetchStepsForLayout('extra');
 
-        for (const step of steps) {
-            const fieldsQuery = `
-                SELECT ff.*, flf.is_required, flf.display_order, flf.visibility_conditions
-                FROM form_layout_fields flf
-                JOIN form_fields ff ON flf.field_id = ff.id
-                WHERE flf.step_id = ?
-                ORDER BY flf.display_order ASC
-            `;
-            const fields = await seishatQuery(fieldsQuery, [step.id]);
-            step.fields = fields.map(f => ({
-                ...f,
-                visibility_conditions: f.visibility_conditions ? JSON.parse(f.visibility_conditions) : null
-            }));
-        }
+        res.json({ main: mainLayout, extra: extraLayout });
 
-        res.json(steps);
     } catch (err) {
         console.error(chalk.red(`[${req.method} ${req.originalUrl}] Error fetching form layout for type ${type}:`), err.message);
         next(err);
@@ -787,13 +818,37 @@ router.get('/admin/layouts/:type', async (req, res, next) => {
 // PUT /api/admin/layouts/:type - Save the entire layout for an associate type
 router.put('/admin/layouts/:type', async (req, res, next) => {
     const { type } = req.params;
-    const stepsLayout = req.body; // Expects an array of step objects
+    const { main, extra } = req.body;
 
-    if (!Array.isArray(stepsLayout)) {
-        return res.status(400).json({ error: 'Request body must be an array of steps.' });
+    if (!Array.isArray(main) || !Array.isArray(extra)) {
+        return res.status(400).json({ error: 'Request body must be an object with "main" and "extra" arrays of steps.' });
     }
     
     const db = getSeishatDb();
+    
+    const saveLayout = async (stepsLayout, layoutType, conn) => {
+        for (const [stepIndex, step] of stepsLayout.entries()) {
+            if (getDbMode() === 'sqlite') {
+                const { lastInsertRowid: stepId } = await seishatQuery(
+                    'INSERT INTO form_steps (associate_type, title, step_order, layout_type) VALUES (?, ?, ?, ?)',
+                    [type, step.title, stepIndex, layoutType]
+                );
+                 if (step.fields && step.fields.length > 0) {
+                    const insertFieldStmt = db.prepare('INSERT INTO form_layout_fields (step_id, field_id, display_order, is_required, visibility_conditions) VALUES (?, ?, ?, ?, ?)');
+                    for (const [fieldIndex, field] of step.fields.entries()) {
+                        insertFieldStmt.run(stepId, field.id, fieldIndex, field.is_required ? 1 : 0, JSON.stringify(field.visibility_conditions || null));
+                    }
+                }
+            } else { // mysql
+                const [stepResult] = await conn.query('INSERT INTO form_steps (associate_type, title, step_order, layout_type) VALUES (?, ?, ?, ?)', [type, step.title, stepIndex, layoutType]);
+                const stepId = stepResult.insertId;
+                if (step.fields && step.fields.length > 0) {
+                    const fieldValues = step.fields.map((field, fieldIndex) => [stepId, field.id, fieldIndex, field.is_required ? 1 : 0, JSON.stringify(field.visibility_conditions || null)]);
+                    await conn.query('INSERT INTO form_layout_fields (step_id, field_id, display_order, is_required, visibility_conditions) VALUES ?', [fieldValues]);
+                }
+            }
+        }
+    };
     
     try {
         if (db.constructor.name === 'Database') { // better-sqlite3
@@ -805,16 +860,8 @@ router.put('/admin/layouts/:type', async (req, res, next) => {
                     db.prepare(`DELETE FROM form_layout_fields WHERE step_id IN (${placeholders})`).run(...stepIds);
                     db.prepare('DELETE FROM form_steps WHERE associate_type = ?').run(type);
                 }
-
-                const insertStepStmt = db.prepare('INSERT INTO form_steps (associate_type, title, step_order) VALUES (?, ?, ?)');
-                const insertFieldStmt = db.prepare('INSERT INTO form_layout_fields (step_id, field_id, display_order, is_required, visibility_conditions) VALUES (?, ?, ?, ?, ?)');
-
-                for (const [stepIndex, step] of stepsLayout.entries()) {
-                    const { lastInsertRowid: stepId } = insertStepStmt.run(type, step.title, stepIndex);
-                    for (const [fieldIndex, field] of step.fields.entries()) {
-                        insertFieldStmt.run(stepId, field.id, fieldIndex, field.is_required ? 1 : 0, JSON.stringify(field.visibility_conditions || null));
-                    }
-                }
+                saveLayout(main, 'main');
+                saveLayout(extra, 'extra');
             });
             runTransaction();
         } else { // mysql2
@@ -827,15 +874,9 @@ router.put('/admin/layouts/:type', async (req, res, next) => {
                 await conn.query('DELETE FROM form_steps WHERE associate_type = ?', [type]);
             }
 
-            for (const [stepIndex, step] of stepsLayout.entries()) {
-                const [stepResult] = await conn.query('INSERT INTO form_steps (associate_type, title, step_order) VALUES (?, ?, ?)', [type, step.title, stepIndex]);
-                const stepId = stepResult.insertId;
-
-                if (step.fields && step.fields.length > 0) {
-                    const fieldValues = step.fields.map((field, fieldIndex) => [stepId, field.id, fieldIndex, field.is_required ? 1 : 0, JSON.stringify(field.visibility_conditions || null)]);
-                    await conn.query('INSERT INTO form_layout_fields (step_id, field_id, display_order, is_required, visibility_conditions) VALUES ?', [fieldValues]);
-                }
-            }
+            await saveLayout(main, 'main', conn);
+            await saveLayout(extra, 'extra', conn);
+            
             await conn.commit();
             conn.release();
         }
