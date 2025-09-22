@@ -360,7 +360,7 @@ const runMigrations = async () => {
         checkAndAddColumn(seishatDb, 'associates', 'custom_fields', 'TEXT');
         
         console.log(chalk.magenta('✅ SEISHAT SQLite migration completed successfully.'));
-    } else if (mode === 'mysql' && seishatDb && seishatDb.constructor.name === 'Pool') {
+    } else if (mode === 'mysql' && seishatDb && typeof seishatDb.getConnection === 'function') {
         await runSeishatMysqlMigration(seishatDb);
     } else {
          console.log(chalk.magenta(`[Migration] Skipping SEISHAT migrations (DB mode: ${mode}, DB state unknown).`));
