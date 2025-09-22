@@ -1,7 +1,7 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import type { Associate, AssociateType, FormStep, FormLayoutField, ConditionOperator } from '../../types.ts';
 import { apiClient } from '../../services/database/apiClient.ts';
-import { EyeIcon, EyeOffIcon, UsersIcon } from '../icons.tsx';
+import { EyeIcon, EyeOffIcon, UsersIcon, FileTextIcon, CheckSquareIcon, BriefcaseIcon, PlusCircleIcon, EditIcon } from '../icons.tsx';
 import { Modal } from '../Modal.tsx';
 import { Loader } from '../Loader.tsx';
 import { useModal } from '../../hooks/useModal.ts';
@@ -172,6 +172,55 @@ interface AssociateModalProps {
     onSaveSuccess: () => void;
 }
 
+const AssociateInfoView: React.FC<{ associate: Associate; steps: FormStep[] }> = ({ associate, steps }) => {
+    const allFields = useMemo(() => steps.flatMap(s => s.fields), [steps]);
+    const getFieldLabel = (fieldName: string) => {
+        const field = allFields.find(f => f.field_name === fieldName);
+        return field?.label || fieldName;
+    };
+    
+    const baseFields = ['full_name', 'cpf', 'whatsapp', 'type'];
+    const displayData = Object.entries(associate)
+        .filter(([key]) => key !== 'id' && key !== 'password' && associate[key])
+        .map(([key, value]) => ({
+            key,
+            label: getFieldLabel(key),
+            value: key === 'type' ? associateTypesList.find(t => t.id === value)?.label || value : value,
+            isBase: baseFields.includes(key)
+        }))
+        .sort((a, b) => {
+            if (a.isBase && !b.isBase) return -1;
+            if (!a.isBase && b.isBase) return 1;
+            if (a.isBase && b.isBase) return baseFields.indexOf(a.key) - baseFields.indexOf(b.key);
+            return a.label.localeCompare(b.label);
+        });
+
+    const getIcon = (key: string) => {
+        switch(key) {
+            case 'full_name': return <UsersIcon className="w-5 h-5 text-gray-400" />;
+            case 'cpf': return <FileTextIcon className="w-5 h-5 text-gray-400" />;
+            case 'whatsapp': return <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5 text-gray-400"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>;
+            case 'type': return <BriefcaseIcon className="w-5 h-5 text-gray-400" />;
+            default: return <CheckSquareIcon className="w-5 h-5 text-gray-400" />;
+        }
+    };
+
+    return (
+        <dl className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
+            {displayData.map(({ key, label, value }) => (
+                <div key={key} className="relative">
+                    <dt className="flex items-center gap-3 text-sm font-medium text-gray-400">
+                        {getIcon(key)}
+                        <span>{label}</span>
+                    </dt>
+                    <dd className="mt-1 pl-8 text-white text-sm">{String(value) || <span className="italic text-gray-500">Não informado</span>}</dd>
+                </div>
+            ))}
+        </dl>
+    );
+};
+
+
 export const AssociateModal: React.FC<AssociateModalProps> = ({ associate, onClose, onSaveSuccess }) => {
     const [steps, setSteps] = useState<FormStep[]>([]);
     const [currentStepIndex, setCurrentStepIndex] = useState(-1);
@@ -181,6 +230,7 @@ export const AssociateModal: React.FC<AssociateModalProps> = ({ associate, onClo
     const [isSaving, setIsSaving] = useState(false);
     const [isCheckingDuplicates, setIsCheckingDuplicates] = useState(false);
     const [globalError, setGlobalError] = useState('');
+    const [activeTab, setActiveTab] = useState<'info' | 'extra' | 'edit'>('info');
     
     const isEditing = !!associate;
 
@@ -439,33 +489,108 @@ export const AssociateModal: React.FC<AssociateModalProps> = ({ associate, onClo
         )
     };
 
-    return (
-        <Modal
-            title={isEditing ? `Editar Associado: ${associate.full_name}` : 'Adicionar Novo Associado'}
-            onClose={onClose} size="lg" icon={<UsersIcon className="w-6 h-6 text-fuchsia-400" />}
-            footer={
+    const TabButton: React.FC<{ label: string, isActive: boolean, onClick: () => void, icon: React.ReactNode }> = ({ label, isActive, onClick, icon }) => (
+        <button
+            type="button"
+            onClick={onClick}
+            className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium rounded-t-lg border-b-2 transition-colors ${
+                isActive
+                ? 'border-fuchsia-500 text-fuchsia-300'
+                : 'border-transparent text-gray-400 hover:text-white hover:border-gray-500'
+            }`}
+        >
+            {icon}
+            {label}
+        </button>
+    );
+
+    const renderEditFooter = () => {
+        if (activeTab === 'info' || activeTab === 'extra') {
+            return <div className="flex justify-end w-full"><button type="button" onClick={onClose} className="px-5 py-2 bg-gray-700 text-sm font-medium rounded-lg hover:bg-gray-600">Fechar</button></div>;
+        }
+        if (activeTab === 'edit') {
+            return (
                 <div className="flex justify-between w-full items-center">
                     <button type="button" onClick={onClose} className="px-5 py-2 bg-gray-700 text-sm font-medium rounded-lg hover:bg-gray-600">Cancelar</button>
                     <div className="flex items-center gap-3">
-                         {currentStepIndex > 0 && ( <button type="button" onClick={handleBack} className="px-5 py-2 bg-gray-700 text-sm font-medium rounded-lg hover:bg-gray-600">Voltar</button> )}
+                        {currentStepIndex > 0 && <button type="button" onClick={handleBack} className="px-5 py-2 bg-gray-700 text-sm font-medium rounded-lg hover:bg-gray-600">Voltar</button>}
                         {isLastStep ? (
-                             <button type="submit" form="associate-form" disabled={isSaving || isLoadingState} className="px-5 py-2 min-w-[100px] flex justify-center items-center text-center bg-green-600 text-white font-semibold rounded-lg hover:bg-green-700 disabled:opacity-50">
+                            <button type="submit" form="associate-form" disabled={isSaving || isLoadingState} className="px-5 py-2 min-w-[100px] flex justify-center items-center text-center bg-green-600 text-white font-semibold rounded-lg hover:bg-green-700 disabled:opacity-50">
                                 {isSaving || isCheckingDuplicates ? <Loader /> : 'Salvar'}
-                             </button>
+                            </button>
                         ) : (
-                             <button type="button" onClick={handleNext} disabled={isLoadingState} className="px-5 py-2 min-w-[100px] flex justify-center items-center bg-fuchsia-600 text-white font-semibold rounded-lg hover:bg-fuchsia-700 disabled:opacity-50">
+                            <button type="button" onClick={handleNext} disabled={isLoadingState} className="px-5 py-2 min-w-[100px] flex justify-center items-center bg-fuchsia-600 text-white font-semibold rounded-lg hover:bg-fuchsia-700 disabled:opacity-50">
                                 {isCheckingDuplicates ? <Loader /> : 'Próximo'}
                             </button>
                         )}
                     </div>
                 </div>
-            }
+            );
+        }
+        return null;
+    };
+    
+    if (!isEditing) {
+        return (
+            <Modal
+                title='Adicionar Novo Associado'
+                onClose={onClose} size="lg" icon={<UsersIcon className="w-6 h-6 text-fuchsia-400" />}
+                footer={
+                    <div className="flex justify-between w-full items-center">
+                        <button type="button" onClick={onClose} className="px-5 py-2 bg-gray-700 text-sm font-medium rounded-lg hover:bg-gray-600">Cancelar</button>
+                        <div className="flex items-center gap-3">
+                            {currentStepIndex > -1 && <button type="button" onClick={handleBack} className="px-5 py-2 bg-gray-700 text-sm font-medium rounded-lg hover:bg-gray-600">Voltar</button>}
+                            {isLastStep ? (
+                                <button type="submit" form="associate-form" disabled={isSaving || isLoadingState} className="px-5 py-2 min-w-[100px] flex justify-center items-center text-center bg-green-600 text-white font-semibold rounded-lg hover:bg-green-700 disabled:opacity-50">
+                                    {isSaving || isCheckingDuplicates ? <Loader /> : 'Salvar'}
+                                </button>
+                            ) : (
+                                <button type="button" onClick={handleNext} disabled={isLoadingState} className="px-5 py-2 min-w-[100px] flex justify-center items-center bg-fuchsia-600 text-white font-semibold rounded-lg hover:bg-fuchsia-700 disabled:opacity-50">
+                                    {isCheckingDuplicates ? <Loader /> : 'Próximo'}
+                                </button>
+                            )}
+                        </div>
+                    </div>
+                }
+            >
+                <form id="associate-form" onSubmit={handleSubmit}>
+                    <ProgressBar />
+                    {renderBody()}
+                    {globalError && !isLoading && <p className="text-sm text-red-400 text-center mt-4">{globalError}</p>}
+                </form>
+            </Modal>
+        );
+    }
+
+    return (
+        <Modal
+            title={`Editar Associado: ${associate.full_name}`}
+            onClose={onClose} size="lg" icon={<UsersIcon className="w-6 h-6 text-fuchsia-400" />}
+            footer={renderEditFooter()}
         >
-            <form id="associate-form" onSubmit={handleSubmit}>
-                <ProgressBar />
-                {renderBody()}
-                {globalError && !isLoading && <p className="text-sm text-red-400 text-center mt-4">{globalError}</p>}
-            </form>
+            <div className="flex border-b border-gray-700 mb-6">
+                <TabButton label="Informações" isActive={activeTab === 'info'} onClick={() => setActiveTab('info')} icon={<UsersIcon className="w-5 h-5"/>} />
+                <TabButton label="Extras" isActive={activeTab === 'extra'} onClick={() => setActiveTab('extra')} icon={<PlusCircleIcon className="w-5 h-5"/>} />
+                <TabButton label="Editar" isActive={activeTab === 'edit'} onClick={() => setActiveTab('edit')} icon={<EditIcon className="w-5 h-5"/>} />
+            </div>
+
+            <div className="min-h-[350px]">
+                {activeTab === 'info' && (isLoading ? <div className="flex justify-center items-center h-48"><Loader /></div> : <AssociateInfoView associate={associate} steps={steps} />)}
+                {activeTab === 'extra' && (
+                    <div className="flex flex-col items-center justify-center h-full text-center text-gray-500 pt-16">
+                        <BriefcaseIcon className="w-12 h-12 mb-4" />
+                        <p className="font-semibold text-lg text-gray-400">Em Breve</p>
+                        <p>Funcionalidades adicionais para o associado aparecerão aqui.</p>
+                    </div>
+                )}
+                {activeTab === 'edit' && (
+                    <form id="associate-form" onSubmit={handleSubmit}>
+                        <ProgressBar />
+                        {renderBody()}
+                        {globalError && !isLoading && <p className="text-sm text-red-400 text-center mt-4">{globalError}</p>}
+                    </form>
+                )}
+            </div>
         </Modal>
     );
 };
