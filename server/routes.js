@@ -561,13 +561,15 @@ router.post('/seishat/associates', async (req, res, next) => {
             if (cpf) { conditions.push('cpf = ?'); params.push(cpf); }
             if (whatsapp) { conditions.push('whatsapp = ?'); params.push(whatsapp); }
             
-            const existing = await seishatQuery(`SELECT full_name, cpf, whatsapp FROM associates WHERE (${conditions.join(' OR ')})`, params);
-            
-            if (existing.length > 0) {
-                let message = `Dados duplicados encontrados para o associado ${existing[0].full_name}.`;
-                if (existing[0].cpf === cpf) message = `Este CPF já está cadastrado para o associado: ${existing[0].full_name}.`;
-                else if (existing[0].whatsapp === whatsapp) message = `Este WhatsApp já está cadastrado para o associado: ${existing[0].full_name}.`;
-                return res.status(409).json({ error: message });
+            if (params.length > 0) {
+                const existing = await seishatQuery(`SELECT full_name, cpf, whatsapp FROM associates WHERE (${conditions.join(' OR ')})`, params);
+                
+                if (existing.length > 0) {
+                    let message = `Dados duplicados encontrados para o associado ${existing[0].full_name}.`;
+                    if (existing[0].cpf === cpf) message = `Este CPF já está cadastrado para o associado: ${existing[0].full_name}.`;
+                    else if (existing[0].whatsapp === whatsapp) message = `Este WhatsApp já está cadastrado para o associado: ${existing[0].full_name}.`;
+                    return res.status(409).json({ error: message });
+                }
             }
         }
         
@@ -576,7 +578,7 @@ router.post('/seishat/associates', async (req, res, next) => {
 
         const result = await seishatQuery(
             'INSERT INTO associates (full_name, cpf, whatsapp, password, type, custom_fields) VALUES (?, ?, ?, ?, ?, ?)',
-            [full_name, cpf, whatsapp, password, type, JSON.stringify(customData)]
+            [full_name, cpf || null, whatsapp || null, password, type, JSON.stringify(customData)]
         );
         
         newAssociateId = (dbMode === 'mysql') ? result.insertId : result.lastInsertRowid;
@@ -585,7 +587,7 @@ router.post('/seishat/associates', async (req, res, next) => {
         res.status(201).json(newAssociate);
     } catch (err) {
         if (err.code === 'SQLITE_CONSTRAINT_UNIQUE' || (err.code && err.code.includes('ER_DUP_ENTRY'))) {
-            return res.status(409).json({ error: 'Um associado com este CPF já existe.' });
+            return res.status(409).json({ error: 'Um associado com este CPF ou WhatsApp já existe.' });
         }
         console.error(chalk.red(`[${req.method} ${req.originalUrl}] Error creating associate:`), err.message);
         next(err);
@@ -605,29 +607,31 @@ router.put('/seishat/associates/:id', async (req, res, next) => {
             if (cpf) { conditions.push('cpf = ?'); params.push(cpf); }
             if (whatsapp) { conditions.push('whatsapp = ?'); params.push(whatsapp); }
             
-            const existing = await seishatQuery(`SELECT full_name, cpf, whatsapp FROM associates WHERE (${conditions.join(' OR ')}) AND id != ?`, [...params, id]);
-            if (existing.length > 0) {
-                let message = `Dados duplicados encontrados para o associado ${existing[0].full_name}.`;
-                if (existing[0].cpf === cpf) message = `Este CPF já está cadastrado para o associado: ${existing[0].full_name}.`;
-                else if (existing[0].whatsapp === whatsapp) message = `Este WhatsApp já está cadastrado para o associado: ${existing[0].full_name}.`;
-                return res.status(409).json({ error: message });
+            if (params.length > 0) {
+                const existing = await seishatQuery(`SELECT full_name, cpf, whatsapp FROM associates WHERE (${conditions.join(' OR ')}) AND id != ?`, [...params, id]);
+                if (existing.length > 0) {
+                    let message = `Dados duplicados encontrados para o associado ${existing[0].full_name}.`;
+                    if (existing[0].cpf === cpf) message = `Este CPF já está cadastrado para o associado: ${existing[0].full_name}.`;
+                    else if (existing[0].whatsapp === whatsapp) message = `Este WhatsApp já está cadastrado para o associado: ${existing[0].full_name}.`;
+                    return res.status(409).json({ error: message });
+                }
             }
         }
         
         let sql, params;
         if (password) {
             sql = 'UPDATE associates SET full_name = ?, cpf = ?, whatsapp = ?, password = ?, type = ?, custom_fields = ? WHERE id = ?';
-            params = [full_name, cpf, whatsapp, password, type, JSON.stringify(customData), id];
+            params = [full_name, cpf || null, whatsapp || null, password, type, JSON.stringify(customData), id];
         } else {
             sql = 'UPDATE associates SET full_name = ?, cpf = ?, whatsapp = ?, type = ?, custom_fields = ? WHERE id = ?';
-            params = [full_name, cpf, whatsapp, type, JSON.stringify(customData), id];
+            params = [full_name, cpf || null, whatsapp || null, type, JSON.stringify(customData), id];
         }
         await seishatQuery(sql, params);
         
         res.status(200).json({ id: parseInt(id), full_name, cpf, whatsapp, type, ...customData });
     } catch (err) {
         if (err.code === 'SQLITE_CONSTRAINT_UNIQUE' || (err.code && err.code.includes('ER_DUP_ENTRY'))) {
-            return res.status(409).json({ error: 'Um associado com este CPF já existe.' });
+            return res.status(409).json({ error: 'Um associado com este CPF ou WhatsApp já existe.' });
         }
         console.error(chalk.red(`[${req.method} ${req.originalUrl}] Error updating associate:`), err.message);
         next(err);
@@ -710,7 +714,7 @@ router.put('/admin/fields/:id', async (req, res, next) => {
             return res.status(403).json({ error: 'Este campo é essencial e não pode ser editado.' });
         }
 
-        const optionsToStore = (field_type === 'select' || field_type === 'radio') ? JSON.stringify(options) : null;
+        const optionsToStore = (field_type === 'select' || field_type === 'radio' || field_type === 'brazilian_states_select') ? JSON.stringify(options) : null;
 
         await seishatQuery(
             'UPDATE form_fields SET label = ?, field_type = ?, options = ? WHERE id = ?',
