@@ -2,7 +2,7 @@
 const { getDb } = require('./db');
 const { getChatDb } = require('./chatDb');
 const { getUserDb } = require('./userDb');
-const { getSeishatDb } = require('./seishatDb');
+const { getSeishatDb, getDbMode } = require('./seishatDb');
 const chalk = require('chalk');
 
 const MAIN_DB_MIGRATION_SQL = `
@@ -329,7 +329,9 @@ const runMigrations = async () => {
     console.log(chalk.yellow('✅ USER Database migration completed successfully.'));
 
     const seishatDb = getSeishatDb();
-    if (seishatDb && seishatDb.constructor.name === 'Database') { // better-sqlite3 instance
+    const mode = getDbMode();
+
+    if (mode === 'sqlite' && seishatDb && seishatDb.constructor.name === 'Database') {
         console.log(chalk.magenta('[Migration] Running SEISHAT database migrations for SQLite...'));
         seishatDb.exec(SEISHAT_DB_MIGRATION_SQL);
 
@@ -344,10 +346,10 @@ const runMigrations = async () => {
         }
         
         console.log(chalk.magenta('✅ SEISHAT SQLite migration completed successfully.'));
-    } else if (seishatDb && seishatDb.constructor.name === 'Pool') { // mysql2 pool instance
+    } else if (mode === 'mysql' && seishatDb && seishatDb.constructor.name === 'Pool') {
         await runSeishatMysqlMigration(seishatDb);
     } else {
-         console.log(chalk.magenta('[Migration] Skipping SEISHAT migrations (DB not initialized or in an unknown state).'));
+         console.log(chalk.magenta(`[Migration] Skipping SEISHAT migrations (DB mode: ${mode}, DB state unknown).`));
     }
 
   } catch (error) {
