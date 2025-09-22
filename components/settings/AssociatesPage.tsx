@@ -83,6 +83,7 @@ export const AssociatesPage: React.FC = () => {
                 <table className="w-full text-sm text-left">
                     <thead className="text-xs text-gray-400 uppercase bg-[#303134]">
                         <tr>
+                            <th scope="col" className="px-4 py-3">ID</th>
                             <th scope="col" className="px-4 py-3">Nome Completo</th>
                             <th scope="col" className="px-4 py-3">CPF</th>
                             <th scope="col" className="px-4 py-3">WhatsApp</th>
@@ -93,6 +94,7 @@ export const AssociatesPage: React.FC = () => {
                     <tbody>
                         {associates.map(associate => (
                             <tr key={associate.id} className="border-b border-gray-700 hover:bg-[#202124]/50">
+                                <td className="px-4 py-3 font-mono text-xs text-gray-400">{String(associate.id)}</td>
                                 <td className="px-4 py-3 font-medium text-white">{associate.full_name}</td>
                                 <td className="px-4 py-3 text-gray-300 font-mono">{associate.cpf || 'N/A'}</td>
                                 <td className="px-4 py-3 text-gray-300">{associate.whatsapp || 'N/A'}</td>

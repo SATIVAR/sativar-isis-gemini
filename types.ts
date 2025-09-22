@@ -155,7 +155,7 @@ export interface User {
 export type AssociateType = 'paciente' | 'responsavel' | 'tutor' | 'colaborador';
 
 export interface Associate {
-  id: string;
+  id: string | number;
   full_name: string;
   cpf?: string;
   whatsapp?: string;
