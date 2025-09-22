@@ -266,7 +266,8 @@ const runSeishatMysqlMigration = async (pool) => {
         console.log(chalk.magenta('[Migration] Running SEISHAT database migrations for MySQL...'));
         
         await connection.query('SET FOREIGN_KEY_CHECKS = 0;');
-        await connection.query('DROP TABLE IF EXISTS associate_type_form_config, form_layout_fields, form_steps, form_layouts;');
+        // FIX: Only drop old, unused tables. DO NOT drop form_steps or form_layout_fields.
+        await connection.query('DROP TABLE IF EXISTS associate_type_form_config, form_layouts;');
         await connection.query('SET FOREIGN_KEY_CHECKS = 1;');
         
         const statements = SEISHAT_DB_MIGRATION_MYSQL.split(';').filter(s => s.trim().length > 0);
