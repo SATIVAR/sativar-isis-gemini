@@ -161,6 +161,8 @@ export interface Associate {
   whatsapp?: string;
   type: AssociateType;
   // Password is not stored on the client
+  // Allow for any other custom fields from the form builder
+  [key: string]: any;
 }
 
 // FIX: Add Form Builder types to be shared across components.

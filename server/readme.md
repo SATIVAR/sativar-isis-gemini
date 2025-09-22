@@ -93,6 +93,7 @@ CREATE TABLE IF NOT EXISTS products (
 
 -- Creates the 'associates' table for the Seishat CRM module.
 -- The 'id' is an auto-incrementing integer, ensuring a unique, sequential identifier for each associate.
+-- A `custom_fields` column is added to store dynamic data from the Form Builder.
 CREATE TABLE IF NOT EXISTS associates (
   id INT AUTO_INCREMENT PRIMARY KEY,
   full_name VARCHAR(255) NOT NULL,
@@ -100,6 +101,7 @@ CREATE TABLE IF NOT EXISTS associates (
   whatsapp VARCHAR(255),
   password VARCHAR(255) NOT NULL,
   type ENUM('paciente', 'responsavel', 'tutor', 'colaborador') NOT NULL,
+  custom_fields JSON,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );

@@ -140,6 +140,7 @@ CREATE TABLE IF NOT EXISTS associates (
   whatsapp TEXT,
   password TEXT NOT NULL,
   type TEXT NOT NULL CHECK(type IN ('paciente', 'responsavel', 'tutor', 'colaborador')),
+  custom_fields TEXT,
   created_at TEXT DEFAULT (datetime('now', 'localtime')),
   updated_at TEXT DEFAULT (datetime('now', 'localtime'))
 );
@@ -219,6 +220,7 @@ CREATE TABLE IF NOT EXISTS associates (
   whatsapp VARCHAR(255),
   password VARCHAR(255) NOT NULL,
   type ENUM('paciente', 'responsavel', 'tutor', 'colaborador') NOT NULL,
+  custom_fields JSON,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
@@ -281,11 +283,19 @@ const runSeishatMysqlMigration = async (pool) => {
         }
 
         // Check and add missing visibility_conditions column for MySQL
-        const [columns] = await connection.query(`SHOW COLUMNS FROM form_layout_fields LIKE 'visibility_conditions';`);
-        if (columns.length === 0) {
+        const [layoutColumns] = await connection.query(`SHOW COLUMNS FROM form_layout_fields LIKE 'visibility_conditions';`);
+        if (layoutColumns.length === 0) {
             console.log(chalk.yellow('[Migration] Altering MySQL table "form_layout_fields" to add "visibility_conditions" column...'));
             await connection.query(`ALTER TABLE form_layout_fields ADD COLUMN visibility_conditions TEXT;`);
             console.log(chalk.green('[Migration] MySQL column "visibility_conditions" added successfully.'));
+        }
+
+        // Check and add missing custom_fields column for MySQL
+        const [associateColumns] = await connection.query(`SHOW COLUMNS FROM associates LIKE 'custom_fields';`);
+        if (associateColumns.length === 0) {
+            console.log(chalk.yellow('[Migration] Altering MySQL table "associates" to add "custom_fields" column...'));
+            await connection.query(`ALTER TABLE associates ADD COLUMN custom_fields JSON;`);
+            console.log(chalk.green('[Migration] MySQL column "custom_fields" added successfully.'));
         }
         
         const populateSql = `
@@ -335,15 +345,19 @@ const runMigrations = async () => {
         console.log(chalk.magenta('[Migration] Running SEISHAT database migrations for SQLite...'));
         seishatDb.exec(SEISHAT_DB_MIGRATION_SQL);
 
-        // Check and add the missing column to form_layout_fields if necessary
-        const tableInfo = seishatDb.prepare(`PRAGMA table_info(form_layout_fields);`).all();
-        const columnExists = tableInfo.some(column => column.name === 'visibility_conditions');
-
-        if (!columnExists) {
-            console.log(chalk.yellow('[Migration] Altering SQLite table "form_layout_fields" to add "visibility_conditions" column...'));
-            seishatDb.prepare(`ALTER TABLE form_layout_fields ADD COLUMN visibility_conditions TEXT;`).run();
-            console.log(chalk.green('[Migration] SQLite column "visibility_conditions" added successfully.'));
-        }
+        // Check and add missing columns to tables if necessary
+        const checkAndAddColumn = (db, table, column, type) => {
+            const tableInfo = db.prepare(`PRAGMA table_info(${table});`).all();
+            const columnExists = tableInfo.some(c => c.name === column);
+            if (!columnExists) {
+                console.log(chalk.yellow(`[Migration] Altering SQLite table "${table}" to add "${column}" column...`));
+                db.prepare(`ALTER TABLE ${table} ADD COLUMN ${column} ${type};`).run();
+                console.log(chalk.green(`[Migration] SQLite column "${column}" added successfully to "${table}".`));
+            }
+        };
+        
+        checkAndAddColumn(seishatDb, 'form_layout_fields', 'visibility_conditions', 'TEXT');
+        checkAndAddColumn(seishatDb, 'associates', 'custom_fields', 'TEXT');
         
         console.log(chalk.magenta('✅ SEISHAT SQLite migration completed successfully.'));
     } else if (mode === 'mysql' && seishatDb && seishatDb.constructor.name === 'Pool') {
