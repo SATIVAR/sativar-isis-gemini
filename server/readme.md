@@ -77,6 +77,8 @@ This is an advanced option for production or multi-user environments. It require
 **Step 2: Run the SQL Schema Script**
 Connect to your newly created database using a MySQL client and execute the entire script below. This will create all the necessary tables for the Seishat module.
 
+**Nota sobre a Geração de IDs:** O sistema é projetado para que o banco de dados gerencie a criação de IDs únicos e sequenciais para registros como `associates`. A coluna `id` é definida como `AUTO_INCREMENT`, garantindo que cada novo associado receba um número de identificação único sem a necessidade de intervenção da aplicação, o que assegura a integridade dos dados.
+
 ```sql
 -- Creates the 'products' table for the Seishat CRM module.
 CREATE TABLE IF NOT EXISTS products (
@@ -90,8 +92,9 @@ CREATE TABLE IF NOT EXISTS products (
 );
 
 -- Creates the 'associates' table for the Seishat CRM module.
+-- The 'id' is an auto-incrementing integer, ensuring a unique, sequential identifier for each associate.
 CREATE TABLE IF NOT EXISTS associates (
-  id VARCHAR(36) PRIMARY KEY,
+  id INT AUTO_INCREMENT PRIMARY KEY,
   full_name VARCHAR(255) NOT NULL,
   cpf VARCHAR(14) UNIQUE,
   whatsapp VARCHAR(255),

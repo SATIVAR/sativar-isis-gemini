@@ -546,9 +546,22 @@ router.post('/seishat/associates', async (req, res, next) => {
                 return res.status(409).json({ error: message });
             }
         }
+        
+        const db = getSeishatDb();
+        const dbMode = getDbMode();
+        let newAssociateId;
 
-        const newAssociateId = crypto.randomUUID();
-        await seishatQuery('INSERT INTO associates (id, full_name, cpf, whatsapp, password, type) VALUES (?, ?, ?, ?, ?, ?)', [newAssociateId, full_name, cpf, whatsapp, password, type]);
+        const result = await seishatQuery(
+            'INSERT INTO associates (full_name, cpf, whatsapp, password, type) VALUES (?, ?, ?, ?, ?)',
+            [full_name, cpf, whatsapp, password, type]
+        );
+        
+        if (dbMode === 'mysql') {
+            newAssociateId = result.insertId;
+        } else { // sqlite
+            newAssociateId = result.lastInsertRowid;
+        }
+
         res.status(201).json({ id: newAssociateId, full_name, cpf, whatsapp, type });
     } catch (err) {
         if (err.code === 'SQLITE_CONSTRAINT_UNIQUE' || (err.code && err.code.includes('ER_DUP_ENTRY'))) {
