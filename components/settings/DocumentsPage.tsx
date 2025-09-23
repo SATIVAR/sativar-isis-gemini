@@ -1,159 +1,159 @@
-import React from 'react';
-import { useSettings } from '../../hooks/useSettings.ts';
-import { FileTextIcon, AlertCircleIcon } from '../icons.tsx';
+import React, { useState, useMemo } from 'react';
+import { useModal } from '../../hooks/useModal.ts';
+import { FileTextIcon, FolderIcon, SettingsIcon, Trash2Icon } from '../icons.tsx';
+import { DocumentSettingsModal } from './DocumentSettingsModal.tsx';
 
-const mimeTypeOptions = [
-    { id: 'application/pdf', label: 'PDF' },
-    { id: 'image/jpeg', label: 'JPG/JPEG' },
-    { id: 'image/png', label: 'PNG' },
-];
+// --- MOCK DATA ---
+// In a real application, this would come from an API call.
+const mockFileSystem = {
+  id: 'root',
+  name: 'Início',
+  type: 'folder',
+  children: [
+    {
+      id: 'folder-1', name: '#1_joao_da_silva', type: 'folder',
+      children: [
+        { id: 'file-1', name: 'receita_2024.pdf', type: 'file', size: '1.2MB', date: '2024-07-15T10:30:00Z' },
+        { id: 'file-2', name: 'termo_assinado.pdf', type: 'file', size: '800KB', date: '2024-07-15T10:25:00Z' },
+        { id: 'file-3', name: 'comprovante_residencia.jpg', type: 'file', size: '2.1MB', date: '2024-07-14T15:00:00Z' },
+      ],
+    },
+    {
+      id: 'folder-2', name: '#2_maria_oliveira', type: 'folder',
+      children: [
+         { id: 'file-4', name: 'prescricao_medica.pdf', type: 'file', size: '950KB', date: '2024-07-10T09:00:00Z' },
+      ],
+    },
+    {
+        id: 'folder-3', name: '#3_carlos_souza', type: 'folder', children: [],
+    }
+  ],
+};
+// --- END MOCK DATA ---
+
+type FileSystemItem = {
+    id: string;
+    name: string;
+    type: 'folder' | 'file';
+    children?: FileSystemItem[];
+    size?: string;
+    date?: string;
+};
+
 
 export const DocumentsPage: React.FC = () => {
-    const { formState, setFormState, errors } = useSettings();
-    const { allowedMimeTypes = [], pdfOnly = false, maxFileSizeMB = 5, autoCompressImages = true } = formState.documentSettings || {};
+    const [fileSystem, setFileSystem] = useState<FileSystemItem>(mockFileSystem);
+    const [path, setPath] = useState<string[]>([]); // Array of folder IDs
+    const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+    const modal = useModal();
 
-    const handlePdfOnlyToggle = () => {
-        const newPdfOnly = !pdfOnly;
-        setFormState(prev => ({
-            ...prev,
-            documentSettings: {
-                ...prev.documentSettings,
-                pdfOnly: newPdfOnly,
-                allowedMimeTypes: newPdfOnly ? ['application/pdf'] : prev.documentSettings.allowedMimeTypes,
-            }
-        }));
+    const currentFolder = useMemo(() => {
+        let current = fileSystem;
+        for (const folderId of path) {
+            current = current.children?.find(item => item.id === folderId) || current;
+        }
+        return current;
+    }, [path, fileSystem]);
+
+    const handleNavigate = (folderId: string) => {
+        setPath(prev => [...prev, folderId]);
     };
 
-    const handleMimeTypeChange = (mimeType: string) => {
-        const newMimeTypes = allowedMimeTypes.includes(mimeType)
-            ? allowedMimeTypes.filter(m => m !== mimeType)
-            : [...allowedMimeTypes, mimeType];
-        
-        setFormState(prev => ({
-            ...prev,
-            documentSettings: {
-                ...prev.documentSettings,
-                allowedMimeTypes: newMimeTypes,
-            }
-        }));
-    };
-
-    const handleMaxSizeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const value = e.target.value;
-        setFormState(prev => ({
-            ...prev,
-            documentSettings: {
-                ...prev.documentSettings,
-                maxFileSizeMB: value === '' ? 0 : parseInt(value, 10),
-            }
-        }));
+    const handleBreadcrumbClick = (index: number) => {
+        setPath(prev => prev.slice(0, index));
     };
     
-    const handleAutoCompressToggle = () => {
-        setFormState(prev => ({
-            ...prev,
-            documentSettings: {
-                ...prev.documentSettings,
-                autoCompressImages: !prev.documentSettings.autoCompressImages,
-            }
-        }));
+    const handleDelete = async (itemId: string, itemName: string) => {
+        const confirmed = await modal.confirm({
+            title: 'Confirmar Exclusão',
+            message: `Tem certeza que deseja excluir "${itemName}"? Esta ação não pode ser desfeita.`,
+            confirmLabel: 'Excluir',
+            danger: true
+        });
+
+        if(confirmed) {
+            // This is a mock implementation. A real one would call an API.
+            const deleteRecursive = (items: FileSystemItem[], id: string) => {
+                return items.filter(item => {
+                    if (item.children) {
+                        item.children = deleteRecursive(item.children, id);
+                    }
+                    return item.id !== id;
+                });
+            };
+            setFileSystem(prev => ({
+                ...prev,
+                children: deleteRecursive(prev.children || [], itemId)
+            }));
+        }
     };
 
     return (
-        <div className="max-w-4xl mx-auto bg-[#202124] rounded-xl border border-gray-700 shadow-2xl p-6 sm:p-8 space-y-8">
-            <div>
-                <div className="flex items-center gap-4 mb-2">
-                    <FileTextIcon className="w-8 h-8 text-fuchsia-300" />
-                    <h2 className="text-2xl font-bold text-white">Configurações de Documentos</h2>
+        <>
+            {isSettingsOpen && <DocumentSettingsModal onClose={() => setIsSettingsOpen(false)} />}
+            <div className="max-w-7xl mx-auto space-y-6">
+                 <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
+                    <div>
+                        <div className="flex items-center gap-4 mb-2">
+                            <FolderIcon className="w-8 h-8 text-fuchsia-300" />
+                            <h2 className="text-2xl font-bold text-white">Documentos</h2>
+                        </div>
+                        <p className="text-gray-400">
+                            Gerencie os documentos dos associados.
+                        </p>
+                    </div>
+                    <button onClick={() => setIsSettingsOpen(true)} className="flex-shrink-0 flex items-center gap-2 px-3 py-2 bg-gray-700 text-sm text-white font-semibold rounded-lg shadow-md hover:bg-gray-600">
+                        <SettingsIcon className="w-5 h-5" /> Configurações
+                    </button>
                 </div>
-                <p className="text-gray-400">
-                    Defina os tipos de arquivo permitidos para upload no sistema e outras regras de documentos.
-                </p>
-            </div>
-            <div className="space-y-6 p-6 bg-[#303134]/50 border border-gray-700/50 rounded-lg">
-                <h3 className="text-lg font-semibold text-fuchsia-300">Regras de Upload</h3>
-                <div>
-                    <label htmlFor="maxFileSizeMB" className="block text-sm font-medium text-gray-300 mb-2">
-                        Tamanho máximo por arquivo (MB)
-                    </label>
-                    <input
-                        type="number"
-                        id="maxFileSizeMB"
-                        value={maxFileSizeMB}
-                        onChange={handleMaxSizeChange}
-                        min="1"
-                        className={`w-full max-w-xs bg-[#202124] border text-gray-300 rounded-lg p-3 text-sm focus:ring-2 outline-none transition shadow-inner ${
-                            errors.documentSettings ? 'border-red-500 focus:ring-red-500' : 'border-gray-600/50 focus:ring-fuchsia-500'
-                        }`}
-                    />
-                    {errors.documentSettings && <p className="text-red-400 text-xs mt-1">{errors.documentSettings}</p>}
-                </div>
+                
+                {/* Breadcrumbs */}
+                <nav className="flex items-center text-sm text-gray-400 bg-[#202124] p-2 rounded-lg border border-gray-700">
+                    <button onClick={() => handleBreadcrumbClick(0)} className="hover:text-white">Início</button>
+                    {path.map((folderId, index) => {
+                        const folder = fileSystem.children?.find(f => f.id === folderId);
+                        return (
+                            <React.Fragment key={folderId}>
+                                <span className="mx-2">/</span>
+                                <button onClick={() => handleBreadcrumbClick(index + 1)} className="hover:text-white">{folder?.name || folderId}</button>
+                            </React.Fragment>
+                        );
+                    })}
+                </nav>
 
-                <div className="pt-4 border-t border-gray-700/50">
-                    <div className="flex items-center justify-between p-4 bg-[#202124] rounded-lg border border-gray-600/50">
-                        <div className="flex items-center gap-2">
-                            <label htmlFor="auto-compress-toggle" className="text-sm font-medium text-gray-300 select-none">
-                                Otimizar imagens automaticamente
-                            </label>
-                            <div className="relative group">
-                                <AlertCircleIcon className="w-4 h-4 text-gray-500" />
-                                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-64 bg-gray-900 text-white text-xs rounded-lg p-2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none border border-gray-700 shadow-lg z-10">
-                                    Se ativado, imagens (JPG, PNG) maiores que o limite de tamanho serão comprimidas no navegador para tentar se adequar à regra. Não se aplica a arquivos PDF.
-                                </div>
+                {/* File/Folder Grid */}
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                    {(currentFolder.children || []).map(item => (
+                        <div key={item.id} className="group relative">
+                             <button
+                                onClick={() => item.type === 'folder' && handleNavigate(item.id)}
+                                className="w-full flex flex-col items-center justify-center p-4 bg-[#202124] rounded-lg border border-gray-700/50 aspect-square text-center hover:bg-gray-800/50 hover:border-fuchsia-500/50 transition-colors"
+                                aria-label={`Acessar ${item.name}`}
+                            >
+                                {item.type === 'folder' ? (
+                                    <FolderIcon className="w-16 h-16 text-fuchsia-300" />
+                                ) : (
+                                    <FileTextIcon className="w-16 h-16 text-gray-400" />
+                                )}
+                                <p className="mt-2 text-sm text-gray-200 font-medium truncate w-full">{item.name}</p>
+                                <p className="text-xs text-gray-500">{item.size || ''}</p>
+                            </button>
+                             <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <button onClick={() => handleDelete(item.id, item.name)} className="p-1.5 bg-gray-900/50 rounded-full text-gray-400 hover:bg-red-800 hover:text-white">
+                                    <Trash2Icon className="w-4 h-4"/>
+                                </button>
                             </div>
                         </div>
-                        <button
-                            type="button"
-                            id="auto-compress-toggle"
-                            onClick={handleAutoCompressToggle}
-                            className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-fuchsia-500 focus:ring-offset-2 focus:ring-offset-[#202124] ${autoCompressImages ? 'bg-green-600' : 'bg-gray-600'}`}
-                            role="switch"
-                            aria-checked={autoCompressImages}
-                        >
-                            <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${autoCompressImages ? 'translate-x-5' : 'translate-x-0'}`} />
-                        </button>
-                    </div>
+                    ))}
                 </div>
 
-                <div className="pt-4 border-t border-gray-700/50">
-                    <h3 className="text-lg font-semibold text-fuchsia-300 mb-4">Tipos de Arquivo Permitidos</h3>
-                    <div className="flex items-center justify-between p-4 bg-[#202124] rounded-lg border border-gray-600/50">
-                        <label htmlFor="pdf-only-toggle" className="text-sm font-medium text-gray-300 select-none">
-                            Permitir somente arquivos PDF
-                        </label>
-                        <button
-                            type="button"
-                            id="pdf-only-toggle"
-                            onClick={handlePdfOnlyToggle}
-                            className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-fuchsia-500 focus:ring-offset-2 focus:ring-offset-[#202124] ${pdfOnly ? 'bg-green-600' : 'bg-gray-600'}`}
-                            role="switch"
-                            aria-checked={pdfOnly}
-                        >
-                            <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${pdfOnly ? 'translate-x-5' : 'translate-x-0'}`} />
-                        </button>
+                {currentFolder.children?.length === 0 && (
+                    <div className="flex flex-col items-center justify-center text-gray-500 py-20 rounded-lg border-2 border-dashed border-gray-700">
+                        <FolderIcon className="w-12 h-12" />
+                        <p className="mt-2 text-lg font-semibold text-gray-400">Esta pasta está vazia.</p>
                     </div>
-
-                    <div className={`mt-4 ${pdfOnly ? 'opacity-50' : ''}`}>
-                        <p className="text-sm font-medium text-gray-300 mb-3">
-                            Selecione os tipos de arquivo permitidos:
-                        </p>
-                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-                            {mimeTypeOptions.map(option => (
-                                <label key={option.id} className="flex items-center gap-3 p-3 bg-[#202124] rounded-lg border border-gray-600/50 cursor-pointer has-[:checked]:border-fuchsia-500 has-[:checked]:bg-fuchsia-900/40">
-                                    <input
-                                        type="checkbox"
-                                        checked={allowedMimeTypes.includes(option.id)}
-                                        onChange={() => handleMimeTypeChange(option.id)}
-                                        disabled={pdfOnly}
-                                        className="h-4 w-4 rounded border-gray-500 bg-gray-700 text-fuchsia-600 focus:ring-fuchsia-500"
-                                    />
-                                    <span className="text-sm text-gray-300">{option.label}</span>
-                                </label>
-                            ))}
-                        </div>
-                    </div>
-                </div>
+                )}
             </div>
-        </div>
+        </>
     );
 };
