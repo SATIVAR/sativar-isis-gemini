@@ -1,4 +1,3 @@
-
 import type { GoogleGenAI } from '@google/genai';
 
 // From services/geminiService.ts and components/Chat.tsx
@@ -115,6 +114,7 @@ export interface Settings {
         allowedMimeTypes: string[]; // e.g., 'image/jpeg', 'application/pdf'
         pdfOnly: boolean;
         maxFileSizeMB: number;
+        autoCompressImages: boolean;
     };
 }
 

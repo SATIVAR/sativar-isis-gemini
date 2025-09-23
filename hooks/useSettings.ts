@@ -1,4 +1,3 @@
-
 import React, { createContext, useState, useContext, useEffect, useMemo, useCallback } from 'react';
 import type { Settings, Product } from '../types.ts';
 import { apiClient } from '../services/database/apiClient.ts';
@@ -259,6 +258,7 @@ const defaultSettings: Settings = {
     allowedMimeTypes: ['image/jpeg', 'image/png', 'application/pdf'],
     pdfOnly: false,
     maxFileSizeMB: 5,
+    autoCompressImages: true,
   },
 };
 

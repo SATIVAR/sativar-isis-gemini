@@ -1,7 +1,6 @@
-
 import React from 'react';
 import { useSettings } from '../../hooks/useSettings.ts';
-import { FileTextIcon } from '../icons.tsx';
+import { FileTextIcon, AlertCircleIcon } from '../icons.tsx';
 
 const mimeTypeOptions = [
     { id: 'application/pdf', label: 'PDF' },
@@ -11,7 +10,7 @@ const mimeTypeOptions = [
 
 export const DocumentsPage: React.FC = () => {
     const { formState, setFormState, errors } = useSettings();
-    const { allowedMimeTypes = [], pdfOnly = false, maxFileSizeMB = 5 } = formState.documentSettings || { allowedMimeTypes: [], pdfOnly: false, maxFileSizeMB: 5 };
+    const { allowedMimeTypes = [], pdfOnly = false, maxFileSizeMB = 5, autoCompressImages = true } = formState.documentSettings || {};
 
     const handlePdfOnlyToggle = () => {
         const newPdfOnly = !pdfOnly;
@@ -49,6 +48,16 @@ export const DocumentsPage: React.FC = () => {
             }
         }));
     };
+    
+    const handleAutoCompressToggle = () => {
+        setFormState(prev => ({
+            ...prev,
+            documentSettings: {
+                ...prev.documentSettings,
+                autoCompressImages: !prev.documentSettings.autoCompressImages,
+            }
+        }));
+    };
 
     return (
         <div className="max-w-4xl mx-auto bg-[#202124] rounded-xl border border-gray-700 shadow-2xl p-6 sm:p-8 space-y-8">
@@ -78,6 +87,32 @@ export const DocumentsPage: React.FC = () => {
                         }`}
                     />
                     {errors.documentSettings && <p className="text-red-400 text-xs mt-1">{errors.documentSettings}</p>}
+                </div>
+
+                <div className="pt-4 border-t border-gray-700/50">
+                    <div className="flex items-center justify-between p-4 bg-[#202124] rounded-lg border border-gray-600/50">
+                        <div className="flex items-center gap-2">
+                            <label htmlFor="auto-compress-toggle" className="text-sm font-medium text-gray-300 select-none">
+                                Otimizar imagens automaticamente
+                            </label>
+                            <div className="relative group">
+                                <AlertCircleIcon className="w-4 h-4 text-gray-500" />
+                                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-64 bg-gray-900 text-white text-xs rounded-lg p-2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none border border-gray-700 shadow-lg z-10">
+                                    Se ativado, imagens (JPG, PNG) maiores que o limite de tamanho serão comprimidas no navegador para tentar se adequar à regra. Não se aplica a arquivos PDF.
+                                </div>
+                            </div>
+                        </div>
+                        <button
+                            type="button"
+                            id="auto-compress-toggle"
+                            onClick={handleAutoCompressToggle}
+                            className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-fuchsia-500 focus:ring-offset-2 focus:ring-offset-[#202124] ${autoCompressImages ? 'bg-green-600' : 'bg-gray-600'}`}
+                            role="switch"
+                            aria-checked={autoCompressImages}
+                        >
+                            <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${autoCompressImages ? 'translate-x-5' : 'translate-x-0'}`} />
+                        </button>
+                    </div>
                 </div>
 
                 <div className="pt-4 border-t border-gray-700/50">

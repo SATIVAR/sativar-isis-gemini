@@ -1,10 +1,13 @@
-
 import React, { useState, useMemo, useRef } from 'react';
 import { Modal } from '../Modal.tsx';
 import { useSettings } from '../../hooks/useSettings.ts';
 import { useModal } from '../../hooks/useModal.ts';
 import type { Associate } from '../../types.ts';
-import { UsersIcon, UploadCloudIcon, FileTextIcon } from '../icons.tsx';
+import { UsersIcon, UploadCloudIcon, FileTextIcon, AlertCircleIcon } from '../icons.tsx';
+import { Loader } from '../Loader.tsx';
+
+// Declare the image compression library which is loaded from a script tag in index.html
+declare const imageCompression: any;
 
 // A helper for file input UI
 const FileInput: React.FC<{
@@ -13,29 +16,64 @@ const FileInput: React.FC<{
     onFileChange: (file: File | null) => void;
     accept: string;
     maxSizeMB: number;
-}> = ({ label, file, onFileChange, accept, maxSizeMB }) => {
+    autoCompress: boolean;
+}> = ({ label, file, onFileChange, accept, maxSizeMB, autoCompress }) => {
     const inputRef = useRef<HTMLInputElement>(null);
+    const [isCompressing, setIsCompressing] = useState(false);
     const modal = useModal();
 
-    const validateAndSetFile = (selectedFile: File | null) => {
+    const validateAndSetFile = async (selectedFile: File | null) => {
         if (!selectedFile) {
             onFileChange(null);
             return;
         }
 
         const fileSizeMB = selectedFile.size / 1024 / 1024;
-        if (fileSizeMB > maxSizeMB) {
-            modal.alert({
-                title: 'Arquivo Muito Grande',
-                message: `O arquivo "${selectedFile.name}" (${fileSizeMB.toFixed(2)} MB) excede o tamanho máximo permitido de ${maxSizeMB} MB.`
-            });
-            if (inputRef.current) {
-                inputRef.current.value = '';
-            }
+
+        // If file is within limits, just set it
+        if (fileSizeMB <= maxSizeMB) {
+            onFileChange(selectedFile);
             return;
         }
 
-        onFileChange(selectedFile);
+        // If file is an image and auto-compression is on, try to compress it
+        if (autoCompress && selectedFile.type.startsWith('image/')) {
+            setIsCompressing(true);
+            try {
+                const options = {
+                    maxSizeMB: maxSizeMB,
+                    useWebWorker: true,
+                };
+                const compressedFile = await imageCompression(selectedFile, options);
+                const compressedSizeMB = compressedFile.size / 1024 / 1024;
+
+                modal.alert({
+                    title: 'Imagem Otimizada',
+                    message: `A imagem "${selectedFile.name}" era muito grande (${fileSizeMB.toFixed(2)} MB) e foi otimizada com sucesso para ${compressedSizeMB.toFixed(2)} MB.`
+                });
+                onFileChange(compressedFile);
+
+            } catch (error) {
+                console.error('Erro na compressão da imagem:', error);
+                modal.alert({
+                    title: 'Falha na Otimização',
+                    message: `Não foi possível otimizar a imagem "${selectedFile.name}". Por favor, tente comprimi-la manualmente.`
+                });
+                if (inputRef.current) inputRef.current.value = '';
+            } finally {
+                setIsCompressing(false);
+            }
+            return;
+        }
+        
+        // If file is too large and cannot be compressed, reject it
+        modal.alert({
+            title: 'Arquivo Muito Grande',
+            message: `O arquivo "${selectedFile.name}" (${fileSizeMB.toFixed(2)} MB) excede o tamanho máximo permitido de ${maxSizeMB} MB.`
+        });
+        if (inputRef.current) {
+            inputRef.current.value = '';
+        }
     };
     
     const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -61,12 +99,17 @@ const FileInput: React.FC<{
             <label className="block text-sm font-medium text-gray-300 mb-2">{label}</label>
             <div 
                 className={`relative flex items-center justify-center w-full h-24 px-4 py-2 bg-[#202124] border-2 border-dashed border-gray-600/50 rounded-lg transition-colors hover:border-fuchsia-500 ${file ? 'border-green-500' : ''}`}
-                onClick={() => inputRef.current?.click()}
+                onClick={() => !isCompressing && inputRef.current?.click()}
                 onDragOver={handleDragOver}
                 onDrop={handleDrop}
             >
-                <input ref={inputRef} type="file" className="hidden" accept={accept} onChange={handleFileSelect} />
-                {!file ? (
+                <input ref={inputRef} type="file" className="hidden" accept={accept} onChange={handleFileSelect} disabled={isCompressing} />
+                {isCompressing ? (
+                    <div className="flex flex-col items-center gap-2 text-fuchsia-300">
+                        <Loader />
+                        <span className="text-xs italic">Otimizando imagem...</span>
+                    </div>
+                ) : !file ? (
                     <div className="text-center text-gray-400 cursor-pointer">
                         <UploadCloudIcon className="w-6 h-6 mx-auto mb-1" />
                         <p className="text-xs">Clique para selecionar ou arraste o arquivo</p>
@@ -97,7 +140,7 @@ export const AssociateDocumentsModal: React.FC<{
     onClose: () => void;
 }> = ({ associate, onClose }) => {
     const { formState } = useSettings();
-    const { allowedMimeTypes = [], pdfOnly = false, maxFileSizeMB = 5 } = formState.documentSettings || {};
+    const { allowedMimeTypes = [], pdfOnly = false, maxFileSizeMB = 5, autoCompressImages = true } = formState.documentSettings || {};
     
     const [files, setFiles] = useState<Record<string, File | null>>({
         personalDocPatient: null,
@@ -170,6 +213,7 @@ export const AssociateDocumentsModal: React.FC<{
                         onFileChange={(file) => handleFileChange(slot.id, file)}
                         accept={acceptedMimeTypes}
                         maxSizeMB={maxFileSizeMB}
+                        autoCompress={autoCompressImages}
                     />
                 ))}
             </div>
