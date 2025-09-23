@@ -137,6 +137,7 @@ export const AssociateModal: React.FC<AssociateModalProps> = ({ associate, onClo
     const [globalError, setGlobalError] = useState('');
     const isEditing = !!associate;
     const [isEditMode, setIsEditMode] = useState(!isEditing);
+    const [isChangingPassword, setIsChangingPassword] = useState(false);
 
     const allSteps = useMemo(() => {
         if (!layouts) return [];
@@ -199,9 +200,13 @@ export const AssociateModal: React.FC<AssociateModalProps> = ({ associate, onClo
             for (const field of step.fields) {
                 if (!checkFieldVisibility(field, formData)) continue;
                 const value = formData[field.field_name];
-                if (!!field.is_required && (!value || String(value).trim() === '')) errors[field.field_name] = 'Este campo é obrigatório.';
+                if (!!field.is_required && (!value || String(value).trim() === '')) {
+                    // For editing, password is not required unless being changed.
+                    if (isEditing && field.field_name === 'password' && !isChangingPassword) continue;
+                    errors[field.field_name] = 'Este campo é obrigatório.';
+                }
                 else if (field.field_name === 'cpf' && value && !validateCPF(value)) errors.cpf = 'CPF inválido.';
-                else if (field.field_name === 'password' && isEditing && value && value.length < 6) errors.password = 'A senha deve ter pelo menos 6 caracteres.';
+                else if (field.field_name === 'password' && value && value.length < 6) errors.password = 'A senha deve ter pelo menos 6 caracteres.';
                 else if (field.field_name === 'password' && !isEditing && (!value || value.length < 6)) errors.password = 'A senha é obrigatória e deve ter pelo menos 6 caracteres.';
             }
         }
@@ -238,6 +243,7 @@ export const AssociateModal: React.FC<AssociateModalProps> = ({ associate, onClo
         setIsEditMode(false);
         setFormData({ ...associate });
         setFormErrors({});
+        setIsChangingPassword(false);
     };
 
     const renderFormBody = () => {
@@ -264,26 +270,39 @@ export const AssociateModal: React.FC<AssociateModalProps> = ({ associate, onClo
                      const visibleFields = step.fields.filter(field => checkFieldVisibility(field, formData));
                      if (visibleFields.length === 0) return null;
                      
+                     const hasPasswordFieldInStep = visibleFields.some(f => f.field_name === 'password');
+                     
                      return (
                         <div key={step.id} className={`${index > 0 || isEditing ? 'pt-6 border-t border-gray-700' : ''}`}>
                             <h3 className="text-lg font-semibold text-fuchsia-300">{step.title}</h3>
                             <div className="space-y-4 mt-4">
                                 {visibleFields.map(field => {
+                                    const isPasswordField = field.field_name === 'password';
+
+                                    if (isPasswordField && isEditing && isEditMode && !isChangingPassword) {
+                                        return null;
+                                    }
+
+                                    const fieldForRender = { ...field };
+                                    if (isPasswordField && isEditing) {
+                                        fieldForRender.is_required = false;
+                                    }
+                                    
                                     if (field.field_type === 'checkbox') return (
                                         <div key={field.id} className="flex items-center justify-between pt-2">
-                                            <label htmlFor={field.field_name} className="text-sm font-medium text-gray-300 select-none">{field.label} {!!field.is_required && <span className="text-red-400">*</span>}</label>
-                                            <RenderField field={field} value={formData[field.field_name]} error={formErrors[field.field_name]} onChange={handleFieldChange} disabled={disabledState} />
+                                            <label htmlFor={field.field_name} className="text-sm font-medium text-gray-300 select-none">{field.label} {!!fieldForRender.is_required && <span className="text-red-400">*</span>}</label>
+                                            <RenderField field={fieldForRender} value={formData[field.field_name]} error={formErrors[field.field_name]} onChange={handleFieldChange} disabled={disabledState} />
                                         </div>
                                     );
                                     return (
                                         <div key={field.id}>
-                                            <label htmlFor={field.field_name} className="block text-sm font-medium text-gray-300 mb-2">{field.label} {!!field.is_required && <span className="text-red-400">*</span>}</label>
-                                            <RenderField field={field} value={formData[field.field_name]} error={formErrors[field.field_name]} onChange={handleFieldChange} disabled={disabledState} />
+                                            <label htmlFor={field.field_name} className="block text-sm font-medium text-gray-300 mb-2">{field.label} {!!fieldForRender.is_required && <span className="text-red-400">*</span>}</label>
+                                            <RenderField field={fieldForRender} value={formData[field.field_name]} error={formErrors[field.field_name]} onChange={handleFieldChange} disabled={disabledState} />
                                             {formErrors[field.field_name] && <p className="text-red-400 text-xs mt-1">{formErrors[field.field_name]}</p>}
                                         </div>
                                     );
                                 })}
-                                {visibleFields.some(f => f.field_name === 'password') && (
+                                {hasPasswordFieldInStep && (!isEditing || !isEditMode || isChangingPassword) && (
                                      <div>
                                         <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-300 mb-2">Confirmar Senha</label>
                                         <PasswordInput id="confirmPassword" name="confirmPassword" value={formData.confirmPassword || ''}
@@ -292,6 +311,39 @@ export const AssociateModal: React.FC<AssociateModalProps> = ({ associate, onClo
                                              disabled={disabledState} />
                                          {formErrors.confirmPassword && <p className="text-red-400 text-xs mt-1">{formErrors.confirmPassword}</p>}
                                     </div>
+                                 )}
+                                {hasPasswordFieldInStep && isEditing && isEditMode && (
+                                    isChangingPassword ? (
+                                        <button 
+                                            type="button" 
+                                            onClick={() => {
+                                                setIsChangingPassword(false);
+                                                handleFieldChange('password', '');
+                                                handleFieldChange('confirmPassword', '');
+                                                setFormErrors(prev => {
+                                                    const newErrors = {...prev};
+                                                    delete newErrors.password;
+                                                    delete newErrors.confirmPassword;
+                                                    return newErrors;
+                                                })
+                                            }} 
+                                            className="text-sm text-gray-400 hover:text-white hover:underline focus:outline-none focus:ring-2 focus:ring-fuchsia-500 rounded"
+                                        >
+                                            Cancelar alteração de senha
+                                        </button>
+                                    ) : (
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-300 mb-2">Senha</label>
+                                            <button 
+                                                type="button" 
+                                                onClick={() => setIsChangingPassword(true)} 
+                                                className="w-full text-left flex items-center gap-3 px-4 py-2 bg-[#202124] border border-gray-600/50 text-white rounded-lg transition-colors hover:bg-gray-700 focus:ring-2 focus:ring-fuchsia-500 outline-none"
+                                            >
+                                                <EditIcon className="w-4 h-4 text-gray-400"/>
+                                                <span>Clique para alterar a senha</span>
+                                            </button>
+                                        </div>
+                                    )
                                  )}
                             </div>
                         </div>
