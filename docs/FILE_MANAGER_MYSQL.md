@@ -54,6 +54,7 @@ CREATE TABLE IF NOT EXISTS documents_files (
   `mime_type` VARCHAR(100) NOT NULL,
   `size_bytes` INT NOT NULL,
   `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   
   FOREIGN KEY (`folder_id`) REFERENCES `documents_folders`(`id`) ON DELETE CASCADE,
   FOREIGN KEY (`associate_id`) REFERENCES `associates`(`id`) ON DELETE CASCADE,

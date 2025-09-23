@@ -47,7 +47,22 @@ API_SECRET_KEY=generate-a-strong-random-string-for-this
 # DB_DATABASE=your_seishat_database_name
 ```
 
-### 3. Database Initialization
+### 3. System Dependencies
+
+-   **Ghostscript:** Required for server-side PDF compression. You must install Ghostscript on the server where this backend is running.
+    -   **For Debian/Ubuntu:**
+        ```bash
+        sudo apt-get update && sudo apt-get install -y ghostscript
+        ```
+    -   **For macOS (using Homebrew):**
+        ```bash
+        brew install ghostscript
+        ```
+    -   **For Windows:** Download from the [official Ghostscript website](https://www.ghostscript.com/download.html).
+
+    If Ghostscript is not found in the system's PATH, the backend will gracefully fall back to saving the original, uncompressed PDF file.
+
+### 4. Database Initialization
 
 The backend handles database setup through a migration script. How you proceed depends on the database you want to use for the Seishat module.
 
@@ -75,100 +90,11 @@ This is an advanced option for production or multi-user environments. It require
 4.  Update your `server/.env` file with the correct `DB_HOST`, `DB_USER`, `DB_PASSWORD`, and `DB_DATABASE` credentials.
 
 **Step 2: Run the SQL Schema Script**
-Connect to your newly created database using a MySQL client and execute the entire script below. This will create all the necessary tables for the Seishat module.
-
-**Nota sobre a Geração de IDs:** O sistema é projetado para que o banco de dados gerencie a criação de IDs únicos e sequenciais para registros como `associates`. A coluna `id` é definida como `AUTO_INCREMENT`, garantindo que cada novo associado receba um número de identificação único sem a necessidade de intervenção da aplicação, o que assegura a integridade dos dados.
-
-```sql
--- Creates the 'products' table for the Seishat CRM module.
-CREATE TABLE IF NOT EXISTS products (
-  id VARCHAR(36) PRIMARY KEY,
-  name VARCHAR(255) NOT NULL,
-  price VARCHAR(255) NOT NULL,
-  description TEXT,
-  icon VARCHAR(255),
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-);
-
--- Creates the 'associates' table for the Seishat CRM module.
--- The 'id' is an auto-incrementing integer, ensuring a unique, sequential identifier for each associate.
--- `custom_fields` and `extra_custom_fields` columns store dynamic data from the Form Builder.
-CREATE TABLE IF NOT EXISTS associates (
-  id INT AUTO_INCREMENT PRIMARY KEY,
-  full_name VARCHAR(255) NOT NULL,
-  cpf VARCHAR(14) UNIQUE,
-  whatsapp VARCHAR(255),
-  password VARCHAR(255) NOT NULL,
-  type ENUM('paciente', 'responsavel', 'tutor', 'colaborador') NOT NULL,
-  custom_fields JSON,
-  extra_custom_fields JSON,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-);
-
--- Table for the central catalog of all possible form fields.
--- This table is part of the new Form Builder feature.
-CREATE TABLE IF NOT EXISTS form_fields (
-  id INT AUTO_INCREMENT PRIMARY KEY,
-  field_name VARCHAR(255) NOT NULL UNIQUE,
-  label VARCHAR(255) NOT NULL,
-  field_type ENUM('text', 'email', 'select', 'password', 'textarea', 'checkbox', 'radio', 'separator', 'brazilian_states_select') NOT NULL,
-  is_base_field BOOLEAN NOT NULL DEFAULT FALSE,
-  is_deletable BOOLEAN NOT NULL DEFAULT FALSE,
-  options TEXT -- For select/radio fields, store as JSON string
-);
-
--- Table for the steps/pages within a form.
--- `layout_type` distinguishes between the main form and the extra info form.
-CREATE TABLE IF NOT EXISTS form_steps (
-  id INT AUTO_INCREMENT PRIMARY KEY,
-  associate_type VARCHAR(255) NOT NULL,
-  title VARCHAR(255) NOT NULL,
-  step_order INT NOT NULL,
-  layout_type VARCHAR(255) NOT NULL DEFAULT 'main'
-);
-
--- Table that links fields to steps to define a form's layout.
--- This table is part of the new Form Builder feature.
-CREATE TABLE IF NOT EXISTS form_layout_fields (
-  id INT AUTO_INCREMENT PRIMARY KEY,
-  step_id INT NOT NULL,
-  field_id INT NOT NULL,
-  display_order INT NOT NULL,
-  is_required BOOLEAN NOT NULL DEFAULT FALSE,
-  visibility_conditions TEXT,
-  FOREIGN KEY (step_id) REFERENCES form_steps(id) ON DELETE CASCADE,
-  FOREIGN KEY (field_id) REFERENCES form_fields(id) ON DELETE CASCADE
-);
-
--- Adds indexes for better performance. Note: MySQL does not support "IF NOT EXISTS" for indexes.
--- If an index already exists, this command will produce an error that can be safely ignored.
-CREATE INDEX idx_products_name ON products(name);
-CREATE INDEX idx_associates_full_name ON associates(full_name);
-CREATE INDEX idx_associates_cpf ON associates(cpf);
-CREATE INDEX idx_form_steps_associate_type ON form_steps(associate_type);
-CREATE INDEX idx_form_layout_fields_step_id ON form_layout_fields(step_id);
-
--- Pre-populates the 'form_fields' table with core, non-deletable fields.
--- This ensures the application starts with a functional base configuration.
-INSERT INTO form_fields (id, field_name, label, field_type, is_base_field, is_deletable, options) VALUES
-(1, 'full_name', 'Nome Completo', 'text', TRUE, FALSE, NULL),
-(2, 'password', 'Senha', 'password', TRUE, FALSE, NULL),
-(3, 'type', 'Tipo de Associado', 'select', TRUE, FALSE, '["paciente", "responsavel", "tutor", "colaborador"]'),
-(4, 'cpf', 'CPF', 'text', TRUE, FALSE, NULL),
-(5, 'whatsapp', 'WhatsApp', 'text', TRUE, FALSE, NULL)
-ON DUPLICATE KEY UPDATE 
-  label=VALUES(label), 
-  field_type=VALUES(field_type), 
-  is_base_field=VALUES(is_base_field), 
-  is_deletable=VALUES(is_deletable), 
-  options=VALUES(options);
-```
+Connect to your newly created database using a MySQL client and execute the entire script from the `docs/FILE_MANAGER_MYSQL.md` file. This will create all the necessary tables for the Seishat module.
 
 After running this script, you can start the server and use the application's interface ("Configurações Avançadas") to test the connection and formally activate the MySQL mode.
 
-### 4. Running the Server
+### 5. Running the Server
 
 -   **For development (with automatic restart on file changes):**
     ```bash

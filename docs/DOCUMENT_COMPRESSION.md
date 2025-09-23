@@ -6,7 +6,7 @@ Este documento detalha a estratégia de otimização de arquivos implementada no
 
 ---
 
-## 2. Compressão de Imagens (Implementado)
+## 2. Compressão de Imagens (Implementado no Navegador)
 
 **Objetivo:** Facilitar o upload de imagens para os usuários, mesmo que eles tenham arquivos de alta resolução que excedam o limite de tamanho definido nas configurações.
 
@@ -29,25 +29,23 @@ Este documento detalha a estratégia de otimização de arquivos implementada no
 
 ---
 
-## 3. Compressão de PDF (Não Implementado no Navegador)
+## 3. Compressão de PDF (Implementado no Servidor)
 
-**Desafio Técnico:** Ao contrário das imagens, os arquivos PDF têm uma estrutura complexa que pode incluir texto vetorial, fontes embutidas, múltiplas imagens com diferentes compressões e metadados. A compressão de PDFs é um processo computacionalmente intensivo e delicado.
+**Objetivo:** Reduzir o tamanho de armazenamento de arquivos PDF sem comprometer a legibilidade, de forma transparente para o usuário.
 
-**Por que não foi implementado no navegador?**
--   **Risco de Corrupção:** Bibliotecas de manipulação de PDF no navegador podem, em casos complexos, falhar e corromper o arquivo, tornando-o ilegível.
--   **Perda de Qualidade:** A compressão poderia degradar a qualidade de forma inaceitável, especialmente em documentos escaneados, tornando o texto ou assinaturas ilegíveis, o que é um risco para documentos legais como receitas e termos.
--   **Desempenho:** O processo pode ser muito lento no navegador do usuário, especialmente em dispositivos menos potentes, travando a interface e causando uma má experiência.
--   **Falta de Ferramentas Robustas:** Não existem bibliotecas para o navegador que se comparem em robustez e confiabilidade a ferramentas de servidor como o **Ghostscript**.
+### Como Funciona:
 
-### Estratégia Recomendada para PDFs
+-   **Tecnologia:** A compressão de PDFs é realizada no backend (servidor Node.js) e depende da ferramenta de linha de comando **Ghostscript**. Esta é uma abordagem robusta e padrão da indústria para manipulação de PDFs.
+-   **Requisito:** **Ghostscript deve estar instalado no ambiente do servidor** para que esta funcionalidade opere. Instruções de instalação estão disponíveis no arquivo `server/readme.md`.
+-   **Processo:**
+    1.  O usuário faz o upload do arquivo PDF através da interface da aplicação.
+    2.  O servidor recebe o arquivo e o salva temporariamente.
+    3.  O backend detecta que o arquivo é um PDF e invoca o Ghostscript via um processo filho (`child_process`).
+    4.  O Ghostscript reprocessa o PDF usando configurações otimizadas para um bom equilíbrio entre tamanho e qualidade (equivalente à configuração "eBook").
+    5.  O novo arquivo PDF, agora comprimido, é salvo no local de armazenamento final. O arquivo temporário original é removido.
+-   **Fallback:** Caso o Ghostscript não esteja instalado ou ocorra um erro durante a compressão, o sistema foi projetado para ser resiliente. Ele irá pular a etapa de compressão e salvar o arquivo PDF original, garantindo que nenhum dado seja perdido.
 
-1.  **Validação no Navegador (Implementado):** O sistema continuará a validar o tamanho do arquivo PDF no navegador. Se o arquivo exceder o limite, o usuário receberá uma mensagem de erro clara, instruindo-o a comprimir o arquivo manualmente antes de tentar novamente. Esta é a abordagem mais segura para garantir a integridade dos documentos.
-
-2.  **Compressão no Servidor (Próximos Passos - Futuro):** A abordagem padrão da indústria e a mais recomendada é implementar a compressão de PDFs no backend.
-    -   **Fluxo Proposto:**
-        1.  O usuário faz o upload do PDF original para o servidor (com um limite de tamanho generoso, ex: 25MB).
-        2.  O servidor recebe o arquivo e o coloca em uma fila de processamento.
-        3.  Um processo em segundo plano (worker) usa uma ferramenta robusta como o **Ghostscript** (uma suíte de software de código aberto para processamento de PostScript e PDF) para otimizar o PDF.
-        4.  O arquivo otimizado substitui o original no armazenamento final.
-    -   **Vantagens:** Este método é confiável, não afeta a experiência do usuário (o processamento é assíncrono) e produz resultados de alta qualidade.
-    -   **Requisitos:** Esta implementação exigiria modificações no ambiente do servidor para instalar o Ghostscript ou integrar um serviço de API de terceiros para compressão de PDFs.
+**Vantagens:**
+-   **Transparente para o Usuário:** O processo ocorre no servidor, sem impactar o desempenho do navegador do usuário.
+-   **Confiabilidade:** Utiliza uma ferramenta testada e robusta (Ghostscript) para evitar a corrupção de arquivos.
+-   **Eficiência de Armazenamento:** Reduz significativamente o espaço em disco necessário para armazenar documentos.

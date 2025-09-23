@@ -1,92 +1,83 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useModal } from '../../hooks/useModal.ts';
 import { FileTextIcon, FolderIcon, SettingsIcon, Trash2Icon } from '../icons.tsx';
 import { DocumentSettingsModal } from './DocumentSettingsModal.tsx';
-
-// --- MOCK DATA ---
-// In a real application, this would come from an API call.
-const mockFileSystem = {
-  id: 'root',
-  name: 'Início',
-  type: 'folder',
-  children: [
-    {
-      id: 'folder-1', name: '#1_joao_da_silva', type: 'folder',
-      children: [
-        { id: 'file-1', name: 'receita_2024.pdf', type: 'file', size: '1.2MB', date: '2024-07-15T10:30:00Z' },
-        { id: 'file-2', name: 'termo_assinado.pdf', type: 'file', size: '800KB', date: '2024-07-15T10:25:00Z' },
-        { id: 'file-3', name: 'comprovante_residencia.jpg', type: 'file', size: '2.1MB', date: '2024-07-14T15:00:00Z' },
-      ],
-    },
-    {
-      id: 'folder-2', name: '#2_maria_oliveira', type: 'folder',
-      children: [
-         { id: 'file-4', name: 'prescricao_medica.pdf', type: 'file', size: '950KB', date: '2024-07-10T09:00:00Z' },
-      ],
-    },
-    {
-        id: 'folder-3', name: '#3_carlos_souza', type: 'folder', children: [],
-    }
-  ],
-};
-// --- END MOCK DATA ---
+import { apiClient } from '../../services/database/apiClient.ts';
+import { Loader } from '../Loader.tsx';
 
 type FileSystemItem = {
-    id: string;
+    id: string | number;
     name: string;
     type: 'folder' | 'file';
-    children?: FileSystemItem[];
     size?: string;
-    date?: string;
 };
 
+const ROOT_FOLDER = { id: 'root', name: 'Início' };
 
 export const DocumentsPage: React.FC = () => {
-    const [fileSystem, setFileSystem] = useState<FileSystemItem>(mockFileSystem);
-    const [path, setPath] = useState<string[]>([]); // Array of folder IDs
+    const [path, setPath] = useState<Array<{ id: string | number; name: string }>>([ROOT_FOLDER]);
+    const [items, setItems] = useState<FileSystemItem[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
     const modal = useModal();
 
-    const currentFolder = useMemo(() => {
-        let current = fileSystem;
-        for (const folderId of path) {
-            current = current.children?.find(item => item.id === folderId) || current;
-        }
-        return current;
-    }, [path, fileSystem]);
+    useEffect(() => {
+        const fetchItems = async () => {
+            setIsLoading(true);
+            const currentFolder = path[path.length - 1];
+            const parentFolderId = currentFolder.id === 'root' ? null : currentFolder.id;
+            
+            try {
+                const params = new URLSearchParams();
+                if (parentFolderId) {
+                    params.append('parentFolderId', String(parentFolderId));
+                }
+                const data = await apiClient.get<FileSystemItem[]>(`/seishat/documents?${params.toString()}`);
+                setItems(data);
+            } catch (error) {
+                console.error("Failed to fetch documents", error);
+                modal.alert({ title: "Erro", message: "Não foi possível carregar os documentos." });
+            } finally {
+                setIsLoading(false);
+            }
+        };
+        fetchItems();
+    }, [path]);
 
-    const handleNavigate = (folderId: string) => {
-        setPath(prev => [...prev, folderId]);
+    const handleNavigate = (folder: FileSystemItem) => {
+        setPath(prev => [...prev, { id: folder.id, name: folder.name }]);
     };
 
     const handleBreadcrumbClick = (index: number) => {
-        setPath(prev => prev.slice(0, index));
+        setPath(prev => prev.slice(0, index + 1));
     };
     
-    const handleDelete = async (itemId: string, itemName: string) => {
+    const handleDelete = async (item: FileSystemItem) => {
         const confirmed = await modal.confirm({
             title: 'Confirmar Exclusão',
-            message: `Tem certeza que deseja excluir "${itemName}"? Esta ação não pode ser desfeita.`,
+            message: `Tem certeza que deseja excluir "${item.name}"? Esta ação não pode ser desfeita.`,
             confirmLabel: 'Excluir',
             danger: true
         });
 
         if(confirmed) {
-            // This is a mock implementation. A real one would call an API.
-            const deleteRecursive = (items: FileSystemItem[], id: string) => {
-                return items.filter(item => {
-                    if (item.children) {
-                        item.children = deleteRecursive(item.children, id);
-                    }
-                    return item.id !== id;
-                });
-            };
-            setFileSystem(prev => ({
-                ...prev,
-                children: deleteRecursive(prev.children || [], itemId)
-            }));
+            try {
+                await apiClient.delete(`/seishat/documents/${item.type}/${item.id}`);
+                setItems(prev => prev.filter(i => i.id !== item.id));
+            } catch(err) {
+                const message = err instanceof Error ? err.message : 'Ocorreu um erro desconhecido.';
+                modal.alert({ title: 'Erro ao Excluir', message });
+            }
         }
     };
+
+    const breadcrumbPath = useMemo(() => {
+        let cumulativePath = '';
+        return path.map(p => {
+            cumulativePath += `/${p.name}`;
+            return { ...p, fullPath: cumulativePath };
+        });
+    }, [path]);
 
     return (
         <>
@@ -108,50 +99,57 @@ export const DocumentsPage: React.FC = () => {
                 </div>
                 
                 {/* Breadcrumbs */}
-                <nav className="flex items-center text-sm text-gray-400 bg-[#202124] p-2 rounded-lg border border-gray-700">
-                    <button onClick={() => handleBreadcrumbClick(0)} className="hover:text-white">Início</button>
-                    {path.map((folderId, index) => {
-                        const folder = fileSystem.children?.find(f => f.id === folderId);
-                        return (
-                            <React.Fragment key={folderId}>
-                                <span className="mx-2">/</span>
-                                <button onClick={() => handleBreadcrumbClick(index + 1)} className="hover:text-white">{folder?.name || folderId}</button>
-                            </React.Fragment>
-                        );
-                    })}
+                <nav className="flex items-center text-sm text-gray-400 bg-[#202124] p-2 rounded-lg border border-gray-700 overflow-x-auto">
+                    {breadcrumbPath.map((p, index) => (
+                        <React.Fragment key={p.id}>
+                            {index > 0 && <span className="mx-2 text-gray-600">/</span>}
+                            <button
+                                onClick={() => handleBreadcrumbClick(index)}
+                                className={`whitespace-nowrap px-2 py-1 rounded-md ${index === breadcrumbPath.length - 1 ? 'text-white font-semibold' : 'hover:bg-gray-700/50 hover:text-white'}`}
+                            >
+                                {p.name}
+                            </button>
+                        </React.Fragment>
+                    ))}
                 </nav>
 
                 {/* File/Folder Grid */}
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-                    {(currentFolder.children || []).map(item => (
-                        <div key={item.id} className="group relative">
-                             <button
-                                onClick={() => item.type === 'folder' && handleNavigate(item.id)}
-                                className="w-full flex flex-col items-center justify-center p-4 bg-[#202124] rounded-lg border border-gray-700/50 aspect-square text-center hover:bg-gray-800/50 hover:border-fuchsia-500/50 transition-colors"
-                                aria-label={`Acessar ${item.name}`}
-                            >
-                                {item.type === 'folder' ? (
-                                    <FolderIcon className="w-16 h-16 text-fuchsia-300" />
-                                ) : (
-                                    <FileTextIcon className="w-16 h-16 text-gray-400" />
-                                )}
-                                <p className="mt-2 text-sm text-gray-200 font-medium truncate w-full">{item.name}</p>
-                                <p className="text-xs text-gray-500">{item.size || ''}</p>
-                            </button>
-                             <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                <button onClick={() => handleDelete(item.id, item.name)} className="p-1.5 bg-gray-900/50 rounded-full text-gray-400 hover:bg-red-800 hover:text-white">
-                                    <Trash2Icon className="w-4 h-4"/>
-                                </button>
-                            </div>
+                {isLoading ? (
+                    <div className="flex justify-center items-center py-20"><Loader /></div>
+                ) : (
+                    <>
+                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                            {items.map(item => (
+                                <div key={item.id} className="group relative">
+                                    <button
+                                        onClick={() => item.type === 'folder' && handleNavigate(item)}
+                                        className="w-full flex flex-col items-center justify-center p-4 bg-[#202124] rounded-lg border border-gray-700/50 aspect-square text-center hover:bg-gray-800/50 hover:border-fuchsia-500/50 transition-colors"
+                                        aria-label={`Acessar ${item.name}`}
+                                    >
+                                        {item.type === 'folder' ? (
+                                            <FolderIcon className="w-16 h-16 text-fuchsia-300" />
+                                        ) : (
+                                            <FileTextIcon className="w-16 h-16 text-gray-400" />
+                                        )}
+                                        <p className="mt-2 text-sm text-gray-200 font-medium truncate w-full">{item.name}</p>
+                                        <p className="text-xs text-gray-500">{item.size || ''}</p>
+                                    </button>
+                                    <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <button onClick={() => handleDelete(item)} className="p-1.5 bg-gray-900/50 rounded-full text-gray-400 hover:bg-red-800 hover:text-white">
+                                            <Trash2Icon className="w-4 h-4"/>
+                                        </button>
+                                    </div>
+                                </div>
+                            ))}
                         </div>
-                    ))}
-                </div>
 
-                {currentFolder.children?.length === 0 && (
-                    <div className="flex flex-col items-center justify-center text-gray-500 py-20 rounded-lg border-2 border-dashed border-gray-700">
-                        <FolderIcon className="w-12 h-12" />
-                        <p className="mt-2 text-lg font-semibold text-gray-400">Esta pasta está vazia.</p>
-                    </div>
+                        {!isLoading && items.length === 0 && (
+                            <div className="flex flex-col items-center justify-center text-gray-500 py-20 rounded-lg border-2 border-dashed border-gray-700">
+                                <FolderIcon className="w-12 h-12" />
+                                <p className="mt-2 text-lg font-semibold text-gray-400">Esta pasta está vazia.</p>
+                            </div>
+                        )}
+                    </>
                 )}
             </div>
         </>

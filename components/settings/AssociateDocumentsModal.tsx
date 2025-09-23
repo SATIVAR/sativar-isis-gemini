@@ -5,6 +5,7 @@ import { useModal } from '../../hooks/useModal.ts';
 import type { Associate } from '../../types.ts';
 import { UsersIcon, UploadCloudIcon, FileTextIcon, AlertCircleIcon } from '../icons.tsx';
 import { Loader } from '../Loader.tsx';
+import { apiClient } from '../../services/database/apiClient.ts';
 
 // Declare the image compression library which is loaded from a script tag in index.html
 declare const imageCompression: any;
@@ -141,6 +142,7 @@ export const AssociateDocumentsModal: React.FC<{
 }> = ({ associate, onClose }) => {
     const { formState } = useSettings();
     const { allowedMimeTypes = [], pdfOnly = false, maxFileSizeMB = 5, autoCompressImages = true } = formState.documentSettings || {};
+    const appModal = useModal();
     
     const [files, setFiles] = useState<Record<string, File | null>>({
         personalDocPatient: null,
@@ -148,28 +150,44 @@ export const AssociateDocumentsModal: React.FC<{
         termDoc: null,
         personalDocGuardian: null,
     });
+    const [isUploading, setIsUploading] = useState(false);
+    const [globalError, setGlobalError] = useState('');
 
     const handleFileChange = (slotId: string, file: File | null) => {
         setFiles(prev => ({ ...prev, [slotId]: file }));
     };
 
-    const slugify = (text: string) => text.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+    const handleUpload = async () => {
+        setIsUploading(true);
+        setGlobalError('');
 
-    const handleUpload = () => {
-        const firstName = associate.full_name.split(' ')[0] || 'associado';
-        const folderName = `#${associate.id}_${slugify(firstName)}`;
-        
-        console.log(`--- SIMULANDO UPLOAD DE DOCUMENTOS ---`);
-        console.log(`Associado: ${associate.full_name} (ID: ${associate.id})`);
-        console.log(`Pasta de destino conceitual: /documentos/${folderName}`);
-        
-        Object.entries(files).forEach(([slot, file]) => {
-            if (file) {
-                console.log(`- Slot '${slot}':`, file);
+        const filesToUpload = Object.entries(files).filter(([, file]) => file !== null);
+
+        if (filesToUpload.length === 0) {
+            appModal.alert({ title: "Nenhum arquivo", message: "Nenhum arquivo foi selecionado para upload." });
+            setIsUploading(false);
+            return;
+        }
+
+        try {
+            for (const [slotId, file] of filesToUpload) {
+                if (!file) continue;
+                const formData = new FormData();
+                formData.append('file', file);
+                // FIX: The `associate.id` type is `string | number`, but `formData.append` expects a `string` or `Blob`.
+                // Converting it to a string resolves the type error.
+                formData.append('associate_id', associate.id.toString());
+                formData.append('document_type', slotId);
+                await apiClient.post('/seishat/documents/upload', formData);
             }
-        });
-        console.log(`------------------------------------`);
-        onClose();
+            appModal.alert({ title: "Sucesso!", message: `${filesToUpload.length} documento(s) enviados com sucesso.`});
+            onClose();
+        } catch (err) {
+            const message = err instanceof Error ? err.message : 'Ocorreu um erro desconhecido.';
+            setGlobalError(`Falha no upload: ${message}`);
+        } finally {
+            setIsUploading(false);
+        }
     };
 
     const acceptedMimeTypes = useMemo(() => {
@@ -197,7 +215,9 @@ export const AssociateDocumentsModal: React.FC<{
             footer={
                 <>
                     <button onClick={onClose} className="px-5 py-2 bg-gray-700 text-sm font-medium rounded-lg hover:bg-gray-600">Cancelar</button>
-                    <button onClick={handleUpload} className="px-5 py-2 bg-green-600 text-white font-semibold rounded-lg hover:bg-green-700">Salvar Documentos</button>
+                    <button onClick={handleUpload} disabled={isUploading} className="flex items-center justify-center min-w-[180px] px-5 py-2 bg-green-600 text-white font-semibold rounded-lg hover:bg-green-700 disabled:opacity-70 disabled:cursor-wait">
+                        {isUploading ? <Loader /> : 'Salvar Documentos'}
+                    </button>
                 </>
             }
         >
@@ -205,6 +225,12 @@ export const AssociateDocumentsModal: React.FC<{
                 <p className="text-sm text-gray-400">
                     Anexe os documentos necessários para o associado. Os arquivos serão salvos de forma segura.
                 </p>
+                 {globalError && (
+                    <div className="p-3 bg-red-900/40 rounded-lg border border-red-700/50 flex items-start gap-3">
+                        <AlertCircleIcon className="w-6 h-6 text-red-300 flex-shrink-0 mt-0.5" />
+                        <p className="text-sm text-red-300">{globalError}</p>
+                    </div>
+                )}
                 {documentSlots.map(slot => (
                     <FileInput
                         key={slot.id}

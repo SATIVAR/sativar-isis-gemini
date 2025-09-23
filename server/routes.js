@@ -5,8 +5,51 @@ const { userQuery } = require('./userDb');
 const { seishatQuery, getSeishatDb, getDbMode } = require('./seishatDb');
 const router = express.Router();
 const chalk = require('chalk');
+const multer = require('multer');
+const fs = require('fs');
+const path = require('path');
+const { exec } = require('child_process');
+const { randomUUID } = require('crypto');
 
 // --- Helper Functions ---
+
+/**
+ * Compresses a PDF file using Ghostscript. Falls back to copying the original file if Ghostscript fails.
+ * @param {string} inputPath The path to the original PDF file.
+ * @param {string} outputPath The path to save the compressed PDF file.
+ * @returns {Promise<void>} A promise that resolves when compression is complete, or rejects on error.
+ */
+const compressPdf = (inputPath, outputPath) => {
+  return new Promise((resolve, reject) => {
+    // /ebook provides a good balance of size and quality.
+    const pdfSettings = '/ebook'; 
+
+    const command = `gs -sDEVICE=pdfwrite -dCompatibilityLevel=1.4 -dPDFSETTINGS=${pdfSettings} -dNOPAUSE -dQUIET -dBATCH -sOutputFile=${outputPath} ${inputPath}`;
+
+    console.log(chalk.blue(`[PDF Compressor] Compressing file: ${path.basename(inputPath)}`));
+    exec(command, async (error, stdout, stderr) => {
+      if (error) {
+        console.warn(chalk.yellow('[PDF Compressor] Ghostscript command failed. This might mean Ghostscript is not installed on the server. Falling back to using the original file.'));
+        console.warn(chalk.yellow(`Error details: ${error.message}`));
+        try {
+          await fs.promises.copyFile(inputPath, outputPath);
+          resolve();
+        } catch (copyError) {
+          reject(new Error(`Ghostscript failed and could not copy original file: ${copyError.message}`));
+        }
+        return;
+      }
+      
+      if (stderr) {
+        console.log(chalk.gray(`[PDF Compressor] Ghostscript stderr: ${stderr}`));
+      }
+      
+      console.log(chalk.green(`[PDF Compressor] Successfully compressed PDF to: ${path.basename(outputPath)}`));
+      resolve();
+    });
+  });
+};
+
 
 const parseReminderTasks = (reminder) => {
     if (!reminder) return null;
@@ -57,6 +100,7 @@ const parseAssociate = (associate) => {
 
 
 const slugify = (text) => {
+    if (!text) return '';
     return text.toString().toLowerCase()
         .replace(/\s+/g, '_')           // Replace spaces with _
         .replace(/[^\w-]+/g, '')       // Remove all non-word chars
@@ -64,6 +108,29 @@ const slugify = (text) => {
         .replace(/^-+/, '')             // Trim - from start of text
         .replace(/-+$/, '');            // Trim - from end of text
 };
+
+
+// --- Multer Setup for File Uploads ---
+const UPLOAD_DIR = path.join(__dirname, 'uploads');
+if (!fs.existsSync(UPLOAD_DIR)) {
+    fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+}
+
+// Store files temporarily in a general uploads folder
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const tempDir = path.join(UPLOAD_DIR, 'temp');
+    if (!fs.existsSync(tempDir)) {
+      fs.mkdirSync(tempDir, { recursive: true });
+    }
+    cb(null, tempDir);
+  },
+  filename: (req, file, cb) => {
+    cb(null, randomUUID());
+  }
+});
+
+const upload = multer({ storage: storage });
 
 
 // --- Settings Routes ---
@@ -619,6 +686,13 @@ router.post('/seishat/associates', async (req, res, next) => {
         
         newAssociateId = (dbMode === 'mysql') ? result.insertId : result.lastInsertRowid;
 
+        // Automatically create a root folder for the new associate
+        const folderName = `#${newAssociateId}_${slugify(baseData.full_name)}`;
+        await seishatQuery(
+            'INSERT INTO documents_folders (associate_id, name, parent_folder_id) VALUES (?, ?, NULL)',
+            [newAssociateId, folderName]
+        );
+
         const newAssociate = { id: newAssociateId, type, ...baseData, ...customData, ...extraCustomData };
         delete newAssociate.password;
         res.status(201).json(newAssociate);
@@ -884,6 +958,146 @@ router.put('/admin/layouts/:type', async (req, res, next) => {
     } catch (err) {
         console.error(chalk.red(`[${req.method} ${req.originalUrl}] Error saving form layout for type ${type}:`), err.message);
         next(err);
+    }
+});
+
+// --- Seishat Documents Routes ---
+
+// GET /api/seishat/documents - Get contents of a folder
+router.get('/seishat/documents', async (req, res, next) => {
+    const { parentFolderId } = req.query; // null or 'null' or undefined for root
+
+    try {
+        let folders, files;
+        const parentId = (parentFolderId === 'null' || !parentFolderId) ? null : parentFolderId;
+        
+        if (parentId) {
+            folders = await seishatQuery('SELECT id, name, "folder" as type FROM documents_folders WHERE parent_folder_id = ? ORDER BY name ASC', [parentId]);
+            files = await seishatQuery('SELECT id, original_name as name, "file" as type, size_bytes FROM documents_files WHERE folder_id = ? ORDER BY original_name ASC', [parentId]);
+        } else {
+            // Root level shows associate folders
+            folders = await seishatQuery('SELECT id, name, "folder" as type FROM documents_folders WHERE parent_folder_id IS NULL ORDER BY name ASC');
+            files = []; // No files at the absolute root
+        }
+        
+        const formatFileSize = (bytes) => {
+            if (!bytes || bytes === 0) return '';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        };
+
+        const formattedFiles = files.map(file => ({ ...file, size: formatFileSize(file.size_bytes) }));
+
+        res.json([...folders, ...formattedFiles]);
+    } catch (err) {
+        console.error(chalk.red(`[${req.method} ${req.originalUrl}] Error fetching documents:`), err.message);
+        next(err);
+    }
+});
+
+
+// DELETE /api/seishat/documents/:type/:id - Delete a file or folder
+router.delete('/seishat/documents/:type/:id', async (req, res, next) => {
+    const { type, id } = req.params;
+    try {
+        if (type === 'folder') {
+            // Note: ON DELETE CASCADE will handle child files/folders in DB.
+            // A real implementation would also need to delete files from storage.
+            await seishatQuery('DELETE FROM documents_folders WHERE id = ?', [id]);
+        } else if (type === 'file') {
+            // A real implementation would find stored_name and delete from storage.
+            await seishatQuery('DELETE FROM documents_files WHERE id = ?', [id]);
+        } else {
+            return res.status(400).json({ error: 'Invalid type specified.' });
+        }
+        res.status(204).send();
+    } catch (err) {
+        console.error(chalk.red(`[${req.method} ${req.originalUrl}] Error deleting document:`), err.message);
+        next(err);
+    }
+});
+
+// POST /api/seishat/documents/upload - Upload a file
+router.post('/seishat/documents/upload', upload.single('file'), async (req, res, next) => {
+    const { associate_id, document_type } = req.body;
+    const file = req.file;
+
+    if (!file || !associate_id || !document_type) {
+        if (file) await fs.promises.unlink(file.path).catch(console.error);
+        return res.status(400).json({ error: 'Missing file, associate_id, or document_type.' });
+    }
+
+    const tempPath = file.path;
+
+    try {
+        const [rootFolder] = await seishatQuery('SELECT id FROM documents_folders WHERE associate_id = ? AND parent_folder_id IS NULL', [associate_id]);
+        if (!rootFolder) {
+            throw new Error('Root folder for this associate not found.');
+        }
+        const folder_id = rootFolder.id;
+
+        const fileExtension = path.extname(file.originalname).toLowerCase();
+        const stored_name = `${randomUUID()}${fileExtension}`;
+        const final_dir = path.join(UPLOAD_DIR, String(associate_id));
+        const final_path = path.join(final_dir, stored_name);
+        
+        await fs.promises.mkdir(final_dir, { recursive: true });
+
+        if (file.mimetype === 'application/pdf') {
+            const compressedPath = `${tempPath}-compressed.pdf`;
+            await compressPdf(tempPath, compressedPath);
+            await fs.promises.rename(compressedPath, final_path);
+        } else {
+            await fs.promises.rename(tempPath, final_path);
+        }
+
+        const stats = await fs.promises.stat(final_path);
+        const size_bytes = stats.size;
+        
+        // Define a mapping for user-friendly filenames
+        const documentTypeMap = {
+            personalDocPatient: 'documento_pessoal_paciente',
+            addressDoc: 'comprovante_endereco',
+            termDoc: 'termo_associativo',
+            personalDocGuardian: 'documento_pessoal_responsavel',
+        };
+        const original_name_base = documentTypeMap[document_type] || document_type;
+        const original_name = `${original_name_base}${fileExtension}`;
+
+        const dbMode = getDbMode();
+        if (dbMode === 'mysql') {
+            const insertQuery = `
+                INSERT INTO documents_files (folder_id, associate_id, original_name, stored_name, mime_type, size_bytes)
+                VALUES (?, ?, ?, ?, ?, ?)
+                ON DUPLICATE KEY UPDATE 
+                stored_name = VALUES(stored_name), 
+                mime_type = VALUES(mime_type), 
+                size_bytes = VALUES(size_bytes), 
+                updated_at = CURRENT_TIMESTAMP
+            `;
+            await seishatQuery(insertQuery, [folder_id, associate_id, original_name, stored_name, file.mimetype, size_bytes]);
+        } else { // sqlite
+            const insertQuery = `
+                INSERT INTO documents_files (folder_id, associate_id, original_name, stored_name, mime_type, size_bytes)
+                VALUES (?, ?, ?, ?, ?, ?)
+                ON CONFLICT(folder_id, original_name) DO UPDATE SET
+                stored_name = excluded.stored_name,
+                mime_type = excluded.mime_type,
+                size_bytes = excluded.size_bytes,
+                updated_at = datetime('now', 'localtime')
+            `;
+            await seishatQuery(insertQuery, [folder_id, associate_id, original_name, stored_name, file.mimetype, size_bytes]);
+        }
+        
+        res.status(201).json({ success: true, message: 'File uploaded successfully.' });
+    } catch (err) {
+        console.error(chalk.red(`[${req.method} ${req.originalUrl}] Error uploading file:`), err.message);
+        next(err);
+    } finally {
+        // Final cleanup of the original temp file
+        await fs.promises.unlink(tempPath).catch(e => console.error("Failed to clean up temp file:", e.message));
     }
 });
 

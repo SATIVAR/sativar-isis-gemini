@@ -175,6 +175,31 @@ CREATE TABLE IF NOT EXISTS form_layout_fields (
     FOREIGN KEY (field_id) REFERENCES form_fields(id) ON DELETE CASCADE
 );
 
+CREATE TABLE IF NOT EXISTS documents_folders (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  associate_id INTEGER NOT NULL,
+  parent_folder_id INTEGER,
+  name TEXT NOT NULL,
+  created_at TEXT DEFAULT (datetime('now', 'localtime')),
+  updated_at TEXT DEFAULT (datetime('now', 'localtime')),
+  FOREIGN KEY (associate_id) REFERENCES associates(id) ON DELETE CASCADE,
+  FOREIGN KEY (parent_folder_id) REFERENCES documents_folders(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS documents_files (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  folder_id INTEGER NOT NULL,
+  associate_id INTEGER NOT NULL,
+  original_name TEXT NOT NULL,
+  stored_name TEXT NOT NULL UNIQUE,
+  mime_type TEXT NOT NULL,
+  size_bytes INTEGER NOT NULL,
+  created_at TEXT DEFAULT (datetime('now', 'localtime')),
+  updated_at TEXT DEFAULT (datetime('now', 'localtime')),
+  FOREIGN KEY (folder_id) REFERENCES documents_folders(id) ON DELETE CASCADE,
+  FOREIGN KEY (associate_id) REFERENCES associates(id) ON DELETE CASCADE
+);
+
 
 CREATE TRIGGER IF NOT EXISTS products_update_trigger
 AFTER UPDATE ON products
@@ -190,11 +215,22 @@ BEGIN
   UPDATE associates SET updated_at = datetime('now', 'localtime') WHERE id = OLD.id;
 END;
 
+CREATE TRIGGER IF NOT EXISTS documents_files_update_trigger
+AFTER UPDATE ON documents_files
+FOR EACH ROW
+BEGIN
+  UPDATE documents_files SET updated_at = datetime('now', 'localtime') WHERE id = OLD.id;
+END;
+
 CREATE INDEX IF NOT EXISTS idx_products_name ON products(name);
 CREATE INDEX IF NOT EXISTS idx_associates_full_name ON associates(full_name);
 CREATE INDEX IF NOT EXISTS idx_associates_cpf ON associates(cpf);
 CREATE INDEX IF NOT EXISTS idx_form_steps_associate_type ON form_steps(associate_type);
 CREATE INDEX IF NOT EXISTS idx_form_layout_fields_step_id ON form_layout_fields(step_id);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_unique_folder_in_parent ON documents_folders(parent_folder_id, name);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_unique_file_in_folder ON documents_files(folder_id, original_name);
+
 
 INSERT OR IGNORE INTO form_fields (id, field_name, label, field_type, is_base_field, is_deletable, options) VALUES
 (1, 'full_name', 'Nome Completo', 'text', 1, 0, NULL),
@@ -255,6 +291,33 @@ CREATE TABLE IF NOT EXISTS form_layout_fields (
   visibility_conditions TEXT,
   FOREIGN KEY (step_id) REFERENCES form_steps(id) ON DELETE CASCADE,
   FOREIGN KEY (field_id) REFERENCES form_fields(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS documents_folders (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  associate_id INT NOT NULL,
+  parent_folder_id INT NULL,
+  name VARCHAR(255) NOT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  FOREIGN KEY (associate_id) REFERENCES associates(id) ON DELETE CASCADE,
+  FOREIGN KEY (parent_folder_id) REFERENCES documents_folders(id) ON DELETE CASCADE,
+  UNIQUE KEY unique_folder_in_parent (parent_folder_id, name)
+);
+
+CREATE TABLE IF NOT EXISTS documents_files (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  folder_id INT NOT NULL,
+  associate_id INT NOT NULL,
+  original_name VARCHAR(255) NOT NULL,
+  stored_name VARCHAR(255) NOT NULL UNIQUE,
+  mime_type VARCHAR(100) NOT NULL,
+  size_bytes INT NOT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  FOREIGN KEY (folder_id) REFERENCES documents_folders(id) ON DELETE CASCADE,
+  FOREIGN KEY (associate_id) REFERENCES associates(id) ON DELETE CASCADE,
+  UNIQUE KEY unique_file_in_folder (folder_id, original_name)
 );
 
 CREATE INDEX idx_products_name ON products(name);

@@ -14,10 +14,12 @@ class ApiClient {
     
     const apiKey = import.meta.env.VITE_API_SECRET_KEY;
     
-    const headers: HeadersInit = {
-      'Content-Type': 'application/json',
-      ...options.headers,
-    };
+    const headers: HeadersInit = { ...options.headers };
+
+    // Let the browser set the Content-Type header for FormData, which includes the boundary.
+    if (!(options.body instanceof FormData)) {
+      headers['Content-Type'] = 'application/json';
+    }
 
     if (apiKey) {
       headers['X-API-Key'] = apiKey;
@@ -25,8 +27,8 @@ class ApiClient {
 
     try {
       const response = await fetch(url, {
-        headers,
         ...options,
+        headers,
       });
 
       if (!response.ok) {
@@ -79,7 +81,7 @@ class ApiClient {
   async post<T>(endpoint: string, data: any): Promise<T> {
     return this.request<T>(`/api${endpoint}`, {
       method: 'POST',
-      body: JSON.stringify(data),
+      body: data instanceof FormData ? data : JSON.stringify(data),
     });
   }
 
