@@ -2,8 +2,9 @@
 import React, { useState, useMemo, useRef } from 'react';
 import { Modal } from '../Modal.tsx';
 import { useSettings } from '../../hooks/useSettings.ts';
+import { useModal } from '../../hooks/useModal.ts';
 import type { Associate } from '../../types.ts';
-import { UsersIcon, UploadCloudIcon, FileTextIcon, XCircleIcon } from '../icons.tsx';
+import { UsersIcon, UploadCloudIcon, FileTextIcon } from '../icons.tsx';
 
 // A helper for file input UI
 const FileInput: React.FC<{
@@ -11,12 +12,34 @@ const FileInput: React.FC<{
     file: File | null;
     onFileChange: (file: File | null) => void;
     accept: string;
-}> = ({ label, file, onFileChange, accept }) => {
+    maxSizeMB: number;
+}> = ({ label, file, onFileChange, accept, maxSizeMB }) => {
     const inputRef = useRef<HTMLInputElement>(null);
+    const modal = useModal();
 
-    const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const selectedFile = e.target.files?.[0] || null;
+    const validateAndSetFile = (selectedFile: File | null) => {
+        if (!selectedFile) {
+            onFileChange(null);
+            return;
+        }
+
+        const fileSizeMB = selectedFile.size / 1024 / 1024;
+        if (fileSizeMB > maxSizeMB) {
+            modal.alert({
+                title: 'Arquivo Muito Grande',
+                message: `O arquivo "${selectedFile.name}" (${fileSizeMB.toFixed(2)} MB) excede o tamanho máximo permitido de ${maxSizeMB} MB.`
+            });
+            if (inputRef.current) {
+                inputRef.current.value = '';
+            }
+            return;
+        }
+
         onFileChange(selectedFile);
+    };
+    
+    const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+        validateAndSetFile(e.target.files?.[0] || null);
     };
     
     const handleDragOver = (e: React.DragEvent) => {
@@ -29,7 +52,7 @@ const FileInput: React.FC<{
         e.stopPropagation();
         const droppedFile = e.dataTransfer.files?.[0] || null;
         if(droppedFile) {
-            onFileChange(droppedFile);
+            validateAndSetFile(droppedFile);
         }
     };
 
@@ -74,7 +97,7 @@ export const AssociateDocumentsModal: React.FC<{
     onClose: () => void;
 }> = ({ associate, onClose }) => {
     const { formState } = useSettings();
-    const { allowedMimeTypes = [], pdfOnly = false } = formState.documentSettings || {};
+    const { allowedMimeTypes = [], pdfOnly = false, maxFileSizeMB = 5 } = formState.documentSettings || {};
     
     const [files, setFiles] = useState<Record<string, File | null>>({
         personalDocPatient: null,
@@ -146,6 +169,7 @@ export const AssociateDocumentsModal: React.FC<{
                         file={files[slot.id]}
                         onFileChange={(file) => handleFileChange(slot.id, file)}
                         accept={acceptedMimeTypes}
+                        maxSizeMB={maxFileSizeMB}
                     />
                 ))}
             </div>

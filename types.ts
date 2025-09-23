@@ -114,6 +114,7 @@ export interface Settings {
     documentSettings: {
         allowedMimeTypes: string[]; // e.g., 'image/jpeg', 'application/pdf'
         pdfOnly: boolean;
+        maxFileSizeMB: number;
     };
 }
 

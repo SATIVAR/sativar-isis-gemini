@@ -258,6 +258,7 @@ const defaultSettings: Settings = {
   documentSettings: {
     allowedMimeTypes: ['image/jpeg', 'image/png', 'application/pdf'],
     pdfOnly: false,
+    maxFileSizeMB: 5,
   },
 };
 
@@ -394,6 +395,13 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         const months = Number(data.prescriptionValidityMonths);
         if (isNaN(months) || !Number.isInteger(months) || months <= 0) {
             newErrors.prescriptionValidityMonths = 'Deve ser um número inteiro positivo.';
+        }
+    }
+
+    if (data.documentSettings) {
+        const size = Number(data.documentSettings.maxFileSizeMB);
+        if (isNaN(size) || size <= 0) {
+            newErrors.documentSettings = 'O tamanho máximo do arquivo deve ser um número positivo.';
         }
     }
 
