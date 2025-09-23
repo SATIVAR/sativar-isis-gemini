@@ -386,7 +386,7 @@ const SeishatLayout: React.FC<{ onLogout: () => void; }> = ({ onLogout }) => {
                         {showErrorToast && (
                             <div className="flex items-center gap-3 bg-red-800 text-white px-6 py-3 rounded-lg shadow-2xl border border-red-500/50" role="alert">
                                 <AlertTriangleIcon className="w-5 h-5 text-red-300" />
-                                <span className="font-semibold text-sm">Corrija os erros antes de salvar.</span>
+                                <span className="font-semibold text-sm">Corrija os campos inválidos para salvar as alterações.</span>
                             </div>
                         )}
                     </div>

@@ -1032,10 +1032,37 @@ router.post('/seishat/documents/upload', upload.single('file'), async (req, res,
     const tempPath = file.path;
 
     try {
-        const [rootFolder] = await seishatQuery('SELECT id FROM documents_folders WHERE associate_id = ? AND parent_folder_id IS NULL', [associate_id]);
+        // Get or create the root folder for the associate
+        let [rootFolder] = await seishatQuery('SELECT id FROM documents_folders WHERE associate_id = ? AND parent_folder_id IS NULL', [associate_id]);
+
         if (!rootFolder) {
-            throw new Error('Root folder for this associate not found.');
+            console.log(chalk.yellow(`[Documents] Root folder for associate ID ${associate_id} not found. Creating it now...`));
+            
+            const [associate] = await seishatQuery('SELECT full_name FROM associates WHERE id = ?', [associate_id]);
+            if (!associate) {
+                await fs.promises.unlink(tempPath).catch(console.error);
+                throw new Error(`Associate with ID ${associate_id} not found.`);
+            }
+
+            const folderName = `#${associate_id}_${slugify(associate.full_name)}`;
+            const dbMode = getDbMode();
+            let newFolderId;
+
+            const result = await seishatQuery(
+                'INSERT INTO documents_folders (associate_id, name, parent_folder_id) VALUES (?, ?, NULL)',
+                [associate_id, folderName]
+            );
+
+            if (dbMode === 'mysql') {
+                newFolderId = result.insertId;
+            } else { // sqlite
+                newFolderId = result.lastInsertRowid;
+            }
+
+            rootFolder = { id: newFolderId };
+            console.log(chalk.green(`[Documents] Created root folder with ID ${newFolderId} for associate ${associate_id}.`));
         }
+        
         const folder_id = rootFolder.id;
 
         const fileExtension = path.extname(file.originalname).toLowerCase();
