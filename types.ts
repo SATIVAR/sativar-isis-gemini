@@ -1,3 +1,4 @@
+
 import type { GoogleGenAI } from '@google/genai';
 
 // From services/geminiService.ts and components/Chat.tsx
@@ -110,6 +111,10 @@ export interface Settings {
     shippingContext: string;
     paymentContext: string;
     isIsisAiEnabled: boolean;
+    documentSettings: {
+        allowedMimeTypes: string[]; // e.g., 'image/jpeg', 'application/pdf'
+        pdfOnly: boolean;
+    };
 }
 
 // From services/database/repositories/interfaces.ts

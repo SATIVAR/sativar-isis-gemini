@@ -1,10 +1,12 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { useModal } from '../../hooks/useModal.ts';
 import { apiClient } from '../../services/database/apiClient.ts';
 import type { Associate, AssociateType } from '../../types.ts';
 import { Loader } from '../Loader.tsx';
-import { UsersIcon, PlusCircleIcon, SearchIcon, EditIcon, Trash2Icon } from '../icons.tsx';
+import { UsersIcon, PlusCircleIcon, SearchIcon, EditIcon, Trash2Icon, FileTextIcon } from '../icons.tsx';
 import { AssociateModal } from './AssociateModal.tsx';
+import { AssociateDocumentsModal } from './AssociateDocumentsModal.tsx';
 
 export const AssociatesPage: React.FC = () => {
     const [associates, setAssociates] = useState<Associate[]>([]);
@@ -12,6 +14,8 @@ export const AssociatesPage: React.FC = () => {
     const [error, setError] = useState<string | null>(null);
     const [search, setSearch] = useState('');
     const [isModalOpen, setIsModalOpen] = useState(false);
+    const [isDocumentModalOpen, setIsDocumentModalOpen] = useState(false);
+    const [selectedAssociate, setSelectedAssociate] = useState<Associate | null>(null);
     const [editingAssociate, setEditingAssociate] = useState<Associate | null>(null);
     const modal = useModal();
 
@@ -49,6 +53,11 @@ export const AssociatesPage: React.FC = () => {
         setIsModalOpen(true);
     };
     
+    const handleOpenDocuments = (associate: Associate) => {
+        setSelectedAssociate(associate);
+        setIsDocumentModalOpen(true);
+    };
+
     const handleDeleteAssociate = async (associate: Associate) => {
         const confirmed = await modal.confirm({
             title: 'Confirmar Exclusão',
@@ -104,8 +113,9 @@ export const AssociatesPage: React.FC = () => {
                                     </span>
                                 </td>
                                 <td className="px-4 py-3 flex items-center justify-end gap-2">
-                                    <button onClick={() => handleEditAssociate(associate)} className="p-1 text-gray-400 hover:text-fuchsia-400"><EditIcon className="w-4 h-4" /></button>
-                                    <button onClick={() => handleDeleteAssociate(associate)} className="p-1 text-gray-400 hover:text-red-400"><Trash2Icon className="w-4 h-4" /></button>
+                                    <button onClick={() => handleOpenDocuments(associate)} title="Gerenciar Documentos" className="p-1 text-gray-400 hover:text-green-400"><FileTextIcon className="w-4 h-4" /></button>
+                                    <button onClick={() => handleEditAssociate(associate)} title="Editar Associado" className="p-1 text-gray-400 hover:text-fuchsia-400"><EditIcon className="w-4 h-4" /></button>
+                                    <button onClick={() => handleDeleteAssociate(associate)} title="Excluir Associado" className="p-1 text-gray-400 hover:text-red-400"><Trash2Icon className="w-4 h-4" /></button>
                                 </td>
                             </tr>
                         ))}
@@ -123,6 +133,12 @@ export const AssociatesPage: React.FC = () => {
     return (
         <>
             {isModalOpen && <AssociateModal associate={editingAssociate} onClose={() => setIsModalOpen(false)} onSaveSuccess={fetchAssociates} />}
+            {isDocumentModalOpen && selectedAssociate && (
+                <AssociateDocumentsModal 
+                    associate={selectedAssociate} 
+                    onClose={() => setIsDocumentModalOpen(false)} 
+                />
+            )}
             <div className="max-w-4xl mx-auto bg-[#202124] rounded-xl border border-gray-700 shadow-2xl p-6 sm:p-8">
                 <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4 mb-6">
                     <div>

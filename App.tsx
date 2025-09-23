@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useEffect } from 'react';
 import { Header } from './components/Header.tsx';
 import { SettingsProvider, useSettings } from './hooks/useSettings.ts';
@@ -31,6 +32,7 @@ import { AssociatesPage } from './components/settings/AssociatesPage.tsx';
 import { ApiUsagePage } from './components/settings/ApiUsagePage.tsx';
 import { DashboardPage } from './components/settings/DashboardPage.tsx';
 import { FormsPage } from './components/settings/FormsPage.tsx';
+import { DocumentsPage } from './components/settings/DocumentsPage.tsx';
 
 
 export type AppMode = 'isis' | 'seishat';
@@ -138,7 +140,7 @@ const SeishatSidebar: React.FC<SeishatSidebarProps> = ({ activePage, setActivePa
         { page: 'associates' as SeishatPageName, label: 'Associados', icon: <UsersIcon className="w-5 h-5" />, roles: ['admin', 'manager'], disabled: false },
         { page: 'products' as SeishatPageName, label: 'Produtos', icon: <StoreIcon className="w-5 h-5" />, roles: ['admin', 'manager'], disabled: false },
         { page: 'prescribers' as SeishatPageName, label: 'Prescritores', icon: <UsersIcon className="w-5 h-5" />, roles: ['admin', 'manager'], disabled: true },
-        { page: 'documents' as SeishatPageName, label: 'Documentos', icon: <FileTextIcon className="w-5 h-5" />, roles: ['admin', 'manager'], disabled: true },
+        { page: 'documents' as SeishatPageName, label: 'Documentos', icon: <FileTextIcon className="w-5 h-5" />, roles: ['admin', 'manager'], disabled: false },
         { page: 'orders' as SeishatPageName, label: 'Pedidos', icon: <ShoppingCartIcon className="w-5 h-5" />, roles: ['admin', 'manager'], disabled: true },
         { page: 'expenses' as SeishatPageName, label: 'Despesas', icon: <DollarSignIcon className="w-5 h-5" />, roles: ['admin', 'manager'], disabled: true },
         { page: 'reports' as SeishatPageName, label: 'Relatórios', icon: <BarChart2Icon className="w-5 h-5" />, roles: ['admin', 'manager'], disabled: true },
@@ -332,7 +334,7 @@ const SeishatLayout: React.FC<{ onLogout: () => void; }> = ({ onLogout }) => {
             case 'products': return <SeishatProductsPage />;
             case 'associates': return <AssociatesPage />;
             case 'prescribers': return <ComingSoon pageName="Prescritores" />;
-            case 'documents': return <ComingSoon pageName="Documentos" />;
+            case 'documents': return <DocumentsPage />;
             case 'orders': return <ComingSoon pageName="Pedidos" />;
             case 'expenses': return <ComingSoon pageName="Despesas" />;
             case 'reports': return <ComingSoon pageName="Relatórios" />;

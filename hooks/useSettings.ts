@@ -1,3 +1,4 @@
+
 import React, { createContext, useState, useContext, useEffect, useMemo, useCallback } from 'react';
 import type { Settings, Product } from '../types.ts';
 import { apiClient } from '../services/database/apiClient.ts';
@@ -254,6 +255,10 @@ const defaultSettings: Settings = {
   shippingContext: "O frete padrão é de R$ 50,00.",
   paymentContext: "Aceitamos pagamento via PIX ou Cartão de Crédito (com uma taxa de processamento de 3,98%). É só escolher a opção que preferir.",
   isIsisAiEnabled: true,
+  documentSettings: {
+    allowedMimeTypes: ['image/jpeg', 'image/png', 'application/pdf'],
+    pdfOnly: false,
+  },
 };
 
 
