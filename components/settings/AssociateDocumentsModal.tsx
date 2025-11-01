@@ -21,30 +21,36 @@ const FileInput: React.FC<{
 }> = ({ label, file, onFileChange, accept, maxSizeMB, autoCompress }) => {
     const inputRef = useRef<HTMLInputElement>(null);
     const [isCompressing, setIsCompressing] = useState(false);
+    const [isDraggingOver, setIsDraggingOver] = useState(false);
     const modal = useModal();
+
+    const formatBytes = (bytes: number, decimals = 2) => {
+        if (bytes === 0) return '0 Bytes';
+        const k = 1024;
+        const dm = decimals < 0 ? 0 : decimals;
+        const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
+    };
 
     const validateAndSetFile = async (selectedFile: File | null) => {
         if (!selectedFile) {
             onFileChange(null);
+            if (inputRef.current) inputRef.current.value = '';
             return;
         }
 
         const fileSizeMB = selectedFile.size / 1024 / 1024;
 
-        // If file is within limits, just set it
         if (fileSizeMB <= maxSizeMB) {
             onFileChange(selectedFile);
             return;
         }
 
-        // If file is an image and auto-compression is on, try to compress it
         if (autoCompress && selectedFile.type.startsWith('image/')) {
             setIsCompressing(true);
             try {
-                const options = {
-                    maxSizeMB: maxSizeMB,
-                    useWebWorker: true,
-                };
+                const options = { maxSizeMB: maxSizeMB, useWebWorker: true };
                 const compressedFile = await imageCompression(selectedFile, options);
                 const compressedSizeMB = compressedFile.size / 1024 / 1024;
 
@@ -53,13 +59,13 @@ const FileInput: React.FC<{
                     message: `A imagem "${selectedFile.name}" era muito grande (${fileSizeMB.toFixed(2)} MB) e foi otimizada com sucesso para ${compressedSizeMB.toFixed(2)} MB.`
                 });
                 onFileChange(compressedFile);
-
             } catch (error) {
                 console.error('Erro na compressão da imagem:', error);
                 modal.alert({
                     title: 'Falha na Otimização',
-                    message: `Não foi possível otimizar a imagem "${selectedFile.name}". Por favor, tente comprimi-la manualmente.`
+                    message: `Não foi possível otimizar a imagem "${selectedFile.name}". Por favor, tente comprimi-la manualmente ou use uma imagem menor.`
                 });
+                onFileChange(null);
                 if (inputRef.current) inputRef.current.value = '';
             } finally {
                 setIsCompressing(false);
@@ -67,20 +73,30 @@ const FileInput: React.FC<{
             return;
         }
         
-        // If file is too large and cannot be compressed, reject it
         modal.alert({
             title: 'Arquivo Muito Grande',
             message: `O arquivo "${selectedFile.name}" (${fileSizeMB.toFixed(2)} MB) excede o tamanho máximo permitido de ${maxSizeMB} MB.`
         });
-        if (inputRef.current) {
-            inputRef.current.value = '';
-        }
+        onFileChange(null);
+        if (inputRef.current) inputRef.current.value = '';
     };
     
     const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
         validateAndSetFile(e.target.files?.[0] || null);
     };
     
+    const handleDragEnter = (e: React.DragEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setIsDraggingOver(true);
+    };
+
+    const handleDragLeave = (e: React.DragEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setIsDraggingOver(false);
+    };
+
     const handleDragOver = (e: React.DragEvent) => {
         e.preventDefault();
         e.stopPropagation();
@@ -89,43 +105,60 @@ const FileInput: React.FC<{
     const handleDrop = (e: React.DragEvent) => {
         e.preventDefault();
         e.stopPropagation();
+        setIsDraggingOver(false);
         const droppedFile = e.dataTransfer.files?.[0] || null;
-        if(droppedFile) {
+        if (droppedFile) {
             validateAndSetFile(droppedFile);
         }
     };
+
+    const handleRemoveFile = () => {
+        onFileChange(null);
+        if (inputRef.current) inputRef.current.value = '';
+    };
+
+    const borderClass = isDraggingOver 
+        ? 'border-fuchsia-500' 
+        : file 
+        ? 'border-green-500' 
+        : 'border-gray-600/50 hover:border-fuchsia-500';
 
     return (
         <div>
             <label className="block text-sm font-medium text-gray-300 mb-2">{label}</label>
             <div 
-                className={`relative flex items-center justify-center w-full h-24 px-4 py-2 bg-[#202124] border-2 border-dashed border-gray-600/50 rounded-lg transition-colors hover:border-fuchsia-500 ${file ? 'border-green-500' : ''}`}
+                className={`relative flex items-center justify-center w-full h-24 px-4 py-2 bg-[#202124] border-2 border-dashed rounded-lg transition-colors ${borderClass}`}
                 onClick={() => !isCompressing && inputRef.current?.click()}
+                onDragEnter={handleDragEnter}
+                onDragLeave={handleDragLeave}
                 onDragOver={handleDragOver}
                 onDrop={handleDrop}
             >
                 <input ref={inputRef} type="file" className="hidden" accept={accept} onChange={handleFileSelect} disabled={isCompressing} />
+                
                 {isCompressing ? (
-                    <div className="flex flex-col items-center gap-2 text-fuchsia-300">
-                        <Loader />
-                        <span className="text-xs italic">Otimizando imagem...</span>
+                    <div className="text-center text-fuchsia-300 cursor-wait">
+                        <div className="flex justify-center mb-2"><Loader /></div>
+                        <p className="text-xs italic">Otimizando imagem...</p>
                     </div>
                 ) : !file ? (
                     <div className="text-center text-gray-400 cursor-pointer">
                         <UploadCloudIcon className="w-6 h-6 mx-auto mb-1" />
-                        <p className="text-xs">Clique para selecionar ou arraste o arquivo</p>
+                        <p className="text-xs font-semibold">Clique para selecionar ou arraste o arquivo</p>
+                        <p className="text-xs text-gray-500 mt-1">Tam. máx: {maxSizeMB}MB</p>
                     </div>
                 ) : (
-                    <div className="flex items-center gap-3 text-white">
-                        <FileTextIcon className="w-6 h-6 text-green-400 flex-shrink-0" />
-                        <span className="text-sm font-medium truncate">{file.name}</span>
+                    <div className="text-center text-white">
+                        <FileTextIcon className="w-8 h-8 text-green-400 mx-auto mb-2" />
+                        <p className="text-sm font-medium truncate max-w-full px-2" title={file.name}>{file.name}</p>
+                        <p className="text-xs text-gray-400">{formatBytes(file.size)}</p>
                     </div>
                 )}
             </div>
             {file && (
                 <button
                     type="button"
-                    onClick={() => onFileChange(null)}
+                    onClick={handleRemoveFile}
                     className="mt-2 text-xs text-red-400 hover:underline"
                 >
                     Remover arquivo
