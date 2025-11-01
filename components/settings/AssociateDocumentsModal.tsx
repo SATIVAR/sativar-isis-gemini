@@ -194,7 +194,10 @@ export const AssociateDocumentsModal: React.FC<{
         setIsUploading(true);
         setGlobalError('');
 
-        const filesToUpload = Object.entries(files).filter(([, file]) => file !== null);
+        // FIX: Add a type predicate to the filter to ensure TypeScript correctly infers the type of `file` as `File`.
+        const filesToUpload = Object.entries(files).filter(
+            (entry): entry is [string, File] => entry[1] !== null,
+        );
 
         if (filesToUpload.length === 0) {
             appModal.alert({ title: "Nenhum arquivo", message: "Nenhum arquivo foi selecionado para upload." });
@@ -204,10 +207,9 @@ export const AssociateDocumentsModal: React.FC<{
 
         try {
             for (const [slotId, file] of filesToUpload) {
-                if (!file) continue;
                 const formData = new FormData();
                 formData.append('file', file);
-                // FIX: The `associate.id` type is `string | number`, but `formData.append` expects a `string` or `Blob`.
+                // The `associate.id` type is `string | number`, but `formData.append` expects a `string` or `Blob`.
                 // Converting it to a string resolves the type error.
                 formData.append('associate_id', associate.id.toString());
                 formData.append('document_type', slotId);

@@ -57,6 +57,20 @@ export const SeishatProductsPage: React.FC = () => {
         product.description.toLowerCase().includes(productSearch.toLowerCase())
     ), [formState.products, productSearch]);
 
+    const formatPrice = (price: string): string => {
+        if (typeof price !== 'string' || price.trim() === '') {
+            return 'R$ 0,00';
+        }
+        const number = parseFloat(price.replace(',', '.'));
+        if (isNaN(number)) {
+            return price; // Return original if not a valid number (e.g., "Sob Consulta")
+        }
+        return new Intl.NumberFormat('pt-BR', {
+            style: 'currency',
+            currency: 'BRL',
+        }).format(number);
+    };
+
     return (
         <>
             {isProductModalOpen && <ProductModal product={editingProduct} onSave={handleSaveProduct} onClose={() => setIsProductModalOpen(false)} />}
@@ -112,7 +126,7 @@ export const SeishatProductsPage: React.FC = () => {
                                                 <span>{p.name}</span>
                                             </div>
                                             </td>
-                                            <td className="px-4 py-3 text-gray-300">{p.price}</td>
+                                            <td className="px-4 py-3 text-gray-300">{formatPrice(p.price)}</td>
                                             <td className="px-4 py-3 text-gray-300 max-w-xs truncate" title={p.description}>{p.description}</td>
                                             <td className="px-4 py-3 flex items-center justify-end gap-2">
                                                 <button type="button" onClick={() => handleEditProduct(p)} className="p-1 text-gray-400 hover:text-fuchsia-400"><EditIcon className="w-4 h-4" /></button>
