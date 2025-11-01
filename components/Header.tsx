@@ -119,7 +119,7 @@ export const Header: React.FC<HeaderProps> = ({ setCurrentPage, currentPage, cur
                             {isRemindersOpen && <RemindersList onClose={() => setIsRemindersOpen(false)} />}
                         </div>
                         
-                        {auth.user?.role !== 'user' && (
+                        {auth.user?.role !== 'user' && currentMode === 'isis' && (
                             <button 
                                 onClick={handleSettingsClick}
                                 className="rounded-full p-2 transition-colors hover:bg-gray-700"
