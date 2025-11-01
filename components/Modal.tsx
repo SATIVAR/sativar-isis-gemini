@@ -48,7 +48,7 @@ export const Modal: React.FC<ModalProps> = ({ title, children, onClose, footer, 
             .animate-scale-up { animation: scale-up 0.2s ease-out forwards; }
         `}</style>
       <div 
-        className={`bg-[#202124] rounded-xl border border-gray-700 w-full ${sizeClass} shadow-2xl animate-scale-up flex flex-col max-h-[90vh]`} 
+        className={`bg-[#202124] rounded-xl border border-gray-700 w-full ${sizeClass} shadow-2xl animate-scale-up flex flex-col`} 
         onClick={e => e.stopPropagation()}
       >
         <header className="flex-shrink-0 p-4 border-b border-gray-700 flex justify-between items-center">
@@ -60,11 +60,11 @@ export const Modal: React.FC<ModalProps> = ({ title, children, onClose, footer, 
             <XCircleIcon className="w-6 h-6"/>
           </button>
         </header>
-        <main className="flex-grow overflow-y-auto p-6 text-gray-300 text-sm">
+        <main className="p-6 text-gray-300 text-sm">
           {children}
         </main>
         {footer && (
-          <footer className="flex-shrink-0 p-4 border-t border-gray-700/50 flex justify-end gap-3 bg-[#202124]/30 rounded-b-xl">
+          <footer className="flex-shrink-0 p-4 border-t border-gray-700/50 flex justify-end gap-3 bg-[#303134]/30 rounded-b-xl">
             {footer}
           </footer>
         )}

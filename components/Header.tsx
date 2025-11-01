@@ -1,8 +1,7 @@
 
-
 import React, { useState } from 'react';
-import type { AppMode } from '../App.tsx';
-import { BellIcon, PlusIcon, BriefcaseIcon, SparklesIcon } from './icons.tsx';
+import type { Page, AppMode } from '../App.tsx';
+import { SettingsIcon, BellIcon, PlusIcon, RepeatIcon, BriefcaseIcon, SparklesIcon } from './icons.tsx';
 import { useReminders } from '../hooks/useReminders.ts';
 import { useSettings } from '../hooks/useSettings.ts';
 import { RemindersList } from './Reminders.tsx';
@@ -11,32 +10,40 @@ import { useConnection } from '../hooks/useConnection.ts';
 import { useAuth } from '../hooks/useAuth.ts';
 
 interface HeaderProps {
+    setCurrentPage: (page: Page) => void;
+    currentPage: Page;
     currentMode: AppMode;
     setCurrentMode: (mode: AppMode) => void;
     onToggleMobileHistory?: () => void;
 }
 
-export const Header: React.FC<HeaderProps> = ({ currentMode, setCurrentMode, onToggleMobileHistory }) => {
+export const Header: React.FC<HeaderProps> = ({ setCurrentPage, currentPage, currentMode, setCurrentMode, onToggleMobileHistory }) => {
     const [isRemindersOpen, setIsRemindersOpen] = useState(false);
     const { reminders, hasOverdueReminders } = useReminders();
     const { settings } = useSettings();
     const { isOnline } = useConnection();
     const auth = useAuth();
-    const appVersion = `v.${new Date().getFullYear().toString().slice(-2)}`;
 
     const pendingCount = reminders.filter(r => !r.isCompleted).length;
     
+    const handleSettingsClick = () => {
+        setIsRemindersOpen(false); // Close reminders when navigating
+        if (currentPage === 'settings') {
+            setCurrentPage('main');
+        } else {
+            setCurrentPage('settings');
+        }
+    };
+    
     const handleHomeClick = () => {
         setIsRemindersOpen(false); // Close reminders when navigating
-        // The concept of a separate "main" page is removed; this just ensures reminders close.
+        setCurrentPage('main');
     }
 
     const handleModeToggle = () => {
         setCurrentMode(currentMode === 'isis' ? 'seishat' : 'isis');
+        setCurrentPage('main'); // Always go to the main page of the new mode
     };
-
-    const canShowModeToggle = auth.user?.role === 'admin' || settings.isIsisAiEnabled;
-    const isIsisDeactivatedForOthers = auth.user?.role === 'admin' && !settings.isIsisAiEnabled;
 
     return (
         <>
@@ -65,19 +72,19 @@ export const Header: React.FC<HeaderProps> = ({ currentMode, setCurrentMode, onT
                             </h1>
                             <span
                                 className={`select-none text-xs font-mono px-2 py-0.5 rounded-full transition-colors cursor-help ${isOnline ? 'bg-green-600 text-white' : 'bg-red-600 text-white'}`}
-                                title={isOnline ? `${appVersion} - Conectado ao servidor` : `${appVersion} - Operando em modo offline. As alterações serão salvas localmente.`}
+                                title={isOnline ? 'v0.30 - Conectado ao servidor' : 'v0.30 - Operando em modo offline. As alterações serão salvas localmente.'}
                             >
-                                {appVersion}
+                                v0.30
                             </span>
                         </div>
                         {settings.associationName && (
-                            <p className="text-xs text-gray-400">{settings.associationName}</p>
+                            <p className="text-sm text-gray-400 -mt-1">{settings.associationName}</p>
                         )}
                     </div>
                 </div>
                 {auth.isAuthenticated && (
                     <nav className="flex items-center gap-2">
-                        {currentMode === 'isis' && (
+                        {currentMode === 'isis' && currentPage === 'main' && (
                             <button
                                 onClick={onToggleMobileHistory}
                                 className="rounded-full p-2 transition-colors hover:bg-gray-700 min-[461px]:hidden"
@@ -87,27 +94,14 @@ export const Header: React.FC<HeaderProps> = ({ currentMode, setCurrentMode, onT
                             </button>
                         )}
                         
-                        {canShowModeToggle && (
-                            <div className="relative">
-                                <button
-                                    onClick={handleModeToggle}
-                                    className="rounded-full p-2 transition-colors hover:bg-gray-700"
-                                    title={
-                                        isIsisDeactivatedForOthers 
-                                            ? 'Modo Isis está desativado para outros usuários'
-                                            : (currentMode === 'isis' ? 'Acessar Painel Seishat (CRM)' : 'Acessar Modo Isis (IA)')
-                                    }
-                                    aria-label="Alternar modo de operação"
-                                >
-                                    {currentMode === 'isis' ? <BriefcaseIcon className="h-6 w-6 text-gray-400" /> : <SparklesIcon className="h-6 w-6 text-gray-400" />}
-                                </button>
-                                {isIsisDeactivatedForOthers && (
-                                     <span className="absolute top-1 right-1 block h-3 w-3 rounded-full bg-red-600 border-2 border-[#131314] ring-1 ring-red-500">
-                                        <span className="sr-only">Modo Isis Desativado</span>
-                                    </span>
-                                )}
-                            </div>
-                        )}
+                        <button
+                            onClick={handleModeToggle}
+                            className="rounded-full p-2 transition-colors hover:bg-gray-700"
+                            title={currentMode === 'isis' ? 'Alternar para Modo Seishat (CRM)' : 'Alternar para Modo Isis (IA)'}
+                            aria-label="Alternar modo de operação"
+                        >
+                           {currentMode === 'isis' ? <BriefcaseIcon className="h-6 w-6 text-gray-400" /> : <SparklesIcon className="h-6 w-6 text-gray-400" />}
+                        </button>
                         
                         <div className="relative">
                             <button 
@@ -125,6 +119,15 @@ export const Header: React.FC<HeaderProps> = ({ currentMode, setCurrentMode, onT
                             {isRemindersOpen && <RemindersList onClose={() => setIsRemindersOpen(false)} />}
                         </div>
                         
+                        {auth.user?.role !== 'user' && (
+                            <button 
+                                onClick={handleSettingsClick}
+                                className="rounded-full p-2 transition-colors hover:bg-gray-700"
+                                aria-label="Toggle settings"
+                            >
+                                <SettingsIcon className="h-6 w-6 text-gray-400" />
+                            </button>
+                        )}
                     </nav>
                 )}
             </header>

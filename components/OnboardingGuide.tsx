@@ -3,12 +3,12 @@ import { Logo } from './Logo.tsx';
 import { SparklesIcon, BriefcaseIcon, SettingsIcon, CheckCircleIcon } from './icons.tsx';
 
 interface OnboardingGuideProps {
-  onComplete: (dontShowAgain: boolean) => void;
+  onComplete: () => void;
 }
 
 interface StepContent {
   icon: React.ReactNode;
-  title: React.ReactNode;
+  title: string;
   description: React.ReactNode;
   buttonText: string;
 }
@@ -16,16 +16,7 @@ interface StepContent {
 const steps: StepContent[] = [
   {
     icon: <Logo className="h-20 w-20 mb-4 mx-auto" />,
-    title: (
-        <>
-          Bem-vindo(a) ao SATIVAR.
-          <div className="flex items-center justify-center gap-2 mt-2 text-xl text-gray-400 font-normal">
-            <span>Seishat</span> <BriefcaseIcon className="w-5 h-5 text-blue-300" />
-            <span className="text-gray-600">.</span>
-            <span>Isis</span> <SparklesIcon className="w-5 h-5 text-fuchsia-300" />
-          </div>
-        </>
-      ),
+    title: 'Bem-vindo(a) ao SATIVAR - Isis!',
     description: (
       <p>
         Seu assistente de IA para otimizar o atendimento da sua associação.
@@ -85,18 +76,16 @@ const steps: StepContent[] = [
 
 export const OnboardingGuide: React.FC<OnboardingGuideProps> = ({ onComplete }) => {
   const [currentStep, setCurrentStep] = useState(0);
-  const [dontShowAgain, setDontShowAgain] = useState(false);
 
   const handleNext = () => {
     if (currentStep < steps.length - 1) {
       setCurrentStep(currentStep + 1);
     } else {
-      onComplete(dontShowAgain);
+      onComplete();
     }
   };
 
   const step = steps[currentStep];
-  const isLastStep = currentStep === steps.length - 1;
 
   return (
     <div className="fixed inset-0 bg-black/80 z-[100] flex items-center justify-center p-4 animate-fade-in">
@@ -111,7 +100,7 @@ export const OnboardingGuide: React.FC<OnboardingGuideProps> = ({ onComplete }) 
         <h2 className="text-2xl font-bold text-white mt-2 mb-4">{step.title}</h2>
         <div className="text-gray-300 mb-8">{step.description}</div>
         
-        <div className="flex justify-center items-center gap-4 mb-8">
+        <div className="flex justify-center items-center gap-4 mb-4">
             {steps.map((_, index) => (
                 <div 
                     key={index}
@@ -126,21 +115,6 @@ export const OnboardingGuide: React.FC<OnboardingGuideProps> = ({ onComplete }) 
         >
           {step.buttonText}
         </button>
-
-        {isLastStep && (
-             <div className="flex items-center justify-center mt-6">
-                <input
-                    type="checkbox"
-                    id="dont-show-again"
-                    checked={dontShowAgain}
-                    onChange={(e) => setDontShowAgain(e.target.checked)}
-                    className="h-4 w-4 rounded border-gray-500 bg-gray-700 text-fuchsia-600 focus:ring-fuchsia-500 focus:ring-offset-gray-800"
-                />
-                <label htmlFor="dont-show-again" className="ml-2 block text-sm text-gray-400 select-none">
-                    Não mostrar esta mensagem novamente
-                </label>
-            </div>
-        )}
       </div>
     </div>
   );

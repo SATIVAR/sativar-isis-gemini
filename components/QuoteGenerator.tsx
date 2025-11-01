@@ -1,12 +1,15 @@
 import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { useSettings } from '../hooks/useSettings.ts';
 import { processPrescription, pingAI, isApiKeyConfigured, generateHighlight, generateConversationTitle } from '../services/geminiService.ts';
-import type { ChatMessage, Associate } from '../types.ts';
+import type { ChatMessage } from '../types.ts';
 import { AlertTriangleIcon, XCircleIcon, ServerIcon, CheckIcon } from './icons.tsx';
 import { Chat } from './Chat.tsx';
 import { useChatHistory } from '../hooks/useChatHistory.ts';
 import { ChatHistoryTabs } from './ChatHistoryTabs.tsx';
 import { Loader } from './Loader.tsx';
+import { useAuth } from '../hooks/useAuth.ts';
+import { AdminLogin } from './AdminLogin.tsx';
+import { AdminRegistration } from './AdminRegistration.tsx';
 import { useTokenUsage } from '../hooks/useTokenUsage.ts';
 
 interface FilePreviewModalProps {
@@ -83,7 +86,7 @@ const FilePreviewModal: React.FC<FilePreviewModalProps> = ({ file, onClose, onCo
                     )}
                 </div>
                 {isConfirmation && (
-                    <div className="flex-shrink-0 p-4 border-t border-gray-700/50 flex justify-end gap-3 bg-[#202124]/30 rounded-b-xl">
+                    <div className="flex-shrink-0 p-4 border-t border-gray-700/50 flex justify-end gap-3 bg-[#303134]/30 rounded-b-xl">
                         <button onClick={onClose} className="px-5 py-2 bg-gray-700 text-sm text-gray-300 font-medium rounded-lg hover:bg-gray-600 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-gray-900 focus:ring-gray-500">
                             Cancelar
                         </button>
@@ -104,7 +107,8 @@ interface QuoteGeneratorProps {
 }
 
 export const QuoteGenerator: React.FC<QuoteGeneratorProps> = ({ isMobileHistoryOpen, setIsMobileHistoryOpen }) => {
-    const { isLoaded, systemPrompt, settings } = useSettings();
+    const auth = useAuth();
+    const { isLoaded, sativarSeishatProducts, systemPrompt, wpConfig, settings } = useSettings();
     const {
         messages, setMessages, addMessage,
         conversations, activeConversationId,
@@ -117,8 +121,8 @@ export const QuoteGenerator: React.FC<QuoteGeneratorProps> = ({ isMobileHistoryO
     const [isSending, setIsSending] = useState(false);
     const [loadingAction, setLoadingAction] = useState<'file' | 'text' | null>(null);
     const [showSettingsWarning, setShowSettingsWarning] = useState(false);
+    const [wpConfigMissing, setWpConfigMissing] = useState(false);
     const [processingAction, setProcessingAction] = useState<{ messageId: string; payload: string; text?: string } | null>(null);
-    const [selectedPatient, setSelectedPatient] = useState<Associate | null>(null);
     
     // State for file previews
     const [previewFile, setPreviewFile] = useState<{ url: string; type: string; name: string } | null>(null);
@@ -144,9 +148,10 @@ export const QuoteGenerator: React.FC<QuoteGeneratorProps> = ({ isMobileHistoryO
     useEffect(() => {
         if (!isLoaded) return;
         
+        setWpConfigMissing(!wpConfig || !wpConfig.url);
         setShowSettingsWarning(settings.associationName.includes("[Insira") || settings.pixKey.includes("[Insira"));
 
-    }, [isLoaded, settings]);
+    }, [isLoaded, settings, wpConfig]);
 
 
     const handleAction = useCallback(async (messageId: string, payload: string) => {
@@ -168,20 +173,6 @@ export const QuoteGenerator: React.FC<QuoteGeneratorProps> = ({ isMobileHistoryO
         // Replace action buttons with user's plain text response
         setMessages(prev => [...prev.filter(m => m.id !== messageId), userResponseMessage]);
         await addMessage(userResponseMessage);
-        
-        // Handle 'search_associate' action
-        if (payload === 'search_associate') {
-            const searchMessage: ChatMessage = { 
-                id: `ai-associate-search-${Date.now()}`, 
-                sender: 'ai', 
-                content: { type: 'associate_search' },
-                timestamp: new Date().toISOString() 
-            };
-            setMessages(prev => [...prev, searchMessage]);
-            await addMessage(searchMessage);
-            setProcessingAction(null);
-            return;
-        }
 
         // Handle async 'generate_highlight' action
         if (payload === 'generate_highlight') {
@@ -243,8 +234,14 @@ export const QuoteGenerator: React.FC<QuoteGeneratorProps> = ({ isMobileHistoryO
         let followUpMessages: ChatMessage[] = [];
         
         switch (payload) {
+            case 'start_user_lookup':
+                followUpMessages.push({ id: `ai-resp-${Date.now()}`, sender: 'ai', content: { type: 'user_search' }, timestamp: new Date().toISOString() });
+                break;
             case 'general_info':
                 followUpMessages.push({ id: `ai-resp-${Date.now()}`, sender: 'ai', content: { type: 'actions', text: 'Claro! Sobre o que você gostaria de saber?', actions: [ { label: 'Horário de funcionamento', payload: 'info_hours' }, { label: 'Formas de pagamento', payload: 'info_payment' }, { label: 'Outra dúvida', payload: 'info_other' }, ] }, timestamp: new Date().toISOString() });
+                break;
+            case 'info_products':
+                followUpMessages.push({ id: `ai-resp-${Date.now()}`, sender: 'ai', content: { type: 'product_search' }, timestamp: new Date().toISOString() });
                 break;
             case 'info_hours':
                 followUpMessages.push({ id: `ai-resp-${Date.now()}`, sender: 'ai', content: { type: 'text', text: `Nosso horário de funcionamento é: ${settings.operatingHours || 'Não informado.'}` }, timestamp: new Date().toISOString() });
@@ -269,7 +266,7 @@ export const QuoteGenerator: React.FC<QuoteGeneratorProps> = ({ isMobileHistoryO
     }, [messages, settings, addMessage, setMessages, addTokens]);
 
     const runFileAnalysis = useCallback(async (file: File) => {
-        if (showSettingsWarning || apiKeyMissing) return;
+        if (showSettingsWarning || apiKeyMissing || wpConfigMissing) return;
 
         const fileURL = URL.createObjectURL(file);
         objectUrls.current.push(fileURL);
@@ -299,7 +296,7 @@ export const QuoteGenerator: React.FC<QuoteGeneratorProps> = ({ isMobileHistoryO
 
         const startTime = Date.now();
         try {
-            const { result, tokenCount } = await processPrescription(file, systemPrompt, selectedPatient?.full_name);
+            const { result, tokenCount } = await processPrescription(file, systemPrompt);
             const duration = Date.now() - startTime;
             addTokens(tokenCount);
             if(activeConversationId) {
@@ -322,9 +319,8 @@ export const QuoteGenerator: React.FC<QuoteGeneratorProps> = ({ isMobileHistoryO
             }
             setIsSending(false);
             setLoadingAction(null);
-            setSelectedPatient(null);
         }
-    }, [systemPrompt, showSettingsWarning, apiKeyMissing, setMessages, addMessage, activeConversationId, updateConversationTitle, addTokens, selectedPatient]);
+    }, [systemPrompt, showSettingsWarning, apiKeyMissing, wpConfigMissing, setMessages, addMessage, activeConversationId, updateConversationTitle, addTokens]);
 
     const handleSendText = useCallback(async (text: string) => {
         if (apiKeyMissing) return;
@@ -364,31 +360,6 @@ export const QuoteGenerator: React.FC<QuoteGeneratorProps> = ({ isMobileHistoryO
             await handleSendText(text);
         }
     }, [handleSendText]);
-    
-    const handleAssociateSelect = async (associate: Associate) => {
-        setSelectedPatient(associate);
-        setMessages(prev => prev.filter(m => m.content.type !== 'associate_search'));
-        
-        const userMessage: ChatMessage = {
-            id: `user-select-associate-${Date.now()}`,
-            sender: 'user',
-            content: { type: 'text', text: `Selecionado: ${associate.full_name}` },
-            timestamp: new Date().toISOString(),
-        };
-
-        const aiFollowUp: ChatMessage = {
-            id: `ai-confirm-associate-${Date.now()}`,
-            sender: 'ai',
-            content: { type: 'text', text: `Ótimo, associado "${associate.full_name}" selecionado. Agora, por favor, anexe o arquivo da receita para eu analisar.` },
-            timestamp: new Date().toISOString(),
-        };
-        
-        const updatedMessages = [...messages.filter(m => m.content.type !== 'associate_search'), userMessage, aiFollowUp];
-        setMessages(updatedMessages);
-
-        await addMessage(userMessage);
-        await addMessage(aiFollowUp);
-    };
 
     const handleConfirmAndAnalyze = useCallback(async () => {
         if (pendingAnalysisFile) {
@@ -403,12 +374,36 @@ export const QuoteGenerator: React.FC<QuoteGeneratorProps> = ({ isMobileHistoryO
         setPreviewFile(file);
     };
 
+    if (auth.isLoading) {
+        return (
+            <div className="flex h-full items-center justify-center">
+                <Loader />
+            </div>
+        );
+    }
+
+    if (!auth.isAdminSetup) {
+        return (
+            <div className="flex h-full items-center justify-center p-4">
+                <AdminRegistration onRegistrationSuccess={auth.checkSetup} />
+            </div>
+        );
+    }
+
+    if (!auth.isAuthenticated) {
+        return (
+            <div className="flex h-full items-center justify-center p-4">
+                <AdminLogin />
+            </div>
+        );
+    }
+
     const isChatClosed = activeConversation?.is_closed === true;
-    const isChatDisabled = !settings.isIsisAiEnabled || showSettingsWarning || apiKeyMissing || isChatClosed;
+    const isChatDisabled = showSettingsWarning || apiKeyMissing || wpConfigMissing || isChatClosed;
     
     let disabledReason = "";
-    if (!settings.isIsisAiEnabled) disabledReason = "O Modo Isis (IA) está desativado nas configurações da associação.";
-    else if (apiKeyMissing) disabledReason = "Ação necessária: A Chave da API do Gemini não foi configurada no ambiente.";
+    if (apiKeyMissing) disabledReason = "Ação necessária: A Chave da API do Gemini não foi configurada no ambiente.";
+    else if (wpConfigMissing) disabledReason = "Ação necessária: Configure a API do Sativar_WP_API nas Configurações.";
     else if (showSettingsWarning) disabledReason = "Complete as configurações da associação para habilitar o envio de receitas.";
     else if (isChatClosed) disabledReason = "Chat encerrado. Inicie uma nova análise para continuar.";
 
@@ -471,6 +466,14 @@ export const QuoteGenerator: React.FC<QuoteGeneratorProps> = ({ isMobileHistoryO
                         </div>
                     </div>
                 )}
+                {(wpConfigMissing && !apiKeyMissing) && (
+                     <div className="flex-shrink-0 p-2">
+                        <div className="mx-auto max-w-4xl rounded-md bg-yellow-900/50 p-3 text-sm text-yellow-300 flex items-center gap-3 border border-yellow-700/50">
+                            <AlertTriangleIcon className="h-5 w-5 flex-shrink-0" />
+                            <span>A conexão com o sistema Sativar_WP_API ainda não foi configurada. Visite a página de 'Configurações' para habilitar a integração.</span>
+                        </div>
+                    </div>
+                )}
                 
                 {isHistoryLoading ? (
                      <div className="flex-grow flex items-center justify-center">
@@ -493,7 +496,6 @@ export const QuoteGenerator: React.FC<QuoteGeneratorProps> = ({ isMobileHistoryO
                         onAction={handleAction}
                         processingAction={processingAction}
                         onOpenFilePreview={handleOpenFilePreview}
-                        onAssociateSelect={handleAssociateSelect}
                     />
                 )}
             </div>

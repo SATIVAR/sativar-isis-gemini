@@ -3,13 +3,6 @@ import React from 'react';
 // Props for all icons
 type IconProps = React.SVGProps<SVGSVGElement>;
 
-export const HomeIcon: React.FC<IconProps> = (props) => (
-  <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
-    <polyline points="9 22 9 12 15 12 15 22" />
-  </svg>
-);
-
 export const UploadCloudIcon: React.FC<IconProps> = (props) => (
   <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242" />
@@ -48,12 +41,6 @@ export const FileTextIcon: React.FC<IconProps> = (props) => (
         <path d="M16 17H8" />
         <path d="M10 9H8" />
     </svg>
-);
-
-export const FolderIcon: React.FC<IconProps> = (props) => (
-  <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z" />
-  </svg>
 );
 
 export const AlertTriangleIcon: React.FC<IconProps> = (props) => (
@@ -259,17 +246,6 @@ export const WifiOffIcon: React.FC<IconProps> = (props) => (
   </svg>
 );
 
-export const GripVerticalIcon: React.FC<IconProps> = (props) => (
-    <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <circle cx="9" cy="12" r="1" />
-        <circle cx="9" cy="5" r="1" />
-        <circle cx="9" cy="19" r="1" />
-        <circle cx="15" cy="12" r="1" />
-        <circle cx="15" cy="5" r="1" />
-        <circle cx="15" cy="19" r="1" />
-    </svg>
-);
-
 export const GaugeCircleIcon: React.FC<IconProps> = (props) => (
   <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <path d="M15.6 3.3a10 10 0 1 0 5.1 7.4" />
@@ -347,13 +323,7 @@ export const ClockIcon: React.FC<IconProps> = (props) => (
 
 export const ChevronDownIcon: React.FC<IconProps> = (props) => (
   <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="m6 9 6 6 6-6" />
-  </svg>
-);
-
-export const ChevronUpIcon: React.FC<IconProps> = (props) => (
-  <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <path d="m18 15-6-6-6 6" />
+    <path d="m6 9 12 15 18-9" />
   </svg>
 );
 

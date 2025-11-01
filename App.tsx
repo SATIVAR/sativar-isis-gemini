@@ -1,6 +1,8 @@
-
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Header } from './components/Header.tsx';
+import { SettingsLayout } from './components/settings/SettingsLayout.tsx';
+import { SeishatSettingsLayout } from './components/settings/seishat/SeishatSettingsLayout.tsx';
+// FIX: Import the 'useSettings' hook.
 import { SettingsProvider, useSettings } from './hooks/useSettings.ts';
 import { RemindersProvider, useReminders } from './hooks/useReminders.ts';
 import { ConnectionProvider } from './hooks/useConnection.ts';
@@ -12,390 +14,16 @@ import { Loader } from './components/Loader.tsx';
 import { ChatHistoryProvider } from './hooks/useChatHistory.ts';
 import { ModalProvider, useModal } from './hooks/useModal.ts';
 import { Modal } from './components/Modal.tsx';
-import { AlertTriangleIcon, BarChart2Icon, BellIcon, BriefcaseIcon, CheckCircleIcon, CheckSquareIcon, ChevronDownIcon, ClockIcon, DollarSignIcon, FileCodeIcon, FileTextIcon, HomeIcon, LogOutIcon, PlusIcon, SettingsIcon, ShoppingCartIcon, SparklesIcon, StoreIcon, UsersIcon } from './components/icons.tsx';
+import { AlertTriangleIcon, BookIcon, BookOpenIcon, BriefcaseIcon, CalendarIcon, CheckCircleIcon, CheckSquareIcon, CoffeeIcon, DollarSignIcon, EditIcon, PersonRunningIcon, PlusIcon, SparklesIcon, SunriseIcon, TableIcon, UtensilsIcon } from './components/icons.tsx';
 import { AuthProvider, useAuth } from './hooks/useAuth.ts';
 import { TokenUsageProvider } from './hooks/useTokenUsage.ts';
 import { OnboardingGuide } from './components/OnboardingGuide.tsx';
-import { AdminRegistration } from './components/AdminRegistration.tsx';
-import { AdminLogin } from './components/AdminLogin.tsx';
-import type { UserRole, Settings } from './types.ts';
 
-// Import all settings pages
-import { SeishatProductsPage } from './components/settings/ProductsPage.tsx';
-import { AssociationPage } from './components/settings/AssociationPage.tsx';
-import { UsersPage } from './components/settings/UsersPage.tsx';
-import { NotificationsPage } from './components/settings/NotificationsPage.tsx';
-import { AdvancedPage } from './components/settings/ClientsPage.tsx';
-import { PromptPage } from './components/settings/PromptPage.tsx';
-import { ApiHistoryPage } from './components/settings/ApiHistoryPage.tsx';
-import { AssociatesPage } from './components/settings/AssociatesPage.tsx';
-import { ApiUsagePage } from './components/settings/ApiUsagePage.tsx';
-import { DashboardPage } from './components/settings/DashboardPage.tsx';
-import { FormsPage } from './components/settings/FormsPage.tsx';
-import { DocumentsPage } from './components/settings/DocumentsPage.tsx';
-
-
+export type Page = 'main' | 'settings';
 export type AppMode = 'isis' | 'seishat';
 
-// --- Seishat CRM / Settings Components ---
-
-export type SeishatPageName = 
-    'dashboard'
-    // General
-    | 'association' | 'users' | 'notifications'
-    // Seishat
-    | 'products' | 'associates' | 'prescribers' | 'documents' | 'orders' | 'expenses' | 'reports'
-    // Isis
-    | 'prompt' | 'apiHistory' | 'apiUsage'
-    // Admin
-    | 'forms'
-    // Standalone
-    | 'advancedSettings';
-
-interface NavItemProps {
-  pageName: SeishatPageName;
-  label: string;
-  icon: React.ReactElement;
-  activePage: SeishatPageName;
-  onClick: (page: SeishatPageName) => void;
-  disabled?: boolean;
-}
-
-const NavItem: React.FC<NavItemProps> = ({ pageName, label, icon, activePage, onClick, disabled }) => (
-    <button
-      onClick={() => !disabled && onClick(pageName)}
-      className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors ${
-        activePage === pageName
-          ? 'bg-fuchsia-600/20 text-fuchsia-300 font-semibold'
-          : disabled 
-            ? 'text-gray-600 cursor-not-allowed'
-            : 'text-gray-400 hover:bg-gray-700/50 hover:text-white'
-      }`}
-      aria-current={activePage === pageName ? 'page' : undefined}
-      disabled={disabled}
-    >
-      {icon}
-      <span>{label}</span>
-      {disabled && <span className="text-xs text-gray-500 ml-auto">(Em breve)</span>}
-    </button>
-);
-
-type AccordionName = 'general' | 'seishat' | 'isis' | 'admin' | 'none';
-
-const AccordionItem: React.FC<{
-  label: string;
-  icon: React.ReactNode;
-  children: React.ReactNode;
-  isOpen: boolean;
-  onClick: () => void;
-  isActiveSection: boolean;
-}> = ({ label, icon, children, isOpen, onClick, isActiveSection }) => (
-  <div>
-    <button
-      onClick={onClick}
-      className={`w-full flex items-center justify-between gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-        isActiveSection && !isOpen ? 'bg-fuchsia-600/10 text-white' : 'text-gray-400 hover:bg-gray-700/50 hover:text-gray-200'
-      }`}
-      aria-expanded={isOpen}
-    >
-      <div className="flex items-center gap-3">
-        {icon}
-        <span>{label}</span>
-      </div>
-      <ChevronDownIcon className={`w-5 h-5 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
-    </button>
-    <div
-      className={`pl-4 overflow-hidden transition-all duration-300 ease-in-out ${isOpen ? 'max-h-[500px]' : 'max-h-0'}`}
-    >
-        <div className="border-l border-gray-600/50 flex flex-col gap-1 pl-4 py-1 mt-1">
-            {children}
-        </div>
-    </div>
-  </div>
-);
-
-interface SeishatSidebarProps {
-  activePage: SeishatPageName;
-  setActivePage: (page: SeishatPageName) => void;
-  onLogout: () => void;
-  userRole: UserRole;
-  formState: Settings;
-  setFormState: React.Dispatch<React.SetStateAction<Settings>>;
-}
-
-const SeishatSidebar: React.FC<SeishatSidebarProps> = ({ activePage, setActivePage, onLogout, userRole, formState, setFormState }) => {
-    const [openAccordion, setOpenAccordion] = useState<AccordionName>('general');
-    
-    const handleToggleChange = (name: string, value: boolean) => {
-        setFormState(prev => ({ ...prev, [name]: value }));
-    };
-    
-    const generalItems = [
-        { page: 'association' as SeishatPageName, label: 'Associação', icon: <UsersIcon className="w-5 h-5" />, roles: ['admin', 'manager', 'user'], disabled: false },
-        { page: 'users' as SeishatPageName, label: 'Usuários do Sistema', icon: <UsersIcon className="w-5 h-5" />, roles: ['admin'], disabled: false },
-        { page: 'notifications' as SeishatPageName, label: 'Notificações', icon: <BellIcon className="w-5 h-5" />, roles: ['admin', 'manager', 'user'], disabled: false },
-    ];
-    
-    const seishatItems = [
-        { page: 'associates' as SeishatPageName, label: 'Associados', icon: <UsersIcon className="w-5 h-5" />, roles: ['admin', 'manager'], disabled: false },
-        { page: 'products' as SeishatPageName, label: 'Produtos', icon: <StoreIcon className="w-5 h-5" />, roles: ['admin', 'manager'], disabled: false },
-        { page: 'prescribers' as SeishatPageName, label: 'Prescritores', icon: <UsersIcon className="w-5 h-5" />, roles: ['admin', 'manager'], disabled: true },
-        { page: 'documents' as SeishatPageName, label: 'Documentos', icon: <FileTextIcon className="w-5 h-5" />, roles: ['admin', 'manager'], disabled: false },
-        { page: 'orders' as SeishatPageName, label: 'Pedidos', icon: <ShoppingCartIcon className="w-5 h-5" />, roles: ['admin', 'manager'], disabled: true },
-        { page: 'expenses' as SeishatPageName, label: 'Despesas', icon: <DollarSignIcon className="w-5 h-5" />, roles: ['admin', 'manager'], disabled: true },
-        { page: 'reports' as SeishatPageName, label: 'Relatórios', icon: <BarChart2Icon className="w-5 h-5" />, roles: ['admin', 'manager'], disabled: true },
-    ];
-    
-    const isisItems = [
-        { page: 'prompt' as SeishatPageName, label: 'Prompt do Sistema', icon: <FileCodeIcon className="w-5 h-5" />, roles: ['admin'], disabled: false },
-        { page: 'apiHistory' as SeishatPageName, label: 'Log e Uso da API', icon: <ClockIcon className="w-5 h-5" />, roles: ['admin'], disabled: false },
-    ];
-
-    const adminItems = [
-        { page: 'forms' as SeishatPageName, label: 'Formulários', icon: <CheckSquareIcon className="w-5 h-5" />, roles: ['admin'], disabled: false },
-    ];
-
-    const handleAccordionClick = (name: AccordionName) => {
-      setOpenAccordion(prev => (prev === name ? 'none' : name));
-    };
-
-    const isDashboardActive = activePage === 'dashboard';
-    const isGeneralSectionActive = useMemo(() => generalItems.some(item => item.page === activePage), [activePage]);
-    const isSeishatSectionActive = useMemo(() => seishatItems.some(item => item.page === activePage), [activePage]);
-    const isIsisSectionActive = useMemo(() => isisItems.some(item => item.page === activePage), [activePage]);
-    const isAdminSectionActive = useMemo(() => adminItems.some(item => item.page === activePage), [activePage]);
-    const isAdvancedSettingsActive = activePage === 'advancedSettings';
-
-    useEffect(() => {
-        if (isAdvancedSettingsActive || isDashboardActive) {
-            setOpenAccordion('none');
-        } else if (isGeneralSectionActive) setOpenAccordion('general');
-        else if (isSeishatSectionActive) setOpenAccordion('seishat');
-        else if (isIsisSectionActive) setOpenAccordion('isis');
-        else if (isAdminSectionActive) setOpenAccordion('admin');
-    }, [isGeneralSectionActive, isSeishatSectionActive, isIsisSectionActive, isAdminSectionActive, isAdvancedSettingsActive, isDashboardActive]);
-    
-    return (
-        <aside className="w-64 flex-shrink-0 bg-[#202124] p-3 flex flex-col font-sans">
-            <h2 className="text-lg font-bold text-white px-2 mb-4">Painel de Controle</h2>
-            <nav className="flex-grow space-y-3">
-                 <NavItem
-                    pageName="dashboard"
-                    label="Dashboard"
-                    icon={<HomeIcon className="w-5 h-5" />}
-                    activePage={activePage}
-                    onClick={setActivePage}
-                />
-                 <AccordionItem
-                    label="Geral"
-                    icon={<SettingsIcon className="w-5 h-5" />}
-                    isOpen={openAccordion === 'general'}
-                    onClick={() => handleAccordionClick('general')}
-                    isActiveSection={isGeneralSectionActive}
-                >
-                    {generalItems.filter(i => i.roles.includes(userRole)).map(item => (
-                        <NavItem key={item.page} pageName={item.page} label={item.label} icon={item.icon} disabled={item.disabled} activePage={activePage} onClick={setActivePage} />
-                    ))}
-                </AccordionItem>
-
-                 <AccordionItem
-                    label="Seishat (CRM)"
-                    icon={<BriefcaseIcon className="w-5 h-5" />}
-                    isOpen={openAccordion === 'seishat'}
-                    onClick={() => handleAccordionClick('seishat')}
-                    isActiveSection={isSeishatSectionActive}
-                >
-                    {seishatItems.filter(i => i.roles.includes(userRole)).map(item => (
-                        <NavItem key={item.page} pageName={item.page} label={item.label} icon={item.icon} disabled={item.disabled} activePage={activePage} onClick={setActivePage} />
-                    ))}
-                </AccordionItem>
-
-                {userRole === 'admin' && (
-                     <AccordionItem
-                        label="Ísis (IA)"
-                        icon={<SparklesIcon className="w-5 h-5" />}
-                        isOpen={openAccordion === 'isis'}
-                        onClick={() => handleAccordionClick('isis')}
-                        isActiveSection={isIsisSectionActive}
-                    >
-                         {isisItems.filter(i => i.roles.includes(userRole)).map(item => (
-                            <NavItem key={item.page} pageName={item.page} label={item.label} icon={item.icon} disabled={item.disabled} activePage={activePage} onClick={setActivePage} />
-                        ))}
-                        <div className="mt-2 pt-2 border-t border-gray-600/50">
-                            <div className="flex items-center justify-between p-2 rounded-lg text-sm" title="Permite que os usuários acessem as funcionalidades de inteligência artificial.">
-                                <label htmlFor="isis-toggle-sidebar" className="flex items-center gap-3 cursor-pointer flex-grow">
-                                    <SparklesIcon className="w-5 h-5 text-gray-400" />
-                                    <span className="font-medium text-gray-300">Habilitar Isis</span>
-                                </label>
-                                <button
-                                    type="button"
-                                    id="isis-toggle-sidebar"
-                                    onClick={() => handleToggleChange('isIsisAiEnabled', !formState.isIsisAiEnabled)}
-                                    className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-fuchsia-500 focus:ring-offset-2 focus:ring-offset-[#202124] ${formState.isIsisAiEnabled ? 'bg-green-600' : 'bg-gray-600'}`}
-                                    role="switch"
-                                    aria-checked={formState.isIsisAiEnabled}
-                                >
-                                    <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${formState.isIsisAiEnabled ? 'translate-x-5' : 'translate-x-0'}`} />
-                                </button>
-                            </div>
-                        </div>
-                    </AccordionItem>
-                )}
-                 {userRole === 'admin' && (
-                     <AccordionItem
-                        label="Administração"
-                        icon={<BriefcaseIcon className="w-5 h-5" />}
-                        isOpen={openAccordion === 'admin'}
-                        onClick={() => handleAccordionClick('admin')}
-                        isActiveSection={isAdminSectionActive}
-                    >
-                         {adminItems.filter(i => i.roles.includes(userRole)).map(item => (
-                            <NavItem key={item.page} pageName={item.page} label={item.label} icon={item.icon} disabled={item.disabled} activePage={activePage} onClick={setActivePage} />
-                        ))}
-                    </AccordionItem>
-                )}
-            </nav>
-
-            {userRole === 'admin' && (
-                <div className="mt-auto pt-2">
-                    <div className="my-2 border-t border-gray-600/50"></div>
-                    <NavItem 
-                        pageName="advancedSettings" 
-                        label="Configurações Avançadas" 
-                        icon={<SettingsIcon className="w-5 h-5" />} 
-                        activePage={activePage} 
-                        onClick={setActivePage}
-                    />
-                </div>
-            )}
-
-            <button onClick={onLogout} className="w-full mt-4 flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-gray-400 hover:bg-red-900/40 hover:text-red-300 transition-colors">
-                <LogOutIcon className="w-5 h-5" />
-                Sair
-            </button>
-        </aside>
-    );
-};
-
-const ComingSoon: React.FC<{ pageName: string }> = ({ pageName }) => (
-    <div className="flex flex-col items-center justify-center h-full text-center text-gray-500">
-        <BriefcaseIcon className="w-16 h-16 mb-4" />
-        <h2 className="text-2xl font-bold text-gray-300">Página de {pageName}</h2>
-        <p className="mt-2 text-lg">Este módulo estará disponível em breve.</p>
-    </div>
-);
-
-const SeishatLayout: React.FC<{ onLogout: () => void; }> = ({ onLogout }) => {
-    const auth = useAuth();
-    const { formState, setFormState, saveSettings, hasUnsavedChanges, validateSettings } = useSettings();
-    const modal = useModal();
-    
-    const [activePage, setActivePage] = useState<SeishatPageName>('dashboard');
-    const [isSaving, setIsSaving] = useState(false);
-    const [showErrorToast, setShowErrorToast] = useState(false);
-
-    const handleSave = async () => {
-        if (!hasUnsavedChanges) return;
-
-        if (!validateSettings(formState)) {
-            setShowErrorToast(true);
-            setTimeout(() => setShowErrorToast(false), 3000);
-            return;
-        }
-
-        const confirmed = await modal.confirm({
-            title: 'Confirmar Alterações',
-            message: 'Deseja realmente salvar as alterações feitas nas configurações?',
-            confirmLabel: 'Salvar',
-            cancelLabel: 'Cancelar'
-        });
-    
-        if (confirmed) {
-            setIsSaving(true);
-            await saveSettings(formState);
-            setIsSaving(false);
-            modal.alert({
-                title: 'Salvo!',
-                message: 'Suas alterações foram salvas com sucesso.'
-            });
-        }
-    };
-
-    const renderPage = () => {
-        if (!auth.user) return <Loader />;
-
-        switch (activePage) {
-            case 'dashboard': return <DashboardPage />;
-            // General
-            case 'association': return <AssociationPage />;
-            case 'users': return <UsersPage />;
-            case 'notifications': return <NotificationsPage />;
-            // Seishat
-            case 'products': return <SeishatProductsPage />;
-            case 'associates': return <AssociatesPage />;
-            case 'prescribers': return <ComingSoon pageName="Prescritores" />;
-            case 'documents': return <DocumentsPage />;
-            case 'orders': return <ComingSoon pageName="Pedidos" />;
-            case 'expenses': return <ComingSoon pageName="Despesas" />;
-            case 'reports': return <ComingSoon pageName="Relatórios" />;
-            // Isis
-            case 'prompt': return <PromptPage />;
-            case 'apiHistory': return <ApiHistoryPage />;
-            case 'apiUsage': return <ApiUsagePage />;
-            // Admin
-            case 'forms': return <FormsPage />;
-            // Standalone
-            case 'advancedSettings': return <AdvancedPage />;
-            default: return <DashboardPage />;
-        }
-    };
-
-    if (!auth.user) return <div className="flex h-full items-center justify-center"><Loader /></div>;
-
-    return (
-        <>
-            <div className="flex h-full">
-                <SeishatSidebar 
-                    activePage={activePage}
-                    setActivePage={setActivePage}
-                    onLogout={onLogout}
-                    userRole={auth.user.role}
-                    formState={formState}
-                    setFormState={setFormState}
-                />
-                <div className="flex-grow p-4 sm:p-6 md:p-8 overflow-y-auto bg-[#131314]">
-                    {renderPage()}
-                </div>
-                 <div 
-                    className={`fixed bottom-8 right-0 left-0 flex justify-center md:right-8 z-50 transition-all duration-300 ease-in-out ${
-                    (hasUnsavedChanges || showErrorToast) ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-5 pointer-events-none'
-                    }`}
-                >
-                    <div className="relative">
-                        {hasUnsavedChanges && !showErrorToast && (
-                            <button
-                                onClick={handleSave}
-                                disabled={isSaving}
-                                className="flex items-center justify-center gap-2 px-6 py-3 bg-green-600 text-white font-semibold rounded-lg shadow-2xl hover:bg-green-700 transition-transform hover:scale-105 disabled:opacity-70 disabled:cursor-wait"
-                                aria-label="Salvar alterações"
-                            >
-                                {isSaving ? <Loader /> : <CheckSquareIcon className="w-6 h-6" />}
-                                <span className="text-sm">{isSaving ? 'Salvando...' : 'Salvar Alterações'}</span>
-                            </button>
-                        )}
-                        {showErrorToast && (
-                            <div className="flex items-center gap-3 bg-red-800 text-white px-6 py-3 rounded-lg shadow-2xl border border-red-500/50" role="alert">
-                                <AlertTriangleIcon className="w-5 h-5 text-red-300" />
-                                <span className="font-semibold text-sm">Corrija os campos inválidos para salvar as alterações.</span>
-                            </div>
-                        )}
-                    </div>
-                </div>
-            </div>
-        </>
-    );
-};
-
+// This component contains the logic to trigger notifications.
+// It's placed inside the App component to have access to all necessary contexts.
 const NotificationTrigger: React.FC = () => {
     const { reminders } = useReminders();
     const { showNotification, permission, isEnabled } = useNotifications();
@@ -424,6 +52,7 @@ const NotificationTrigger: React.FC = () => {
                     
                     showNotification(title, { body });
 
+                    // Update notified list
                     const updatedNotifiedIds = [...notifiedIds, ...newOverdueReminders.map(r => r.id)];
                     localStorage.setItem(NOTIFIED_REMINDERS_KEY, JSON.stringify(updatedNotifiedIds));
                 }
@@ -433,13 +62,19 @@ const NotificationTrigger: React.FC = () => {
         }
     }, [reminders, permission, isEnabled, showNotification]);
 
-    return null;
+    return null; // This component doesn't render anything visible
 };
 
 const LoadingScreen: React.FC<{ message: string; mode: AppMode }> = ({ message, mode }) => {
     const modeDetails = {
-        isis: { name: 'Isis Chat', icon: <SparklesIcon className="w-5 h-5 text-gray-400" /> },
-        seishat: { name: 'Seishat CRM', icon: <BriefcaseIcon className="w-5 h-5 text-gray-400" /> }
+        isis: {
+            name: 'Isis Chat',
+            icon: <SparklesIcon className="w-5 h-5 text-gray-400" />
+        },
+        seishat: {
+            name: 'Seishat CRM',
+            icon: <BriefcaseIcon className="w-5 h-5 text-gray-400" />
+        }
     };
     const currentModeDetails = modeDetails[mode];
 
@@ -460,11 +95,117 @@ const LoadingScreen: React.FC<{ message: string; mode: AppMode }> = ({ message, 
 };
 
 
-const AppContent: React.FC = () => {
-    const { settings, isInitialSyncing, initialSyncMessage } = useSettings();
-    const [currentMode, _setCurrentMode] = useState<AppMode>(
-        () => (localStorage.getItem('sativar_app_mode') as AppMode) || 'seishat'
+const StatusBadge: React.FC<{ status: 'Concluído' | 'Em andamento' | 'Não iniciada' }> = ({ status }) => {
+    const statusStyles = {
+        'Concluído': 'bg-green-800 text-green-300',
+        'Em andamento': 'bg-yellow-800 text-yellow-300',
+        'Não iniciada': 'bg-gray-700 text-gray-400',
+    };
+    return <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${statusStyles[status]}`}>{status}</span>;
+};
+
+const SeishatCrm: React.FC = () => {
+    const activities = [
+        { icon: <SunriseIcon className="w-4 h-4 text-gray-400" />, text: 'Acordar e fazer higiene', status: 'Concluído' as const },
+        { icon: <CoffeeIcon className="w-4 h-4 text-gray-400" />, text: 'Tomar café da manhã', status: 'Em andamento' as const },
+        { icon: <BookOpenIcon className="w-4 h-4 text-gray-400" />, text: 'Trabalhar ou estudar', status: 'Não iniciada' as const },
+        { icon: <UtensilsIcon className="w-4 h-4 text-gray-400" />, text: 'Almoçar', status: 'Não iniciada' as const },
+        { icon: <PersonRunningIcon className="w-4 h-4 text-gray-400" />, text: 'Treinar', status: 'Não iniciada' as const },
+    ];
+    
+    const templates = [
+        { icon: <BookIcon className="w-6 h-6 text-gray-400" />, title: 'Wiki da vida', author: 'Pelo Notion', image: 'https://i.imgur.com/KFF3fB2.png' },
+        { icon: <EditIcon className="w-6 h-6 text-gray-400" />, title: 'Diário', author: 'Pelo Notion', image: 'https://i.imgur.com/lJg0m7A.png' },
+        { icon: <CheckSquareIcon className="w-6 h-6 text-gray-400" />, title: 'Lista de tarefas', author: 'Pelo Notion', image: 'https://i.imgur.com/8mP1H4a.png' },
+        { icon: <DollarSignIcon className="w-6 h-6 text-gray-400" />, title: 'Orçamento', author: 'Pelo Notion', image: 'https://i.imgur.com/qE4Jc8E.png' },
+    ];
+
+    const DashboardSectionTitle: React.FC<{ title: string; icon: React.ReactNode; }> = ({ title, icon }) => (
+        <div className="flex items-center gap-2 text-sm text-gray-400 mb-3 px-1">
+            {icon}
+            <h2 className="font-semibold">{title}</h2>
+        </div>
     );
+
+    return (
+        <div className="h-full overflow-y-auto p-4 sm:p-6 md:p-8 text-gray-300 font-sans">
+            <div className="max-w-6xl mx-auto space-y-8">
+                <section>
+                    <DashboardSectionTitle title="Próximos eventos" icon={<CalendarIcon className="w-5 h-5" />} />
+                    <div className="bg-[#202124] rounded-lg p-12 flex flex-col items-center justify-center text-center border border-gray-700/50 min-h-[200px]">
+                        <div className="relative mb-4">
+                            <CalendarIcon className="w-16 h-16 text-gray-500" />
+                            <span className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-[30%] text-lg font-bold text-gray-500">14</span>
+                        </div>
+                        <p className="text-gray-400 mb-3">Não há eventos nos próximos 3 dias</p>
+                        <button className="flex items-center gap-1.5 text-sm text-blue-400 hover:text-blue-300 hover:bg-blue-500/10 px-2 py-1 rounded-md transition-colors">
+                            <PlusIcon className="w-4 h-4" />
+                            Novo evento
+                        </button>
+                    </div>
+                </section>
+                
+                <section>
+                    <DashboardSectionTitle title="Visualizações da página inicial" icon={<TableIcon className="w-5 h-5" />} />
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                        <div className="lg:col-span-1 bg-[#202124] rounded-lg p-6 flex flex-col items-start justify-center text-left border border-gray-700/50 h-full">
+                            <TableIcon className="w-12 h-12 text-gray-500 mb-4" />
+                            <p className="text-gray-400 text-sm mb-4">Fixe uma visualização da base de dados para que você possa acessá-la rapidamente na página inicial.</p>
+                            <button className="text-sm text-blue-400 hover:text-blue-300 transition-colors">
+                                Selecionar base de dados
+                            </button>
+                        </div>
+                        <div className="lg:col-span-2 bg-[#202124] rounded-lg p-6 border border-gray-700/50">
+                            <div className="flex justify-between items-center mb-4">
+                                <h3 className="font-semibold text-sm text-gray-400">Atividade</h3>
+                                <h3 className="font-semibold text-sm text-gray-400">Status</h3>
+                            </div>
+                            <ul className="space-y-1">
+                                {activities.map((activity, index) => (
+                                    <li key={index} className="flex items-center justify-between p-2 rounded-md hover:bg-gray-700/50 transition-colors">
+                                        <div className="flex items-center gap-3">
+                                            {activity.icon}
+                                            <span className="text-sm text-gray-200">{activity.text}</span>
+                                        </div>
+                                        <StatusBadge status={activity.status} />
+                                    </li>
+                                ))}
+                            </ul>
+                        </div>
+                    </div>
+                </section>
+                
+                <section>
+                    <DashboardSectionTitle title="Modelos em destaque" icon={<SparklesIcon className="w-5 h-5" />} />
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                        {templates.map((template, index) => (
+                             <div key={index} className="bg-[#202124] rounded-lg border border-gray-700/50 cursor-pointer hover:bg-gray-700/30 transition-colors">
+                                <div className="p-4">
+                                    <div className="flex items-center gap-2 mb-1">
+                                        {template.icon}
+                                        <h4 className="text-sm font-semibold text-white truncate">{template.title}</h4>
+                                    </div>
+                                    <p className="text-xs text-gray-500">{template.author}</p>
+                                </div>
+                                <div className="h-24 bg-gray-800 rounded-b-lg overflow-hidden">
+                                     <img src={template.image} alt={template.title} className="w-full h-full object-cover"/>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </section>
+            </div>
+        </div>
+    );
+};
+
+
+const AppContent: React.FC = () => {
+    const { isInitialSyncing, initialSyncMessage } = useSettings();
+    const [currentMode, _setCurrentMode] = useState<AppMode>(
+        () => (localStorage.getItem('sativar_app_mode') as AppMode) || 'isis'
+    );
+    const [currentPage, setCurrentPage] = useState<Page>('main');
     const [isMobileHistoryOpen, setIsMobileHistoryOpen] = useState(false);
     const auth = useAuth();
     const [showOnboarding, setShowOnboarding] = useState(!localStorage.getItem('sativar_isis_onboarding_complete'));
@@ -473,38 +214,29 @@ const AppContent: React.FC = () => {
         localStorage.setItem('sativar_app_mode', mode);
         _setCurrentMode(mode);
     };
-    
+
     React.useEffect(() => {
-        if (!settings.isIsisAiEnabled && auth.user?.role !== 'admin' && currentMode === 'isis') {
-            setCurrentMode('seishat');
+        // If the user role is 'user' and they are trying to access settings, redirect them to main page.
+        if (auth.isAuthenticated && auth.user?.role === 'user' && currentPage === 'settings') {
+            setCurrentPage('main');
         }
-    }, [settings.isIsisAiEnabled, auth.user, currentMode]);
+    }, [currentPage, auth.isAuthenticated, auth.user?.role]);
+
+    const handleLogout = () => {
+        setCurrentPage('main'); // Redirect to main page on logout
+    };
     
     if (isInitialSyncing) {
         return <LoadingScreen message={initialSyncMessage} mode={currentMode} />;
     }
 
-    if (auth.isLoading) {
-        return <div className="flex h-full items-center justify-center"><Loader /></div>;
-    }
-
-    if (!auth.isAdminSetup) {
-        return <div className="flex h-full items-center justify-center p-4"><AdminRegistration onRegistrationSuccess={auth.checkSetup} /></div>;
-    }
-
-    if (!auth.isAuthenticated) {
-        return <div className="flex h-full items-center justify-center p-4"><AdminLogin /></div>;
-    }
-
-    const handleOnboardingComplete = (dontShowAgain: boolean) => {
-        if (dontShowAgain) {
-            localStorage.setItem('sativar_isis_onboarding_complete', 'true');
-        }
+    const handleOnboardingComplete = () => {
+        localStorage.setItem('sativar_isis_onboarding_complete', 'true');
         setShowOnboarding(false);
-        setCurrentMode('seishat');
+        setCurrentPage('settings');
     };
 
-    const renderContent = () => {
+    const renderMainContent = () => {
         if (currentMode === 'isis') {
             return (
                 <QuoteGenerator 
@@ -514,7 +246,19 @@ const AppContent: React.FC = () => {
             );
         }
         if (currentMode === 'seishat') {
-            return <SeishatLayout onLogout={auth.logout} />;
+            return <SeishatCrm />;
+        }
+        return null;
+    };
+
+    const renderSettingsContent = () => {
+        if (auth.user?.role === 'user') return null; // Double-check to prevent rendering
+
+        if (currentMode === 'isis') {
+            return <SettingsLayout onLogout={handleLogout} />;
+        }
+        if (currentMode === 'seishat') {
+            return <SeishatSettingsLayout onLogout={handleLogout} />;
         }
         return null;
     };
@@ -523,12 +267,19 @@ const AppContent: React.FC = () => {
         <div className="flex h-screen flex-col bg-[#131314] font-sans text-gray-200">
             {showOnboarding && <OnboardingGuide onComplete={handleOnboardingComplete} />}
             <Header 
+                setCurrentPage={setCurrentPage} 
+                currentPage={currentPage} 
                 currentMode={currentMode}
                 setCurrentMode={setCurrentMode}
                 onToggleMobileHistory={() => setIsMobileHistoryOpen(p => !p)} 
             />
             <main className="flex-grow overflow-hidden">
-                {renderContent()}
+                {currentPage === 'main' && renderMainContent()}
+                {currentPage === 'settings' && (
+                    <div className="p-4 md:p-8 h-full">
+                        {renderSettingsContent()}
+                    </div>
+                )}
             </main>
         </div>
     );

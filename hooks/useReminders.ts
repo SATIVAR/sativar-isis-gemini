@@ -1,6 +1,4 @@
 
-
-
 import React, { createContext, useState, useContext, useEffect, useCallback, useMemo } from 'react';
 import type { Reminder } from '../types.ts';
 import { useConnection } from './useConnection.ts';
@@ -23,7 +21,6 @@ interface RemindersContextType {
   updateReminder: (reminder: Reminder) => Promise<void>;
   deleteReminder: (id: string) => Promise<void>;
   toggleReminderCompletion: (id: string) => Promise<void>;
-  toggleTaskCompletion: (reminderId: string, taskId: string) => Promise<void>;
   hasOverdueReminders: boolean;
   isSyncingReminders: boolean;
   remindersSyncQueueCount: number;
@@ -275,63 +272,6 @@ export const RemindersProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     }
 }, [reminders, updateReminder, addReminder]);
 
- const toggleTaskCompletion = useCallback(async (reminderId: string, taskId: string) => {
-    const reminderToUpdate = reminders.find(r => r.id === reminderId);
-    if (!reminderToUpdate) return;
-
-    const updatedTasks = reminderToUpdate.tasks.map(task =>
-        task.id === taskId ? { ...task, isCompleted: !task.isCompleted } : task
-    );
-
-    const wasCompleted = reminderToUpdate.isCompleted;
-    const allTasksCompleted = updatedTasks.length > 0 && updatedTasks.every(t => t.isCompleted);
-
-    const updatedReminder = {
-        ...reminderToUpdate,
-        tasks: updatedTasks,
-        isCompleted: allTasksCompleted,
-    };
-
-    await updateReminder(updatedReminder);
-
-    // If the parent reminder just became complete and is recurring, create the next one.
-    if (!wasCompleted && allTasksCompleted && reminderToUpdate.recurrence !== 'none') {
-        const currentDueDate = new Date(reminderToUpdate.dueDate);
-        const nextDueDate = new Date(currentDueDate);
-        
-        switch (reminderToUpdate.recurrence) {
-            case 'daily': nextDueDate.setDate(currentDueDate.getDate() + 1); break;
-            case 'weekly': nextDueDate.setDate(currentDueDate.getDate() + 7); break;
-            case 'monthly': nextDueDate.setMonth(currentDueDate.getMonth() + 1); break;
-        }
-
-        const now = new Date();
-        if (nextDueDate < now) {
-            nextDueDate.setDate(now.getDate());
-            nextDueDate.setMonth(now.getMonth());
-            nextDueDate.setFullYear(now.getFullYear());
-             switch (reminderToUpdate.recurrence) {
-                case 'daily': nextDueDate.setDate(now.getDate() + 1); break;
-                case 'weekly': nextDueDate.setDate(now.getDate() + 7); break;
-                case 'monthly': nextDueDate.setMonth(now.getMonth() + 1); break;
-            }
-            nextDueDate.setHours(currentDueDate.getHours(), currentDueDate.getMinutes(), currentDueDate.getSeconds());
-        }
-
-        const { id: oldId, isCompleted: oldIsCompleted, ...restOfReminder } = reminderToUpdate;
-
-        // Reset sub-tasks to be incomplete for the new occurrence
-        const newTasks = restOfReminder.tasks.map(t => ({ ...t, isCompleted: false }));
-
-        await addReminder({
-            ...restOfReminder,
-            tasks: newTasks,
-            dueDate: nextDueDate.toISOString(),
-        });
-    }
-}, [reminders, updateReminder, addReminder]);
-
-
   const hasOverdueReminders = useMemo(() => {
     const now = new Date();
     return reminders.some(r => !r.isCompleted && new Date(r.dueDate) < now);
@@ -347,12 +287,11 @@ export const RemindersProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     updateReminder,
     deleteReminder,
     toggleReminderCompletion,
-    toggleTaskCompletion,
     hasOverdueReminders,
     isSyncingReminders,
     remindersSyncQueueCount,
     forceSyncReminders,
-  }), [reminders, addReminder, updateReminder, deleteReminder, toggleReminderCompletion, toggleTaskCompletion, hasOverdueReminders, isSyncingReminders, remindersSyncQueueCount, forceSyncReminders]);
+  }), [reminders, addReminder, updateReminder, deleteReminder, toggleReminderCompletion, hasOverdueReminders, isSyncingReminders, remindersSyncQueueCount, forceSyncReminders]);
 
   return React.createElement(RemindersContext.Provider, { value }, children);
 };

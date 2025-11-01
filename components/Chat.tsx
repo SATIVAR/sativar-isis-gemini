@@ -2,7 +2,7 @@ import React, { useRef, useState, useEffect } from 'react';
 import { jsPDF } from 'jspdf';
 import { useSettings } from '../hooks/useSettings.ts';
 import { useReminders } from '../hooks/useReminders.ts';
-import type { ChatMessage, QuoteResult, MessageContent, Associate } from '../types.ts';
+import type { ChatMessage, QuoteResult, MessageContent } from '../types.ts';
 import { 
     PlusIcon, SendIcon, AlertTriangleIcon, ClipboardCheckIcon, 
     ClipboardIcon, DownloadIcon, UserIcon, BellIcon, CalendarIcon 
@@ -46,7 +46,7 @@ const ChatInput: React.FC<ChatInputProps> = ({
 
     return (
         <div className="mx-auto w-full max-w-4xl">
-            <div className="flex items-center gap-2 rounded-xl bg-[#202124] p-2">
+            <div className="flex items-center gap-2 rounded-xl bg-[#303134] p-2">
                 <button
                     onClick={onAttachClick}
                     className="flex h-10 w-10 items-center justify-center rounded-full p-2 transition-colors hover:bg-gray-700 disabled:cursor-not-allowed disabled:opacity-50"
@@ -402,11 +402,10 @@ interface MessageBubbleProps {
     onAction: (messageId: string, payload: string) => void;
     processingAction: { messageId: string; payload: string; text?: string } | null;
     onOpenFilePreview: (file: { url: string; type: string; name: string }) => void;
-    onAssociateSelect: (associate: Associate) => void;
 }
 
 
-const MessageBubble: React.FC<MessageBubbleProps> = ({ message, onAction, processingAction, onOpenFilePreview, onAssociateSelect }) => {
+const MessageBubble: React.FC<MessageBubbleProps> = ({ message, onAction, processingAction, onOpenFilePreview }) => {
     const [copied, setCopied] = useState(false);
 
     const handleCopy = (textToCopy: string) => {
@@ -439,8 +438,8 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({ message, onAction, proces
                 return <QuoteResultDisplay 
                     result={content.result} 
                 />;
-            case 'associate_search':
-                return <UserSearch onAssociateSelect={onAssociateSelect} />;
+            case 'user_search':
+                return <UserSearch />;
             case 'product_search':
                 return <ProductSearch />;
             case 'error':
@@ -520,7 +519,7 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({ message, onAction, proces
             <div className={`flex flex-col gap-1 max-w-xl ${isAI ? 'items-start' : 'items-end'}`}>
                 <div className={`group relative rounded-2xl px-4 py-3 shadow-md ${
                     isAI 
-                    ? 'bg-[#202124] rounded-bl-none' 
+                    ? 'bg-[#303134] rounded-bl-none' 
                     : 'bg-brand-primary text-white rounded-br-none'
                 }`}>
                     {canBeCopied && (
@@ -572,7 +571,6 @@ interface ChatProps {
     onAction: (messageId: string, payload: string) => void;
     processingAction: { messageId: string; payload: string; text?: string } | null;
     onOpenFilePreview: (file: { url: string; type: string; name: string }) => void;
-    onAssociateSelect: (associate: Associate) => void;
 }
 
 export const Chat: React.FC<ChatProps> = ({
@@ -585,7 +583,6 @@ export const Chat: React.FC<ChatProps> = ({
     onAction,
     processingAction,
     onOpenFilePreview,
-    onAssociateSelect,
 }) => {
     const chatEndRef = useRef<HTMLDivElement | null>(null);
     const [text, setText] = useState('');
@@ -660,7 +657,6 @@ export const Chat: React.FC<ChatProps> = ({
                         onAction={onAction} 
                         processingAction={processingAction} 
                         onOpenFilePreview={onOpenFilePreview}
-                        onAssociateSelect={onAssociateSelect}
                     />
                 ))}
                 <div ref={chatEndRef} />

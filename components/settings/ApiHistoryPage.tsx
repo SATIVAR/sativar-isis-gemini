@@ -1,8 +1,8 @@
 
-
 import React, { useState } from 'react';
 import { useApiHistory } from '../../hooks/useApiHistory.ts';
 import type { ApiCall } from '../../services/apiHistoryService.ts';
+// FIX: Import ChevronDownIcon to resolve a component not found error.
 import { 
     ClockIcon, CheckCircleIcon, AlertCircleIcon, FileTextIcon, 
     SendIcon, Trash2Icon, DownloadIcon, GaugeCircleIcon,

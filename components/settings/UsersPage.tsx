@@ -90,24 +90,17 @@ export const UsersPage: React.FC = () => {
                             <th scope="col" className="px-4 py-3">Nome</th>
                             <th scope="col" className="px-4 py-3">WhatsApp</th>
                             <th scope="col" className="px-4 py-3">Função</th>
-                            <th scope="col" className="px-4 py-3">Status</th>
                             <th scope="col" className="px-4 py-3 text-right">Ações</th>
                         </tr>
                     </thead>
                     <tbody>
                         {filteredUsers.map(user => (
-                            <tr key={user.id} className="border-b border-gray-700 hover:bg-[#202124]/50">
+                            <tr key={user.id} className="border-b border-gray-700 hover:bg-[#303134]/50">
                                 <td className="px-4 py-3 font-medium text-white">{user.name}</td>
                                 <td className="px-4 py-3 text-gray-300">{user.whatsapp || 'N/A'}</td>
                                 <td className="px-4 py-3">
                                     <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${roleInfo[user.role]?.className || roleInfo.user.className}`}>
                                         {roleInfo[user.role]?.label || user.role}
-                                    </span>
-                                </td>
-                                <td className="px-4 py-3">
-                                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-900/50 text-green-300 border border-green-700/50">
-                                        <div className="w-2 h-2 mr-1.5 rounded-full bg-green-500"></div>
-                                        Ativo
                                     </span>
                                 </td>
                                 <td className="px-4 py-3 flex items-center justify-end gap-2">
@@ -155,7 +148,7 @@ export const UsersPage: React.FC = () => {
                         value={search}
                         onChange={e => setSearch(e.target.value)}
                         placeholder="Buscar por nome ou WhatsApp..."
-                        className="w-full bg-[#202124] border border-gray-600/50 text-gray-300 rounded-lg py-2 pl-9 pr-3 text-sm focus:ring-2 focus:ring-fuchsia-500 outline-none"
+                        className="w-full bg-[#303134] border border-gray-600/50 text-gray-300 rounded-lg py-2 pl-9 pr-3 text-sm focus:ring-2 focus:ring-fuchsia-500 outline-none"
                     />
                 </div>
                 {renderContent()}

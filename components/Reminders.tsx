@@ -221,14 +221,14 @@ export const ReminderModal: React.FC<ReminderModalProps> = ({ onClose, reminder,
                                             <CurrentIcon className="w-5 h-5 text-gray-400" />
                                         </button>
                                         {activeIconPicker === task.id && (
-                                            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 z-10 w-max bg-gray-900 border border-gray-700 p-1 rounded-lg shadow-lg flex gap-1">
-                                                {availableIcons.map(({ name, Component, title }) => (
+                                            <div className="absolute z-10 bottom-full mb-2 w-max p-2 bg-[#202124] border border-gray-600 rounded-lg shadow-lg flex gap-2">
+                                                {availableIcons.map(({ name, Component, title: iconTitle }) => (
                                                     <button
                                                         key={name}
                                                         type="button"
                                                         onClick={() => handleSetTaskIcon(task.id, name)}
-                                                        className="p-2 rounded-md hover:bg-fuchsia-800/50"
-                                                        title={title}
+                                                        className="p-2 rounded-full hover:bg-fuchsia-800"
+                                                        title={iconTitle}
                                                     >
                                                         <Component className="w-5 h-5 text-gray-300" />
                                                     </button>
@@ -240,40 +240,47 @@ export const ReminderModal: React.FC<ReminderModalProps> = ({ onClose, reminder,
                                         type="text"
                                         value={task.text}
                                         onChange={(e) => handleTaskTextChange(task.id, e.target.value)}
-                                        className="flex-grow bg-transparent text-gray-300 outline-none focus:text-white"
+                                        className="flex-grow bg-[#202124] border border-gray-600/50 text-white rounded-lg px-3 py-1.5 text-sm focus:ring-1 focus:ring-fuchsia-500 outline-none transition"
                                     />
                                     <button
                                         type="button"
                                         onClick={() => handleDeleteTask(task.id)}
-                                        className="p-1 text-gray-500 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity"
+                                        className="p-1 rounded-full text-gray-500 hover:text-red-400 hover:bg-gray-600 opacity-50 group-hover:opacity-100 transition-all"
+                                        aria-label="Excluir subtarefa"
                                     >
                                         <Trash2Icon className="w-4 h-4" />
                                     </button>
                                 </div>
-                            );
+                            )
                         })}
                     </div>
-                     <div className="flex items-center gap-2 mt-2">
-                        <PlusCircleIcon className="w-5 h-5 text-gray-500" />
+                    <div className="flex items-center gap-2 mt-3">
                         <input
                             type="text"
                             value={newTaskText}
                             onChange={(e) => setNewTaskText(e.target.value)}
-                            onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddTask())}
-                            placeholder="Adicionar subtarefa e pressionar Enter"
-                            className="flex-grow bg-transparent text-gray-400 placeholder-gray-500 outline-none focus:text-white text-sm"
+                            onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddTask(); }}}
+                            placeholder="Adicionar nova subtarefa..."
+                            className="w-full bg-[#202124] border border-gray-600/50 text-white rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-fuchsia-500 outline-none transition"
                         />
+                        <button
+                            type="button"
+                            onClick={handleAddTask}
+                            className="px-4 py-2 bg-gray-700 text-sm text-gray-300 font-medium rounded-lg hover:bg-gray-600 transition-colors flex-shrink-0"
+                        >
+                            Adicionar
+                        </button>
                     </div>
                 </div>
 
                 <div>
-                    <label htmlFor="notes" className="block text-sm font-medium text-gray-300 mb-2">Notas</label>
-                    <textarea id="notes" value={notes} onChange={e => setNotes(e.target.value)} rows={3} className="w-full bg-[#202124] border border-gray-600/50 text-white rounded-lg px-3 py-2 focus:ring-2 focus:ring-fuchsia-500 outline-none transition"></textarea>
+                    <label htmlFor="notes" className="block text-sm font-medium text-gray-300 mb-2">Notas Adicionais</label>
+                    <textarea id="notes" value={notes} onChange={e => setNotes(e.target.value)} rows={2} className="w-full bg-[#202124] border border-gray-600/50 text-white rounded-lg px-3 py-2 focus:ring-2 focus:ring-fuchsia-500 outline-none transition" />
                 </div>
                  <div>
-                    <label htmlFor="recurrence" className="block text-sm font-medium text-gray-300 mb-2">Repetir</label>
-                    <select id="recurrence" value={recurrence} onChange={e => setRecurrence(e.target.value as Reminder['recurrence'])} className="w-full bg-[#202124] border border-gray-600/50 text-white rounded-lg px-3 py-2 focus:ring-2 focus:ring-fuchsia-500 outline-none transition">
-                        <option value="none">Nunca</option>
+                    <label className="block text-sm font-medium text-gray-300 mb-2">Recorrência</label>
+                    <select value={recurrence} onChange={e => setRecurrence(e.target.value as Reminder['recurrence'])} className="w-full bg-[#202124] border border-gray-600/50 text-white rounded-lg px-3 py-2 focus:ring-2 focus:ring-fuchsia-500 outline-none transition">
+                        <option value="none">Não repetir</option>
                         <option value="daily">Diariamente</option>
                         <option value="weekly">Semanalmente</option>
                         <option value="monthly">Mensalmente</option>
@@ -285,231 +292,252 @@ export const ReminderModal: React.FC<ReminderModalProps> = ({ onClose, reminder,
 };
 
 
-// Main Reminders List Component
-interface RemindersListProps {
-  onClose: () => void;
-}
-
-const getRelativeDueDate = (dueDate: string): { text: string; isOverdue: boolean } => {
-    const now = new Date();
-    const due = new Date(dueDate);
-    
-    // Reset time for date comparisons
-    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const dueDateOnly = new Date(due.getFullYear(), due.getMonth(), due.getDate());
-
-    const diffTime = dueDateOnly.getTime() - today.getTime();
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    const isOverdue = due < now;
-
-    const timeFormat = new Intl.DateTimeFormat('pt-BR', { hour: '2-digit', minute: '2-digit' }).format(due);
-
-    if (diffDays === 0) return { text: `Hoje às ${timeFormat}`, isOverdue };
-    if (diffDays === 1) return { text: `Amanhã às ${timeFormat}`, isOverdue };
-    if (diffDays === -1) return { text: `Ontem às ${timeFormat}`, isOverdue: true };
-    if (isOverdue) return { text: `Venceu em ${due.toLocaleDateString('pt-BR')}`, isOverdue: true };
-    
-    return { text: `${due.toLocaleDateString('pt-BR')} às ${timeFormat}`, isOverdue: false };
-};
-
-const getReminderStatus = (reminder: Reminder): { text: string; textColor: string; progress: number, progressColor: string, completedCount: number, totalCount: number } => {
-    const totalTasks = reminder.tasks?.length || 0;
-    const completedTasks = reminder.tasks?.filter(t => t.isCompleted).length || 0;
-
-    const result = { completedCount: completedTasks, totalCount: totalTasks };
-
-    if (reminder.isCompleted) {
-        return { ...result, text: 'Concluído', textColor: 'text-green-400', progress: 100, progressColor: 'bg-green-500' };
-    }
-    if (totalTasks === 0) {
-        return { ...result, text: 'Pendente', textColor: 'text-gray-400', progress: 0, progressColor: 'bg-gray-600' };
-    }
-    if (completedTasks === 0) {
-        return { ...result, text: 'Pendente', textColor: 'text-gray-400', progress: 0, progressColor: 'bg-gray-600' };
-    }
-    if (completedTasks === totalTasks) {
-        return { ...result, text: 'Concluído', textColor: 'text-green-400', progress: 100, progressColor: 'bg-green-500' };
-    }
-    return { 
-        ...result,
-        text: 'Em Andamento', 
-        textColor: 'text-yellow-400', 
-        progress: (completedTasks / totalTasks) * 100,
-        progressColor: 'bg-yellow-500'
-    };
-};
-
-export const RemindersList: React.FC<RemindersListProps> = ({ onClose }) => {
-    const { reminders, toggleReminderCompletion, toggleTaskCompletion, deleteReminder } = useReminders();
-    const [editingReminder, setEditingReminder] = useState<Reminder | null>(null);
-    const [isCreatingReminder, setIsCreatingReminder] = useState(false);
-    const [openReminderId, setOpenReminderId] = useState<string | null>(null);
-    const modalRef = useRef<HTMLDivElement>(null);
-    const modal = useModal();
+const TaskItem: React.FC<{ task: Task; onToggle: (taskId: string) => void }> = ({ task, onToggle }) => {
+    const [isJustCompleted, setIsJustCompleted] = useState(false);
+    const prevIsCompleted = useRef(task.isCompleted);
 
     useEffect(() => {
-        const handleClickOutside = (event: MouseEvent) => {
-            if (isCreatingReminder || editingReminder) return;
-
-            if (modalRef.current && !modalRef.current.contains(event.target as Node)) {
-                onClose();
-            }
-        };
-        document.addEventListener("mousedown", handleClickOutside);
-        return () => document.removeEventListener("mousedown", handleClickOutside);
-    }, [onClose, isCreatingReminder, editingReminder]);
+        if (task.isCompleted && !prevIsCompleted.current) {
+            setIsJustCompleted(true);
+            const timer = setTimeout(() => setIsJustCompleted(false), 1500);
+            return () => clearTimeout(timer);
+        }
+        prevIsCompleted.current = task.isCompleted;
+    }, [task.isCompleted]);
     
-    const handleDelete = async (e: React.MouseEvent, id: string) => {
-        e.stopPropagation();
+    const IconComponent = task.icon ? IconMap[task.icon] : BellIcon;
+
+    return (
+        <li className={`flex items-start gap-2 text-xs pl-2 py-0.5 rounded ${isJustCompleted ? 'highlight-complete' : ''}`}>
+            <button 
+                onClick={() => onToggle(task.id)} 
+                className={`mt-0.5 w-3.5 h-3.5 flex-shrink-0 rounded-sm border flex items-center justify-center transition-all ${task.isCompleted ? 'bg-green-500 border-green-500' : 'border-gray-500 hover:border-fuchsia-400'}`}
+                aria-label={task.isCompleted ? "Marcar subtarefa como pendente" : "Marcar subtarefa como concluída"}
+            >
+                {task.isCompleted && <CheckIcon className={`w-2.5 h-2.5 text-white ${isJustCompleted ? 'checkmark-pop-in' : ''}`} />}
+            </button>
+            <IconComponent className="w-3.5 h-3.5 text-gray-400 flex-shrink-0 mt-0.5" />
+            <span className={`flex-grow ${task.isCompleted ? 'line-through text-gray-500' : 'text-gray-300'}`}>
+                {task.text}
+            </span>
+        </li>
+    );
+};
+
+const ReminderItem: React.FC<{ reminder: Reminder; onEdit: (reminder: Reminder) => void; }> = ({ reminder, onEdit }) => {
+    const { toggleReminderCompletion, deleteReminder, updateReminder } = useReminders();
+    const modal = useModal();
+    const [isExpanded, setIsExpanded] = useState(false);
+    const isOverdue = !reminder.isCompleted && new Date(reminder.dueDate) < new Date();
+    const dueDate = new Date(reminder.dueDate);
+    const formattedDate = isNaN(dueDate.getTime()) ? 'Data inválida' : new Intl.DateTimeFormat('pt-BR', { dateStyle: 'short', timeStyle: 'short' }).format(dueDate);
+    
+    const [isJustCompleted, setIsJustCompleted] = useState(false);
+    const prevIsCompleted = useRef(reminder.isCompleted);
+    
+    const hasDetails = !!reminder.notes || (reminder.tasks && reminder.tasks.length > 0);
+
+    useEffect(() => {
+        if (reminder.isCompleted && !prevIsCompleted.current) {
+            setIsJustCompleted(true);
+            const timer = setTimeout(() => {
+                setIsJustCompleted(false);
+            }, 1500); // Duration of the highlight effect
+            
+            return () => clearTimeout(timer);
+        }
+        prevIsCompleted.current = reminder.isCompleted;
+    }, [reminder.isCompleted]);
+
+    const handleToggleTask = (taskId: string) => {
+        const updatedTasks = reminder.tasks.map(t => 
+            t.id === taskId ? { ...t, isCompleted: !t.isCompleted } : t
+        );
+        updateReminder({ ...reminder, tasks: updatedTasks });
+    };
+
+    const priority = reminder.priority || 'medium';
+    const priorityInfo = {
+        low: { color: 'bg-blue-500', label: 'Baixa' },
+        medium: { color: 'bg-yellow-500', label: 'Média' },
+        high: { color: 'bg-red-500', label: 'Alta' },
+    };
+
+    const detailSummary = () => {
+        const parts = [];
+        if (reminder.tasks && reminder.tasks.length > 0) {
+            const taskText = reminder.tasks.length === 1 ? '1 subtarefa' : `${reminder.tasks.length} subtarefas`;
+            parts.push(taskText);
+        }
+        if (reminder.notes) {
+            parts.push('1 nota');
+        }
+        return parts.join(', ');
+    };
+
+    const handleDeleteClick = async () => {
         const confirmed = await modal.confirm({
-            title: "Confirmar Exclusão",
-            message: "Tem certeza que deseja apagar esta tarefa? Lembretes recorrentes não serão recriados.",
-            confirmLabel: "Apagar",
+            title: 'Confirmar Exclusão',
+            message: 'Tem certeza que deseja excluir esta tarefa?',
+            confirmLabel: 'Excluir',
             danger: true,
         });
         if (confirmed) {
-            deleteReminder(id);
+            await deleteReminder(reminder.id);
         }
     };
 
-    const handleEdit = (e: React.MouseEvent, reminder: Reminder) => {
-        e.stopPropagation();
-        setEditingReminder(reminder);
-    };
+    return (
+        <div className={`rounded-lg flex items-start gap-0 transition-colors ${reminder.isCompleted ? 'bg-green-900/20' : isOverdue ? 'bg-red-900/30' : 'bg-gray-700/50'} ${isJustCompleted ? 'highlight-complete' : ''}`}>
+            <div className={`w-1.5 self-stretch rounded-l-lg ${priorityInfo[priority].color}`} title={`Prioridade: ${priorityInfo[priority].label}`}></div>
+            <div className="p-3 flex items-start gap-3 flex-grow">
+                 <button
+                    onClick={async () => await toggleReminderCompletion(reminder.id)}
+                    className={`w-5 h-5 mt-0.5 flex-shrink-0 rounded-full border-2 flex items-center justify-center transition-all ${
+                        reminder.isCompleted ? 'bg-green-500 border-green-500' : 'border-gray-500 hover:border-fuchsia-400'
+                    }`}
+                    aria-label={reminder.isCompleted ? "Marcar como pendente" : "Marcar como concluída"}
+                >
+                    {reminder.isCompleted && <CheckIcon className={`w-3 h-3 text-white ${isJustCompleted ? 'checkmark-pop-in' : ''}`} />}
+                </button>
+                <div className="flex-grow">
+                    <p className={`text-sm font-medium ${reminder.isCompleted ? 'text-gray-400 line-through' : 'text-gray-200'}`}>{reminder.patientName}</p>
+                    <div className={`flex items-center gap-1.5 text-xs mt-1 ${reminder.isCompleted ? 'text-gray-500' : isOverdue ? 'text-red-300' : 'text-gray-400'}`}>
+                        <CalendarIcon className="w-3 h-3"/>
+                        <span>{formattedDate}</span>
+                        {reminder.recurrence !== 'none' && <RepeatIcon className="w-3 h-3 ml-1"><title>Repete {reminder.recurrence}</title></RepeatIcon>}
+                    </div>
 
-    const sortedReminders = useMemo(() => {
-        return [...reminders].sort((a, b) => {
-            if (a.isCompleted !== b.isCompleted) return a.isCompleted ? 1 : -1;
-            return new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime();
-        });
-    }, [reminders]);
+                    {hasDetails && (
+                        <button
+                            onClick={() => setIsExpanded(!isExpanded)}
+                            className="flex items-center gap-1 text-xs text-gray-400 hover:text-white mt-2 p-1 -ml-1 rounded focus:outline-none focus:ring-2 focus:ring-fuchsia-500"
+                            aria-expanded={isExpanded}
+                            aria-controls={`reminder-details-${reminder.id}`}
+                        >
+                            <span>{isExpanded ? 'Ocultar detalhes' : `Mostrar ${detailSummary()}`}</span>
+                            <ChevronDownIcon className={`w-3 h-3 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} />
+                        </button>
+                    )}
 
-    const PriorityIndicator: React.FC<{ priority: Reminder['priority'] }> = ({ priority }) => {
-        const priorityStyles: Record<Reminder['priority'], string> = {
-            low: 'bg-blue-500',
-            medium: 'bg-yellow-500',
-            high: 'bg-red-500',
-        };
-        return <span className={`absolute top-2 right-2 w-2.5 h-2.5 rounded-full ${priorityStyles[priority]}`} title={`Prioridade: ${priority}`}></span>;
-    };
-    
+                    {isExpanded && hasDetails && (
+                         <div id={`reminder-details-${reminder.id}`} className="mt-2 space-y-2 animate-fade-in">
+                            {reminder.notes && <p className="text-xs text-gray-400 italic mb-2">"{reminder.notes}"</p>}
+                            {reminder.tasks && reminder.tasks.length > 0 && (
+                               <ul className="space-y-1 pl-1 border-l-2 border-gray-600/50">
+                                   {reminder.tasks.map(task => (
+                                       <TaskItem key={task.id} task={task} onToggle={handleToggleTask} />
+                                   ))}
+                               </ul>
+                           )}
+                        </div>
+                    )}
+                </div>
+                <div className="flex-shrink-0 flex items-center gap-1">
+                     <button onClick={() => onEdit(reminder)} className="p-1 rounded hover:bg-gray-600 text-gray-400 hover:text-white transition-colors" aria-label="Editar tarefa"><EditIcon className="w-4 h-4" /></button>
+                     <button 
+                        onClick={handleDeleteClick}
+                        className="p-1 rounded hover:bg-gray-600 text-gray-400 hover:text-red-400 transition-colors" 
+                        aria-label="Excluir tarefa"
+                     >
+                        <Trash2Icon className="w-4 h-4" />
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+export const RemindersList: React.FC<{ onClose: () => void }> = ({ onClose }) => {
+    const { reminders } = useReminders();
+    const [editingReminder, setEditingReminder] = useState<Reminder | null>(null);
+    const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+
+    const pendingReminders = reminders.filter(r => !r.isCompleted).sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime());
+    const completedReminders = reminders.filter(r => r.isCompleted).sort((a, b) => new Date(b.dueDate).getTime() - new Date(a.dueDate).getTime()).slice(0, 5); // show last 5 completed
+
     return (
         <>
+            <div
+                className="fixed inset-0 z-10 hidden md:block"
+                onClick={onClose}
+                aria-hidden="true"
+            />
+            <style>{`
+                @keyframes highlight-green {
+                    0% { background-color: rgba(74, 222, 128, 0.3); } /* green-400 with opacity */
+                    100% { background-color: transparent; }
+                }
+                .highlight-complete {
+                    animation: highlight-green 1.5s ease-out;
+                }
+                @keyframes checkmark-pop {
+                    0% { transform: scale(0.5); opacity: 0; }
+                    50% { transform: scale(1.2); opacity: 1; }
+                    100% { transform: scale(1); opacity: 1; }
+                }
+                .checkmark-pop-in {
+                    animation: checkmark-pop 0.5s ease-out;
+                }
+                @keyframes fade-in {
+                    from { opacity: 0; transform: translateY(-5px); }
+                    to { opacity: 1; transform: translateY(0); }
+                }
+                .animate-fade-in {
+                    animation: fade-in 0.3s ease-out forwards;
+                }
+            `}</style>
             {editingReminder && <ReminderModal reminder={editingReminder} onClose={() => setEditingReminder(null)} />}
-            {isCreatingReminder && <ReminderModal onClose={() => setIsCreatingReminder(false)} />}
-            <div ref={modalRef} className="absolute top-14 right-4 w-96 max-h-[80vh] bg-[#202124] border border-gray-700 rounded-xl shadow-2xl flex flex-col z-20 overflow-hidden">
-                <header className="flex-shrink-0 p-4 border-b border-gray-700 flex justify-between items-center">
-                    <h2 className="text-lg font-bold text-white">Tarefas e Lembretes</h2>
-                    <div className="flex items-center gap-1">
-                        <button 
-                            onClick={() => setIsCreatingReminder(true)} 
+            {isAddModalOpen && <ReminderModal onClose={() => setIsAddModalOpen(false)} />}
+            <div 
+                className="fixed inset-0 z-40 overflow-y-auto bg-[#131314] md:absolute md:inset-auto md:right-0 md:top-14 md:mt-2 md:w-[420px] md:max-h-[80vh] md:rounded-xl md:border md:border-gray-700 md:shadow-2xl md:bg-[#202124] md:z-20"
+                role="dialog"
+            >
+                <div className="p-4 border-b border-gray-700 flex justify-between items-center sticky top-0 bg-[#202124]/80 backdrop-blur-sm z-10">
+                    <h3 className="text-lg font-bold text-white">Tarefas e Lembretes</h3>
+                    <div className="flex items-center gap-2">
+                        <button
+                            onClick={() => setIsAddModalOpen(true)}
                             className="p-1 rounded-full text-gray-400 hover:bg-gray-700 hover:text-white"
                             aria-label="Adicionar nova tarefa"
-                            title="Adicionar nova tarefa"
                         >
-                            <PlusCircleIcon className="w-6 h-6"/>
+                            <PlusCircleIcon className="w-5 h-5"/>
                         </button>
-                        <button onClick={onClose} className="p-1 rounded-full text-gray-400 hover:bg-gray-700 hover:text-white" aria-label="Fechar">
-                            <XCircleIcon className="w-6 h-6"/>
-                        </button>
+                        <button onClick={onClose} className="p-1 rounded-full text-gray-400 hover:bg-gray-700 hover:text-white" aria-label="Fechar lembretes"><XCircleIcon className="w-5 h-5"/></button>
                     </div>
-                </header>
-                <div className="flex-grow overflow-y-auto p-2">
-                    {sortedReminders.length === 0 ? (
-                        <div className="text-center text-gray-500 py-10 px-4">
-                            <BellIcon className="w-12 h-12 mx-auto mb-2" />
-                            <p className="font-semibold">Nenhuma tarefa pendente</p>
-                            <p className="text-sm">Você está em dia!</p>
+                </div>
+                <div className="p-4">
+                    {reminders.length === 0 ? (
+                        <div className="text-center py-6 text-gray-500 text-sm">
+                            <BellIcon className="w-8 h-8 mx-auto mb-2"/>
+                            Nenhuma tarefa cadastrada.
                         </div>
                     ) : (
-                        <div className="space-y-2">
-                            {sortedReminders.map(reminder => {
-                                const { text: dueDateText, isOverdue } = getRelativeDueDate(reminder.dueDate);
-                                const status = getReminderStatus(reminder);
-                                const isOpen = openReminderId === reminder.id;
-                                const hasSubtasks = reminder.tasks && reminder.tasks.length > 0;
-
-                                return (
-                                    <div key={reminder.id} className={`group relative bg-[#303134] rounded-lg transition-colors duration-200 ${reminder.isCompleted ? 'bg-green-900/30 opacity-70' : ''}`}>
-                                        <div className="p-3">
-                                            <div
-                                                className="flex items-start gap-3 cursor-pointer"
-                                                onClick={() => hasSubtasks ? setOpenReminderId(prev => prev === reminder.id ? null : reminder.id) : toggleReminderCompletion(reminder.id)}
-                                            >
-                                                <div className="mt-1 flex-shrink-0">
-                                                    <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors ${
-                                                        reminder.isCompleted ? 'bg-green-500 border-green-400' : 'border-gray-500'
-                                                    }`}>
-                                                        {reminder.isCompleted && <CheckIcon className="w-3 h-3 text-white" />}
-                                                    </div>
-                                                </div>
-                                                <div className="flex-grow">
-                                                    <p className={`font-medium text-white ${reminder.isCompleted ? 'line-through text-gray-500' : ''}`}>
-                                                        {reminder.patientName}
-                                                    </p>
-                                                    <div className="flex items-center gap-1.5 mt-1 text-xs">
-                                                        <CalendarIcon className={`w-3 h-3 ${isOverdue && !reminder.isCompleted ? 'text-red-400' : 'text-gray-400'}`} />
-                                                        <span className={isOverdue && !reminder.isCompleted ? 'text-red-400 font-semibold' : 'text-gray-400'}>
-                                                            {dueDateText}
-                                                        </span>
-                                                        {reminder.recurrence !== 'none' && <RepeatIcon className="w-3 h-3 text-gray-400" />}
-                                                    </div>
-                                                </div>
-                                                {hasSubtasks && <ChevronDownIcon className={`w-5 h-5 text-gray-400 transition-transform flex-shrink-0 ${isOpen ? 'rotate-180' : ''}`} />}
-                                            </div>
-                                            
-                                            {hasSubtasks && !reminder.isCompleted && (
-                                                <div className="mt-2 pl-8">
-                                                    <div className="flex justify-between items-center text-xs mb-1">
-                                                        <span className={`font-semibold ${status.textColor}`}>{status.text}</span>
-                                                        <span className="text-gray-400">{status.completedCount}/{status.totalCount}</span>
-                                                    </div>
-                                                    <div className="w-full bg-gray-600 rounded-full h-1.5">
-                                                        <div className={`${status.progressColor} h-1.5 rounded-full`} style={{ width: `${status.progress}%`, transition: 'width 0.3s ease-in-out' }}></div>
-                                                    </div>
-                                                </div>
-                                            )}
-                                        </div>
-                                        
-                                        <div className={`overflow-hidden transition-all duration-300 ease-in-out ${isOpen ? 'max-h-[500px]' : 'max-h-0'}`}>
-                                            {hasSubtasks && (
-                                                <div className="pb-3 pr-3 pl-8">
-                                                    <div className="border-l-2 border-gray-600/50 pl-4 space-y-2 pt-1">
-                                                        {reminder.tasks.map(task => {
-                                                            const TaskIcon = task.icon ? IconMap[task.icon] : BellIcon;
-                                                            return (
-                                                                <div key={task.id} className="flex items-center gap-3 group/task">
-                                                                    <button
-                                                                        onClick={() => toggleTaskCompletion(reminder.id, task.id)}
-                                                                        className={`w-4 h-4 rounded-sm border-2 flex-shrink-0 flex items-center justify-center transition-colors ${
-                                                                            task.isCompleted ? 'bg-green-500 border-green-400' : 'border-gray-500 group-hover/task:border-green-500'
-                                                                        }`}
-                                                                        aria-label={`Marcar tarefa ${task.text} como ${task.isCompleted ? 'pendente' : 'concluída'}`}
-                                                                    >
-                                                                        {task.isCompleted && <CheckIcon className="w-2.5 h-2.5 text-white" />}
-                                                                    </button>
-                                                                    <TaskIcon className="w-4 h-4 text-gray-400 flex-shrink-0" />
-                                                                    <span className={`text-sm flex-grow cursor-default ${task.isCompleted ? 'line-through text-gray-500' : 'text-gray-300'}`}>
-                                                                        {task.text}
-                                                                    </span>
-                                                                </div>
-                                                            );
-                                                        })}
-                                                    </div>
-                                                </div>
-                                            )}
-                                        </div>
-                                        
-                                        <div className="absolute top-3 right-2 flex items-center opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                                            {!reminder.isCompleted && (
-                                                <button onClick={(e) => handleEdit(e, reminder)} className="p-1 text-gray-400 hover:text-fuchsia-400 rounded-full hover:bg-gray-800"><EditIcon className="w-4 h-4" /></button>
-                                            )}
-                                            <button onClick={(e) => handleDelete(e, reminder.id)} className="p-1 text-gray-400 hover:text-red-400 rounded-full hover:bg-gray-800"><Trash2Icon className="w-4 h-4" /></button>
-                                        </div>
-                                        <PriorityIndicator priority={reminder.priority || 'medium'} />
+                        <div className="space-y-6">
+                            {/* Pending Section */}
+                            <div>
+                                <h4 className="text-sm font-semibold text-gray-400 mb-3">Pendentes</h4>
+                                {pendingReminders.length > 0 ? (
+                                    <div className="space-y-3">
+                                        {pendingReminders.map(r => <ReminderItem key={r.id} reminder={r} onEdit={setEditingReminder} />)}
                                     </div>
-                                );
-                            })}
+                                ) : (
+                                    <div className="text-center py-6 text-gray-500 text-sm border-2 border-dashed border-gray-700 rounded-lg">
+                                        <CheckIcon className="w-8 h-8 mx-auto mb-2"/>
+                                        Tudo em dia!
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Completed Section */}
+                            {completedReminders.length > 0 && (
+                                <div className="pt-4 border-t border-gray-700/50">
+                                    <h4 className="text-sm font-semibold text-gray-400 mb-3">Concluídas Recentemente</h4>
+                                    <div className="space-y-3">
+                                        {completedReminders.map(r => <ReminderItem key={r.id} reminder={r} onEdit={setEditingReminder} />)}
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     )}
                 </div>

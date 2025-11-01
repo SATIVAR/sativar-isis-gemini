@@ -1,5 +1,3 @@
-import type { GoogleGenAI } from '@google/genai';
-
 // From services/geminiService.ts and components/Chat.tsx
 export interface QuotedProduct {
     name: string;
@@ -23,7 +21,7 @@ export interface QuoteResult {
 }
 
 // From components/QuoteGenerator.tsx and components/Chat.tsx
-export type MessageContentType = 'text' | 'file_request' | 'loading' | 'quote' | 'error' | 'actions' | 'associate_search' | 'product_search';
+export type MessageContentType = 'text' | 'file_request' | 'loading' | 'quote' | 'error' | 'actions' | 'user_search' | 'product_search';
 
 export interface TextContent {
     type: 'text';
@@ -67,11 +65,11 @@ export interface ProductSearchContent {
     type: 'product_search';
 }
 
-export interface AssociateSearchContent {
-    type: 'associate_search';
+export interface UserSearchContent {
+    type: 'user_search';
 }
 
-export type MessageContent = TextContent | FileRequestContent | LoadingContent | QuoteContent | ErrorContent | ActionsContent | ProductSearchContent | AssociateSearchContent;
+export type MessageContent = TextContent | FileRequestContent | LoadingContent | QuoteContent | ErrorContent | ActionsContent | ProductSearchContent | UserSearchContent;
 
 export interface ChatMessage {
     id: string;
@@ -109,14 +107,46 @@ export interface Settings {
     prescriptionValidityMonths: string;
     shippingContext: string;
     paymentContext: string;
-    isIsisAiEnabled: boolean;
-    documentSettings: {
-        allowedMimeTypes: string[]; // e.g., 'image/jpeg', 'application/pdf'
-        pdfOnly: boolean;
-        maxFileSizeMB: number;
-        autoCompressImages: boolean;
-    };
 }
+
+// From hooks/useSettings.ts and components/settings/ApiConfigPage.tsx and services/wpApiService.ts
+export interface WpConfig {
+    url: string;
+    consumerKey: string;
+    consumerSecret: string;
+    username?: string;
+    applicationPassword?: string;
+}
+
+export interface SativarSeishatProductImage {
+    id: number;
+    src: string;
+    name: string;
+}
+
+export interface SativarSeishatProductCategory {
+    id: number;
+    name: string;
+    slug: string;
+}
+
+export interface SativarSeishatProduct {
+    id: number;
+    name: string;
+    price: string;
+    short_description: string;
+    stock_quantity: number | null;
+    images: SativarSeishatProductImage[];
+    categories: SativarSeishatProductCategory[];
+}
+
+export interface SativarSeishatCategory {
+    id: number;
+    name: string;
+    slug: string;
+    count: number;
+}
+
 
 // From services/database/repositories/interfaces.ts
 export interface Task {
@@ -135,6 +165,21 @@ export interface Reminder {
     isCompleted: boolean;
     recurrence: 'none' | 'daily' | 'weekly' | 'monthly';
     priority: 'low' | 'medium' | 'high';
+}
+
+// From services/wpApiService.ts (SATIVAR Users)
+export interface SativarUser {
+    id: number;
+    display_name: string;
+    email: string;
+    acf_fields: {
+        cpf?: string;
+        telefone?: string;
+        tipo_associacao?: string;
+        nome_completo_responc?: string;
+        cpf_responsavel?: string;
+        nome_completo?: string;
+    };
 }
 
 // From hooks/useChatHistory.ts
@@ -157,65 +202,6 @@ export interface User {
     // Password should not be part of the client-side type
 }
 
-// From Seishat Associates Feature
-export type AssociateType = 'paciente' | 'responsavel' | 'tutor' | 'colaborador';
-
-export interface Associate {
-  id: string | number;
-  full_name: string;
-  cpf?: string;
-  whatsapp?: string;
-  type: AssociateType;
-  // This allows for dynamic fields from the form builder to be merged.
-  // The 'custom_fields' property from the database is flattened into the root object.
-  // The new 'extra_custom_fields' will also be flattened here.
-  [key: string]: any;
-}
-
-// FIX: Add Form Builder types to be shared across components.
-// From Form Builder Feature
-export type FormFieldType = 'text' | 'email' | 'select' | 'password' | 'textarea' | 'checkbox' | 'radio' | 'separator' | 'brazilian_states_select';
-
-export type ConditionOperator = 'equals' | 'not_equals' | 'is_empty' | 'is_not_empty' | 'contains';
-
-export interface ConditionRule {
-    field: string; // field_name of the dependency
-    operator: ConditionOperator;
-    value?: string; // value to compare against
-}
-
-export interface VisibilityConditions {
-    relation: 'AND' | 'OR';
-    rules: ConditionRule[];
-    roles?: AssociateType[]; // for associate-type-based visibility
-}
-
-// Represents a field in the central catalog
-export interface FormField {
-    id: number;
-    field_name: string;
-    label: string;
-    field_type: FormFieldType;
-    is_base_field: boolean | number;
-    is_deletable: boolean | number;
-    options?: string; // JSON string for select/radio options
-}
-
-// Represents a field within a specific form's layout
-export interface FormLayoutField extends FormField {
-    display_order: number;
-    is_required: boolean | number;
-    visibility_conditions?: VisibilityConditions | null;
-}
-
-// Represents a single step in a multi-step form
-export interface FormStep {
-  id: number | string; // Use string for temporary client-side IDs
-  title: string;
-  step_order: number;
-  fields: FormLayoutField[];
-  layout_type?: 'main' | 'extra';
-}
 
 // FIX: Add Vite client types to fix import.meta.env errors across the application.
 // This avoids the need for triple-slash directives in multiple files and provides type safety.

@@ -1,8 +1,9 @@
+
+
 import React, { useState, useEffect } from 'react';
 import { useSettings } from '../../hooks/useSettings.ts';
 import { useReminders } from '../../hooks/useReminders.ts';
-import { apiClient } from '../../services/database/apiClient.ts';
-import { DatabaseIcon, ServerIcon, AlertCircleIcon, CheckCircleIcon } from '../icons.tsx';
+import { DatabaseIcon, BarChart2Icon, ServerIcon, AlertCircleIcon, CheckCircleIcon } from '../icons.tsx';
 import { Loader } from '../Loader.tsx';
 
 const ConnectionStatusBadge: React.FC<{ isOnline: boolean }> = ({ isOnline }) => (
@@ -12,65 +13,23 @@ const ConnectionStatusBadge: React.FC<{ isOnline: boolean }> = ({ isOnline }) =>
     </div>
 );
 
-const SeishatDatabaseManager: React.FC = () => {
-    const [dbMode, setDbMode] = useState<'sqlite' | 'mysql' | 'loading'>('loading');
-
-    useEffect(() => {
-        const fetchDbMode = async () => {
-            try {
-                const { mode } = await apiClient.get<{ mode: 'sqlite' | 'mysql' }>('/settings/seishat/db-mode');
-                setDbMode(mode);
-            } catch (error) {
-                console.error("Failed to fetch DB mode", error);
-                setDbMode('sqlite'); // Fallback on API error
-            }
-        };
-        fetchDbMode();
-    }, []);
-
-    if (dbMode === 'loading') {
-        return <div className="flex justify-center p-4"><Loader /></div>;
-    }
-
-    return (
-        <div className="space-y-6 p-6 bg-[#303134]/50 border border-gray-700/50 rounded-lg">
-            <div className="flex items-center gap-3">
-                <DatabaseIcon className="w-6 h-6 text-fuchsia-300"/>
-                <div>
-                    <h3 className="text-lg font-semibold text-fuchsia-300">Banco de Dados do Módulo Seishat</h3>
-                    <p className="text-xs text-gray-400">Gerencia a fonte de dados para o CRM (Associados, Produtos, etc.).</p>
-                </div>
-            </div>
-
-            {dbMode === 'mysql' ? (
-                 <div className="flex items-center gap-3 p-4 bg-green-900/40 rounded-lg border border-green-700/50">
-                    <CheckCircleIcon className="w-6 h-6 text-green-400 flex-shrink-0" />
-                    <div>
-                         <p className="font-semibold text-white">Modo Ativo: MySQL Conectado</p>
-                         <p className="text-sm text-gray-400">O módulo Seishat está utilizando o banco de dados MySQL, conforme o padrão do sistema.</p>
-                    </div>
-                </div>
-            ) : (
-                <div className="flex items-center gap-3 p-4 bg-yellow-900/40 rounded-lg border border-yellow-700/50">
-                    <AlertCircleIcon className="w-6 h-6 text-yellow-300 flex-shrink-0" />
-                    <div>
-                         <p className="font-semibold text-white">Modo de Fallback: SQLite (Local)</p>
-                         <p className="text-sm text-gray-400">
-                            Não foi possível conectar ao MySQL. O sistema está usando um banco de dados local como alternativa.
-                            Verifique se as variáveis de ambiente (`DB_HOST`, `DB_USER`, etc.) estão configuradas corretamente no arquivo `.env` do servidor e reinicie-o.
-                         </p>
-                    </div>
-                </div>
-            )}
-        </div>
-    );
-};
-
-
 // Renamed from ClientsPage to AdvancedPage
 export const AdvancedPage: React.FC = () => {
     const { isOnline, isSyncing, settingsSyncQueueCount, forceSyncSettings } = useSettings();
     const { isSyncingReminders, remindersSyncQueueCount, forceSyncReminders } = useReminders();
+    const [apiCallCount, setApiCallCount] = useState(0);
+    
+    useEffect(() => {
+        const storedCount = localStorage.getItem('sativar_isis_api_call_count');
+        setApiCallCount(storedCount ? parseInt(storedCount, 10) : 0);
+    }, []);
+
+    const handleResetApiCount = () => {
+        if(confirm("Tem certeza que deseja zerar o contador de chamadas da API? Esta ação é útil para iniciar um novo ciclo de faturamento.")) {
+            localStorage.setItem('sativar_isis_api_call_count', '0');
+            setApiCallCount(0);
+        }
+    };
 
     const handleForceSync = async () => {
         await forceSyncSettings();
@@ -89,11 +48,9 @@ export const AdvancedPage: React.FC = () => {
                     <h2 className="text-2xl font-bold text-white">Configurações Avançadas</h2>
                 </div>
                 <p className="text-gray-400">
-                    Gerencie a sincronização de dados e a conexão com o banco de dados.
+                    Gerencie a sincronização de dados e monitore o uso de APIs.
                 </p>
             </div>
-            
-            <SeishatDatabaseManager />
 
             <div className="space-y-6 p-6 bg-[#303134]/50 border border-gray-700/50 rounded-lg">
                 <div className="flex justify-between items-start">
@@ -115,11 +72,11 @@ export const AdvancedPage: React.FC = () => {
                         }
                         <div>
                             <p className="font-bold text-white">
-                                {isOnline ? 'Modo Online: Servidor Conectado' : 'Modo Offline: Armazenamento Local'}
+                                {isOnline ? 'Modo Online: Servidor Conectado (SQLite)' : 'Modo Offline: Armazenamento Local'}
                             </p>
                             <p className="text-sm text-gray-400 mt-1">
                                 {isOnline ? 
-                                    'Os dados estão sendo lidos e salvos diretamente no banco de dados do servidor, garantindo segurança e consistência.' :
+                                    'Os dados estão sendo lidos e salvos diretamente no banco de dados SQLite do servidor, garantindo segurança, consistência e persistência das informações.' :
                                     'A conexão com o servidor foi perdida. Suas alterações estão sendo salvas com segurança no seu navegador e serão sincronizadas assim que a conexão for restaurada.'
                                 }
                             </p>
@@ -161,6 +118,29 @@ export const AdvancedPage: React.FC = () => {
                             </div>
                         </div>
                     )}
+                </div>
+            </div>
+
+            <div className="space-y-6 p-6 bg-[#303134]/50 border border-gray-700/50 rounded-lg">
+                <div className="flex items-center gap-3">
+                    <BarChart2Icon className="w-6 h-6 text-fuchsia-300"/>
+                    <h3 className="text-lg font-semibold text-fuchsia-300">Uso da API Gemini</h3>
+                </div>
+                <p className="text-sm text-gray-400 -mt-3">
+                    Monitore o número estimado de chamadas feitas à API Gemini. O contador é salvo localmente e pode ser zerado a qualquer momento.
+                </p>
+                <div className="flex items-center justify-between p-4 bg-[#202124] rounded-lg border border-gray-600/50">
+                    <div>
+                        <p className="text-sm text-gray-400">Chamadas estimadas neste ciclo</p>
+                        <p className="text-3xl font-bold text-white">{apiCallCount}</p>
+                    </div>
+                    <button 
+                        type="button"
+                        onClick={handleResetApiCount}
+                        className="px-4 py-2 bg-yellow-700/80 text-sm text-white font-semibold rounded-lg hover:bg-yellow-600 transition-colors"
+                    >
+                        Zerar Contador
+                    </button>
                 </div>
             </div>
         </div>
